@@ -1,0 +1,8 @@
+{
+  "singleQuote": true,
+  "semi": false,
+  "trailingComma": "none",
+  "plugins": ["prettier-plugin-classify-imports"],
+  "importOrder": ["^[./]|(@/)"],
+  "tabWidth": 2
+}
