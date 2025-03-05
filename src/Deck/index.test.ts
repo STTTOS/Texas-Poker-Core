@@ -1,6 +1,8 @@
 import { equals } from 'ramda'
 
 import Deck from './index'
+import Dealer from '@/Dealer'
+import { handPokeMap, handPokeType } from './constant'
 
 describe('deck', () => {
   test('init deck successfully', () => {
@@ -30,59 +32,59 @@ describe('deck', () => {
   })
 
   // 耗时 10min, 平时不开启此测试
-  // test('bias in deal probabilities', () => {
-  //   // 牌型参考概率
-  //   const standardProbability = new Map<handPokeType, number>([
-  //     ['q', 0.174],
-  //     ['r', 0.438],
-  //     ['s', 0.235],
-  //     ['t', 0.0483],
-  //     ['u', 0.0462],
-  //     ['v', 0.0303],
-  //     ['w', 0.026],
-  //     ['x', 0.00168],
-  //     ['y', 0.000279],
-  //     ['z', 0.000032]
-  //   ])
-  //   let count = 1_000_000
-  //   // 测试发牌的误差率
-  //   const times = count
-  //   // 记录对应牌型的命中次数
-  //   const hitCountsMap = new Map<handPokeType, number>([])
-  //   while (count > 0) {
-  //     count--
-  //     const dealer = new Dealer({ id: 1, balance: 500 }, 200)
+  test.skip('bias in deal probabilities', () => {
+    // 牌型参考概率
+    const standardProbability = new Map<handPokeType, number>([
+      ['q', 0.174],
+      ['r', 0.438],
+      ['s', 0.235],
+      ['t', 0.0483],
+      ['u', 0.0462],
+      ['v', 0.0303],
+      ['w', 0.026],
+      ['x', 0.00168],
+      ['y', 0.000279],
+      ['z', 0.000032]
+    ])
+    let count = 1_000_000
+    // 测试发牌的误差率
+    const times = count
+    // 记录对应牌型的命中次数
+    const hitCountsMap = new Map<handPokeType, number>([])
+    while (count > 0) {
+      count--
+      const dealer = new Dealer({ id: 1, balance: 500 }, 200)
 
-  //     dealer.__test_start()
-  //     const type = dealer.getDeck().getMax().type
-  //     if (hitCountsMap.has(type))
-  //       hitCountsMap.set(type, hitCountsMap.get(type)! + 1)
-  //     else hitCountsMap.set(type, 1)
-  //   }
+      dealer.start()
+      const type = dealer.getDeck().getMax().type
+      if (hitCountsMap.has(type))
+        hitCountsMap.set(type, hitCountsMap.get(type)! + 1)
+      else hitCountsMap.set(type, 1)
+    }
 
-  //   const totalCatchTimes = Array.from(hitCountsMap.values()).reduce(
-  //     (a, b) => a + b,
-  //     0
-  //   )
-  //   const isPass =
-  //     [...hitCountsMap.keys()]
-  //       .map((type) => {
-  //         const catchTimes = hitCountsMap.get(type)!
-  //         // 概率偏差
-  //         const offsetRate =
-  //           (Math.abs(catchTimes / times - standardProbability.get(type)!) /
-  //             standardProbability.get(type)!) *
-  //           100
-  //         // 牌型概率
-  //         const probability = (catchTimes / times) * 100
-  //         console.log(
-  //           `${handPokeMap.get(
-  //             type
-  //           )} bias: ${offsetRate}%; probability: ${probability}%`
-  //         )
-  //         return offsetRate
-  //       })
-  //       .every((offsetRate) => offsetRate < 5) && totalCatchTimes === times
-  //   expect(isPass).toBe(true)
-  // })
+    const totalCatchTimes = Array.from(hitCountsMap.values()).reduce(
+      (a, b) => a + b,
+      0
+    )
+    const isPass =
+      [...hitCountsMap.keys()]
+        .map((type) => {
+          const catchTimes = hitCountsMap.get(type)!
+          // 概率偏差
+          const offsetRate =
+            (Math.abs(catchTimes / times - standardProbability.get(type)!) /
+              standardProbability.get(type)!) *
+            100
+          // 牌型概率
+          const probability = (catchTimes / times) * 100
+          console.log(
+            `${handPokeMap.get(
+              type
+            )} bias: ${offsetRate}%; probability: ${probability}%`
+          )
+          return offsetRate
+        })
+        .every((offsetRate) => offsetRate < 5) && totalCatchTimes === times
+    expect(isPass).toBe(true)
+  })
 })
