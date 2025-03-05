@@ -274,7 +274,9 @@ export class Player {
   }
   // pay(money: number) {}
 
-  earn(money: number) {}
+  earn(money: number) {
+    console.log(money)
+  }
 }
 // 庄家
 // const p1 = new Player(200, "button", { id: 1, balance: 20000 }, null);

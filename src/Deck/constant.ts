@@ -97,7 +97,7 @@ export const rankMap = (input: Rank) => {
 }
 export type Poke = `${Suit}${Rank}`
 
-export const combo_indices = [
+export const comboIndices = [
   [0, 1, 2, 3, 4],
   [0, 1, 2, 3, 5],
   [0, 1, 2, 3, 6],

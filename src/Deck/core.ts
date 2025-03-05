@@ -5,10 +5,9 @@ import {
   Rank,
   Suit,
   rankMap,
-  HandPoke,
   suitsMap,
   handPokeType,
-  combo_indices
+  comboIndices
 } from './constant'
 
 const sum = (a: number, b: number) => a + b
@@ -72,7 +71,7 @@ const combineTypeAndRank = (type: handPokeType, ranks: Rank[]) => {
  * @returns
  */
 function getCombinations(pokes: Poke[]) {
-  return combo_indices.map((indices) => indices.map((i) => pokes[i]))
+  return comboIndices.map((indices) => indices.map((i) => pokes[i]))
 }
 
 const compareFnOfSameType = (a: string, b: string) => {
@@ -167,7 +166,7 @@ export function getHandPresentation(input: Poke[]) {
       // 三条
       return `t${rankMap(poke1)}+${combineTypeAndRank('q', [poke2, poke3])}`
     // 两对
-    else return `${combineTypeAndRank('s', [poke1, poke2])}+r${rankMap(poke3)}`
+    return `${combineTypeAndRank('s', [poke1, poke2])}+r${rankMap(poke3)}`
   }
 
   // 一对

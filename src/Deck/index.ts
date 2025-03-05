@@ -73,13 +73,17 @@ class Deck {
 
     // 发公共牌（含烧牌）
     const burnAndTake = (count: number): Poke[] => {
-      deck.shift() // 烧牌
+      // 烧牌
+      deck.shift()
       return deck.splice(0, count)
     }
 
-    const flop = burnAndTake(3) // 翻牌
-    const turn = burnAndTake(1) // 转牌
-    const river = burnAndTake(1) // 河牌
+    // 翻牌
+    const flop = burnAndTake(3)
+    // 转牌
+    const turn = burnAndTake(1)
+    // 河牌
+    const river = burnAndTake(1)
 
     const commonPokes = [...flop, ...turn, ...river]
     this.#commonPokes = commonPokes

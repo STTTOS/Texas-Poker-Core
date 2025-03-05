@@ -1,8 +1,6 @@
 import { equals } from 'ramda'
 
 import Deck from './index'
-import Dealer from '@/Dealer'
-import { handPokeMap, handPokeType } from './constant'
 
 describe('deck', () => {
   test('init deck successfully', () => {

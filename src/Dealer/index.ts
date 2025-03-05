@@ -15,7 +15,7 @@ type GameStatus = 'waiting' | 'in-progress'
  */
 class Dealer {
   #status: GameStatus = 'waiting'
-  #lowestBetAmount
+  #lowestBetAmount: number
   #deck: Deck
   /**
    * 存储庄家位的玩家id
@@ -175,7 +175,7 @@ class Dealer {
   }
 
   setOthers() {
-    let count = this.getPlayersCount()
+    const count = this.getPlayersCount()
     if (count < 2 || count > 10) throw new Error(`暂不支持${count}人的对局`)
 
     const roles = playerRoleSetMap.get(count)!.slice(1)
@@ -210,7 +210,6 @@ class Dealer {
     let current: Player | null = this.#head
 
     while (current) {
-      debugger
       callback(current, index)
       current = current.getNextPlayer()
       index++

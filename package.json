@@ -7,7 +7,9 @@
     "test": "cross-env PROJECT_ENV=dev jest",
     "prettier": "prettier --write \"**/*.{js,ts}\"",
     "prepare": "husky",
-    "commitlint": "commitlint --edit"
+    "commitlint": "commitlint --edit",
+    "lint": "eslint --cache --ext .ts ./src",
+    "lint:fix": "eslint --fix --cache --ext .ts ./src"
   },
   "keywords": [
     "德州",
@@ -25,16 +27,22 @@
     "@babel/preset-env": "^7.26.9",
     "@babel/preset-typescript": "^7.26.0",
     "@commitlint/config-conventional": "^19.7.1",
+    "@eslint/js": "^9.21.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.9",
     "@types/ramda": "^0.30.2",
-    "commitlint": "^19.7.1",
+    "eslint": "^9.21.0",
+    "globals": "^16.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.4.3",
     "prettier-plugin-classify-imports": "^0.0.2",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript-eslint": "^8.26.0"
   },
   "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "pnpm run lint:fix"
+    ],
     "**/*.{js,jsx,ts,tsx,less,md,json}": [
       "pnpm run prettier"
     ]
