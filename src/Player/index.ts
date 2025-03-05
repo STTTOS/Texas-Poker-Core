@@ -278,7 +278,6 @@ export class Player {
     console.log(money)
   }
 }
-console.log(3)
 // 庄家
 // const p1 = new Player(200, "button", { id: 1, balance: 20000 }, null);
 // const p2 = new Player(200, "small-blind", { id: 2, balance: 30000 }, p1);
