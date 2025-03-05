@@ -39,6 +39,10 @@ class Deck {
     // this.#deck.sort(() => Math.random() - 0.5)
   }
 
+  shuffle() {
+    this.#shuffle()
+  }
+
   #createShuffledDeck() {
     this.#createDeck()
     this.#shuffle()
@@ -50,11 +54,11 @@ class Deck {
    * @returns
    */
   dealCards(count: number) {
-    const requiredCards = 2 * count + 8 // 手牌(2n) + 烧牌(3) + 公共牌(5)
-
-    if (this.#deck.length < requiredCards) {
-      this.#createShuffledDeck()
-    }
+    this.#shuffle()
+    /**
+     * 后续有烧牌的操作, 不影响原数组
+     */
+    const deck = [...this.#deck]
 
     // 初始化玩家手牌数组
     const handPokes: Poke[][] = Array.from({ length: count }, () => [])
@@ -62,15 +66,15 @@ class Deck {
     // 按轮发牌（德州扑克标准顺序）
     for (let round = 0; round < 2; round++) {
       for (let player = 0; player < count; player++) {
-        const card = this.#deck.shift()!
+        const card = deck.shift()!
         handPokes[player].push(card)
       }
     }
 
     // 发公共牌（含烧牌）
     const burnAndTake = (count: number): Poke[] => {
-      this.#deck.shift() // 烧牌
-      return this.#deck.splice(0, count)
+      deck.shift() // 烧牌
+      return deck.splice(0, count)
     }
 
     const flop = burnAndTake(3) // 翻牌
@@ -92,6 +96,10 @@ class Deck {
       handPokes: this.#handPokes,
       commonPokes: this.#commonPokes
     }
+  }
+
+  getCards() {
+    return this.#deck
   }
 
   getMax() {

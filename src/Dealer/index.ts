@@ -15,12 +15,12 @@ type GameStatus = 'waiting' | 'in-progress'
  */
 class Dealer {
   #status: GameStatus = 'waiting'
-  #lowestBeAmount
+  #lowestBetAmount
   #deck: Deck
   /**
    * 存储庄家位的玩家id
    */
-  #buttonId: number
+  // #buttonId: number
 
   #button: Player | null = null
   #last: Player
@@ -38,18 +38,14 @@ class Dealer {
    */
   #sidePools: SidePool[] = []
 
-  constructor(user: User, lowestBeAmount: number) {
-    this.#lowestBeAmount = lowestBeAmount
-    this.#buttonId = user.id
-    const player = new Player({ lowestBeAmount: this.#lowestBeAmount, user })
+  constructor(user: User, lowestBetAmount: number) {
+    this.#lowestBetAmount = lowestBetAmount
+    // this.#buttonId = user.id
+    const player = new Player({ lowestBeAmount: this.#lowestBetAmount, user })
 
-    // this.#positions.push(player)
-    // this.#button = player;
-    // this.#last = player;
     this.#head = player
     this.#last = player
 
-    // player.setNextPlayer(null)
     this.#deck = new Deck()
   }
 
@@ -57,11 +53,11 @@ class Dealer {
    * 开始游戏
    */
   start() {
-    this.initPlayers()
-    this.sendPokers()
+    this.#initPlayers()
+    this.dealCards()
   }
 
-  sendPokers() {
+  dealCards() {
     const { handPokes } = this.#deck.dealCards(this.getPlayersCount())
     this.loop((player, i) => {
       player.setHandPokes(handPokes[i])
@@ -71,9 +67,12 @@ class Dealer {
     return this.#deck
   }
 
-  initPlayers() {
+  getLowestBeAmount() {
+    return this.#lowestBetAmount
+  }
+  #initPlayers() {
     this.setButton()
-    // this.setOthers()
+    if (process.env.PROJECT_ENV === 'prd') this.setOthers()
   }
   /**
    * 暂停游戏
@@ -121,7 +120,7 @@ class Dealer {
 
   join(user: User) {
     const player = new Player({
-      lowestBeAmount: this.#lowestBeAmount,
+      lowestBeAmount: this.#lowestBetAmount,
       user,
       lastPlayer: this.#last
     })

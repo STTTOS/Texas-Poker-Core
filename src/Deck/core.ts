@@ -1,15 +1,17 @@
+import { equals } from 'ramda'
+
 import {
-  HandPoke,
   Poke,
   Rank,
   Suit,
-  combo_indices,
-  handPokeType,
   rankMap,
+  HandPoke,
   suitsMap,
-} from "./constant";
-import { equals } from "ramda";
-const sum = (a: number, b: number) => a + b;
+  handPokeType,
+  combo_indices
+} from './constant'
+
+const sum = (a: number, b: number) => a + b
 /**
  *
  * @description 计算ranks牌力值
@@ -20,7 +22,7 @@ function calcRanks(ranks: Rank[]) {
   return ranks
     .map(rankMap)
     .map((exponent) => Math.pow(2, exponent - 1))
-    .reduce(sum, 0);
+    .reduce(sum, 0)
 }
 
 /**
@@ -28,20 +30,21 @@ function calcRanks(ranks: Rank[]) {
  * @param values
  * @returns
  */
-const isStraight = (values: Rank[]) => {
-  const mapToValue = [...values].map(rankMap).sort((a, b) => a - b);
+export const isStraight = (values: Rank[]) => {
+  const mapToValue = [...values].map(rankMap).sort((a, b) => a - b)
 
-  const isSpecial = equals(["a", "2", "3", "4", "5"], values);
+  // A 2 3 4 5
+  const isSpecial = equals([2, 3, 4, 5, 14], mapToValue)
   const result =
     isSpecial ||
     (new Set(values).size === 5 &&
-      Math.abs(mapToValue[mapToValue.length - 1] - mapToValue[0]) === 4);
+      Math.abs(mapToValue[mapToValue.length - 1] - mapToValue[0]) === 4)
 
   return {
     result,
-    max: isSpecial ? 5 : Math.max(...mapToValue),
-  };
-};
+    max: isSpecial ? 5 : Math.max(...mapToValue)
+  }
+}
 
 /**
  * @description 获取牌面值中 指定牌面的个数
@@ -50,7 +53,7 @@ const isStraight = (values: Rank[]) => {
  * @returns
  */
 function countSameRanks(input: Rank[], value: Rank) {
-  return input.filter((item) => item === value).length;
+  return input.filter((item) => item === value).length
 }
 
 /**
@@ -60,8 +63,8 @@ function countSameRanks(input: Rank[], value: Rank) {
  * @returns
  */
 const combineTypeAndRank = (type: handPokeType, ranks: Rank[]) => {
-  return `${type}${calcRanks(ranks)}`;
-};
+  return `${type}${calcRanks(ranks)}`
+}
 
 /**
  *
@@ -69,20 +72,22 @@ const combineTypeAndRank = (type: handPokeType, ranks: Rank[]) => {
  * @returns
  */
 function getCombinations(pokes: Poke[]) {
-  return combo_indices.map((indices) => indices.map((i) => pokes[i]));
+  return combo_indices.map((indices) => indices.map((i) => pokes[i]))
 }
 
 const compareFnOfSameType = (a: string, b: string) => {
   // 将所有牌型分割
-  const ranks1 = a.split("+").map((item) => +item.slice(1));
-  const ranks2 = b.split("+").map((item) => +item.slice(1));
+  const ranks1 = a.split('+').map((item) => +item.slice(1))
+  const ranks2 = b.split('+').map((item) => +item.slice(1))
 
   // 第一位相同, 需比较第二位
   if (ranks1[0] === ranks2[0]) {
-    return ranks2[1] - ranks1[1];
+    return (ranks2[1] ?? 0) - (ranks1[1] ?? 0)
   }
-  return !!ranks2.length ? ranks2[0] - ranks1[0] : -1;
-};
+
+  // 第一位不同直接比较大小
+  return ranks2[0] - ranks1[0]
+}
 
 /**
  * @description 比较两种组合的牌力大小
@@ -90,94 +95,96 @@ const compareFnOfSameType = (a: string, b: string) => {
  * @param b
  * @returns
  */
-const compareFn = (a: HandPoke, b: HandPoke) => {
+export const compareFn = (a: Poke[], b: Poke[]) => {
   // 'q13' 'w3+r2'
-  const [typeA, typeB] = [getHandPresentation(a), getHandPresentation(b)];
-  const [flagA, flagB] = [typeA[0], typeB[0][0]];
+  const [presentationA, presentationB] = [
+    getHandPresentation(a),
+    getHandPresentation(b)
+  ]
+  const [typeA, typeB] = [presentationA[0], presentationB[0]]
 
   // 最高牌型相同
-  if (flagA === flagB) {
-    return compareFnOfSameType(typeA, typeB);
+  if (typeA === typeB) {
+    return compareFnOfSameType(presentationA, presentationB)
   }
 
   // 不同类型直接比较
-  return flagA > flagB ? -1 : 1;
-};
+  return typeA > typeB ? -1 : 1
+}
 
 /**
  * @description 计算牌力大小
  * @param input
  * @returns
  */
-export function getHandPresentation(input: HandPoke) {
+export function getHandPresentation(input: Poke[]) {
   // return
-  const suits = input.map((poke) => poke[0] as Suit);
-  const ranks = input.map((poke) => poke[1] as Rank);
+  const suits = input.map((poke) => poke[0] as Suit)
+  const ranks = input.map((poke) => poke[1] as Rank)
 
   // 都是一种花色
   if (new Set(suits).size === 1) {
-    const { result, max } = isStraight(ranks);
+    const { result, max } = isStraight(ranks)
     // 是顺子
     if (result) {
       // 包含'A', 'K', 皇家同花顺
-      if (ranks.includes("k") && ranks.includes("a")) return "z";
+      if (ranks.includes('k') && ranks.includes('a')) return 'z'
 
       // 同花顺
-      return `y${max}`;
+      return `y${max}`
     }
 
     // 同花
-    return combineTypeAndRank("v", ranks);
+    return combineTypeAndRank('v', ranks)
   }
 
   // 一种只有两种面值
   if (new Set(ranks).size === 2) {
-    const [poke1, poke2] = Array.from(new Set(ranks));
+    const [poke1, poke2] = Array.from(new Set(ranks))
     const [count1, count2] = [
       countSameRanks(ranks, poke1),
-      countSameRanks(ranks, poke2),
-    ];
+      countSameRanks(ranks, poke2)
+    ]
     const [greaterOne, lessOne] =
-      count1 > count2 ? [poke1, poke2] : [poke2, poke1];
+      count1 > count2 ? [poke1, poke2] : [poke2, poke1]
     // 四条
     if ([count1, count2].includes(4)) {
-      return `x${rankMap(greaterOne)}`;
+      return `x${rankMap(greaterOne)}`
     }
     // 葫芦
-    return `w${rankMap(greaterOne)}+r${rankMap(lessOne)}`;
+    return `w${rankMap(greaterOne)}+r${rankMap(lessOne)}`
   }
 
   // 只有三种类型
   if (new Set(ranks).size === 3) {
     const [poke1, poke2, poke3] = Array.from(new Set(ranks)).sort((a, b) =>
       countSameRanks(ranks, a) > countSameRanks(ranks, b) ? -1 : 1
-    );
+    )
     const [count1, count2, count3] = [poke1, poke2, poke3].map((item) =>
       countSameRanks(ranks, item)
-    );
+    )
     if ([count1, count2, count3].includes(3))
       // 三条
-      return `t${rankMap(poke1)}+${combineTypeAndRank("q", [poke2, poke3])}`;
+      return `t${rankMap(poke1)}+${combineTypeAndRank('q', [poke2, poke3])}`
     // 两对
-    else return `${combineTypeAndRank("s", [poke1, poke2])}+r${rankMap(poke3)}`;
+    else return `${combineTypeAndRank('s', [poke1, poke2])}+r${rankMap(poke3)}`
   }
 
   // 一对
   if (new Set(ranks).size === 4) {
     const [poke1, ...pokes] = Array.from(new Set(ranks)).sort((a, b) =>
       countSameRanks(ranks, a) > countSameRanks(ranks, b) ? -1 : 1
-    );
-    return `r${rankMap(poke1)}+${combineTypeAndRank("q", pokes)}`;
+    )
+    return `r${rankMap(poke1)}+${combineTypeAndRank('q', pokes)}`
   }
 
-  const { result, max } = isStraight(ranks);
+  const { result, max } = isStraight(ranks)
   // 顺子
-  if (result) return `u${max}`;
+  if (result) return `u${max}`
 
   // 高牌
-  return combineTypeAndRank("q", ranks);
+  return combineTypeAndRank('q', ranks)
 }
-// export type HandPresentation = `${handPokeType}${number | ""}${'+'|''}${handPokeType | ''}${number | ""}`;
 
 /**
  * @description 根据底牌和手牌, 计算出最大的牌力组合
@@ -186,9 +193,9 @@ export function getHandPresentation(input: HandPoke) {
  * @returns
  */
 export function getBestHand(pokes: Poke[], commonPokes: Poke[]) {
-  const [maxOne] = getCombinations(pokes.concat(commonPokes)).sort(compareFn);
+  const [maxOne] = getCombinations(pokes.concat(commonPokes)).sort(compareFn)
 
-  return maxOne;
+  return maxOne
 }
 
 /**
@@ -206,8 +213,8 @@ export function getBestPokesPresentation(
       getCombinations([...(pokes as unknown as Poke[]), ...commonPokes])
     )
     .flat(1)
-    .sort(compareFn);
-  return getHandPresentation(maxOne);
+    .sort(compareFn)
+  return getHandPresentation(maxOne)
 }
 
 /**
@@ -218,5 +225,5 @@ export function getBestPokesPresentation(
 export const formatter = (input: Poke[]) => {
   return input
     .map((item) => `${suitsMap.get(item[0] as Suit)}${item[1]}`)
-    .join(",");
-};
+    .join(',')
+}

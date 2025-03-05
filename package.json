@@ -4,7 +4,10 @@
   "description": "德州扑克核心功能",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "cross-env PROJECT_ENV=dev jest",
+    "prettier": "prettier --write \"**/*.{js,ts}\"",
+    "prepare": "husky",
+    "commitlint": "commitlint --edit"
   },
   "keywords": [
     "德州",
@@ -13,14 +16,27 @@
   "author": "三分",
   "license": "ISC",
   "dependencies": {
-    "mocha": "^11.1.0",
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
     "module-alias": "^2.2.3",
     "ramda": "^0.30.1"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.26.9",
+    "@babel/preset-typescript": "^7.26.0",
+    "@commitlint/config-conventional": "^19.7.1",
+    "@types/jest": "^29.5.14",
     "@types/node": "^22.13.9",
     "@types/ramda": "^0.30.2",
+    "commitlint": "^19.7.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
     "prettier-plugin-classify-imports": "^0.0.2",
     "ts-node": "^10.9.2"
+  },
+  "lint-staged": {
+    "**/*.{js,jsx,ts,tsx,less,md,json}": [
+      "pnpm run prettier"
+    ]
   }
 }
