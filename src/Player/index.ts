@@ -1,7 +1,31 @@
 import { Poke } from '../Deck/constant'
 
-type PlayerStatus = 'unable-to-act' | 'active' | 'off-line'
-type Action = 'check' | 'fold' | 'raise' | 'bet' | 'call' | 'all-in'
+// 玩家的状态
+type PlayerStatus =
+  // 无法行动, 弃牌 和 全押后的状态
+  | 'unable-to-act'
+  // 轮到该玩家的回合
+  | 'active'
+  // 离线
+  | 'off-line'
+  // 非玩家回合的状态
+  | 'waiting'
+
+// 玩家回合时采取的行动
+type Action =
+  // 过牌
+  | 'check'
+  // 弃牌
+  | 'fold'
+  // 加注
+  | 'raise'
+  // 下注
+  | 'bet'
+  // 跟注
+  | 'call'
+  // 全押
+  | 'all-in'
+
 export interface User {
   id: number
   balance: number
@@ -38,9 +62,9 @@ export class Player {
   /**
    * 最小下注金额
    */
-  #lowestBeAmount: number
+  #lowestBetAmount: number
   /**
-   * 当前阶段的下注总额
+   * 当前阶段的下注总额, 全押筹码不够时可以小于此金额
    */
   #currentStageTotalAmount = 0
   /**
@@ -56,28 +80,29 @@ export class Player {
   #handPokes: Poke[] = []
 
   constructor({
-    lowestBeAmount,
+    lowestBetAmount,
     user,
     lastPlayer = null,
     nextPlayer = null
   }: {
-    lowestBeAmount: number
+    lowestBetAmount: number
     role?: Role
     user: User
     lastPlayer?: Player | null
     nextPlayer?: Player | null
     handPokes?: Poke[]
   }) {
-    if (user.balance < lowestBeAmount) {
+    if (user.balance < lowestBetAmount) {
       throw new Error('筹码小于大盲注, 不可参与游戏')
     }
     this.#balance = user.balance
-    this.#lowestBeAmount = lowestBeAmount
+    this.#lowestBetAmount = lowestBetAmount
     this.#userInfo = user
     this.#lastPlayer = lastPlayer
     this.#nextPlayer = nextPlayer
   }
-  setNextPlayer(player: Player) {
+
+  setNextPlayer(player: Player | null) {
     this.#nextPlayer = player
   }
 
@@ -88,17 +113,23 @@ export class Player {
   getLastPlayer() {
     return this.#lastPlayer
   }
-  setLastPlayer(player: Player) {
+  setLastPlayer(player: Player | null) {
     this.#lastPlayer = player
   }
-  getIsLast() {
-    return this.#isLast
+  // getIsLast() {
+  //   return this.#isLast
+  // }
+  getLowestBetAmount() {
+    return this.#lowestBetAmount
   }
 
   #changeActionStatus(action: Action) {
     this.#action = action
   }
 
+  setStatus(status: PlayerStatus) {
+    this.#status = status
+  }
   setIsLast(value: boolean) {
     this.#isLast = value
   }
@@ -136,7 +167,7 @@ export class Player {
     if (money > this.#balance) {
       throw new Error('下注金额不可大于筹码总数')
     }
-    if (money < this.#lowestBeAmount) {
+    if (money < this.#lowestBetAmount) {
       throw new Error('下注金额不可小于大盲注')
     }
     this.#action = 'bet'

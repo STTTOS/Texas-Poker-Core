@@ -1,6 +1,6 @@
 import Deck from '@/Deck'
 import { getRandomInt } from '@/utils'
-import { Role, User, Player } from '@/Player'
+import { Role, Player } from '@/Player'
 import { handPokeMap, handPokeType } from '@/Deck/constant'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
 import { formatter, getBestPokesPresentation } from '@/Deck/core'
@@ -22,9 +22,10 @@ class Dealer {
    */
   // #buttonId: number
 
+  #count = 0
   #button: Player | null = null
-  #last: Player
-  #head: Player
+  #last: Player | null = null
+  #head: Player | null = null
   /**
    * 存储玩家信息
    */
@@ -38,13 +39,9 @@ class Dealer {
    */
   #sidePools: SidePool[] = []
 
-  constructor(user: User, lowestBetAmount: number) {
+  constructor(lowestBetAmount: number) {
     this.#lowestBetAmount = lowestBetAmount
     // this.#buttonId = user.id
-    const player = new Player({ lowestBeAmount: this.#lowestBetAmount, user })
-
-    this.#head = player
-    this.#last = player
 
     this.#deck = new Deck()
   }
@@ -53,7 +50,7 @@ class Dealer {
    * 开始游戏
    */
   start() {
-    this.#initPlayers()
+    this.setRoleToPlayers()
     this.dealCards()
   }
 
@@ -67,12 +64,17 @@ class Dealer {
     return this.#deck
   }
 
-  getLowestBeAmount() {
+  getHeadPlayer() {
+    return this.#head
+  }
+
+  getLowestBetAmount() {
     return this.#lowestBetAmount
   }
-  #initPlayers() {
+  setRoleToPlayers() {
     this.setButton()
-    if (process.env.PROJECT_ENV === 'prd') this.setOthers()
+    // if (process.env.PROJECT_ENV !== 'dev')
+    this.setOthers()
   }
   /**
    * 暂停游戏
@@ -102,6 +104,7 @@ class Dealer {
         ) === maxPresentation
       )
     })
+    this.log()
     console.log('底牌:', formatter(this.#deck.getPokes().commonPokes))
     console.log('赢家:')
 
@@ -118,37 +121,83 @@ class Dealer {
     })
   }
 
-  join(user: User) {
-    const player = new Player({
-      lowestBeAmount: this.#lowestBetAmount,
-      user,
-      lastPlayer: this.#last
-    })
+  remove(player: Player) {
+    if (!this.has(player)) return false
 
-    this.#last.setNextPlayer(player)
+    // 移除后没有玩家了
+    if (this.#count === 1) {
+      this.#head = null
+      this.#last = null
+      this.#button = null
+      this.#count = 0
+      return true
+    }
+
+    if (this.#head === player) {
+      this.#head = player.getNextPlayer()
+    }
+    if (this.#button === player) {
+      this.#button = player.getNextPlayer()
+    }
+    if (this.#last === player) {
+      this.#last = player.getLastPlayer()
+    }
+
+    // 将上一个玩家的next player设置为当前玩家的next player
+    player.getLastPlayer()?.setNextPlayer(player.getNextPlayer())
+    // 将下一个玩家的last player 设置为当前玩家的last player
+    player.getNextPlayer()?.setLastPlayer(player.getLastPlayer())
+    this.#count--
+    return true
+  }
+
+  join(player: Player) {
+    if (this.has(player)) return false
+    this.#count++
+
+    // this.#head.setLastPlayer(player)
+
+    // const player = new Player({
+    //   user,
+    //   lowestBeAmount: this.#lowestBetAmount,
+    //   nextPlayer: this.#head
+    // })
+
+    if (!this.#head) {
+      this.#head = player
+      this.#last = player
+      return true
+    }
+
+    player.setLastPlayer(this.#last)
+    player.setNextPlayer(this.#head)
+    this.#last?.setNextPlayer(player)
+    this.#head?.setLastPlayer(player)
+
     this.#last = player
-    return player
+    return true
+  }
+
+  has(player: Player) {
+    return !!this.find((p) => p === player)
   }
 
   log() {
     console.log(`玩家数量: ${this.getPlayersCount()}`)
-    let current: Player | null = this.#head
-
-    while (current) {
-      const role = current.getRole()
+    this.forEach((player) => {
+      const role = player.getRole()
 
       console.log(
         `${
           role ? roleMap.get(role) : 'unSettled'
-        }:  ${current.toString()}; 手牌: ${formatter(current.getHandPokes())}`
+        }:  ${player.toString()}; 手牌: ${formatter(player.getHandPokes())}`
       )
-      current = current.getNextPlayer()
-    }
+    })
   }
 
   changeButtonToNextPlayer() {
-    this.setButton(this.#button?.getNextPlayer() || this.#head)
-    this.setOthers()
+    this.setButton(this.#button!.getNextPlayer()!)
+    // this.setOthers()
   }
 
   /**
@@ -160,6 +209,10 @@ class Dealer {
     if (player) {
       player.setRole('button')
       this.#button = player
+      return
+    }
+    if (this.#button) {
+      this.changeButtonToNextPlayer()
       return
     }
 
@@ -175,31 +228,36 @@ class Dealer {
   }
 
   setOthers() {
-    const count = this.getPlayersCount()
+    let count = this.#count
+    if (process.env.PROJECT_ENV === 'dev' && count === 1) return
+
     if (count < 2 || count > 10) throw new Error(`暂不支持${count}人的对局`)
 
     const roles = playerRoleSetMap.get(count)!.slice(1)
     let role: Role
-    let current = this.#button?.getNextPlayer() || this.#head
+    let current = this.#button?.getNextPlayer()
 
-    while ((role = roles.shift()!)) {
+    while (count - 1) {
+      role = roles.shift()!
       if (role) current?.setRole(role)
 
-      current = current?.getNextPlayer() || this.#head
+      current = current?.getNextPlayer()
+      count--
     }
   }
 
   getPlayersCount() {
-    let count = 0
-    let current: Player | null = this.#head
-    // const headId = current.getUserInfo().id;
+    return this.#count
+    // let count = 0
+    // let current: Player | null = this.#head
+    // const headId = current?.getUserInfo().id
 
-    while (current) {
-      count++
-      current = current.getNextPlayer()
-    }
+    // while (current) {
+    //   count++
+    //   current = current.getNextPlayer()
+    // }
 
-    return count
+    // return count
   }
 
   /**
@@ -207,12 +265,14 @@ class Dealer {
    */
   forEach(callback: (p: Player, i: number) => void) {
     let index = 0
+    let count = this.#count
     let current: Player | null = this.#head
 
-    while (current) {
+    while (count && current) {
       callback(current, index)
       current = current.getNextPlayer()
       index++
+      count--
     }
   }
 
@@ -233,11 +293,14 @@ class Dealer {
   }
 
   find(callback: (p: Player) => boolean) {
+    let count = this.#count
     let current: Player | null = this.#head
 
-    while (current) {
+    while (current && count) {
+      // current.log()
       if (callback(current)) return current
       current = current.getNextPlayer()
+      count--
     }
     return null
   }
@@ -253,14 +316,14 @@ class Dealer {
   ) {
     let index = 0
     let current: Player | null = startFrom
-    let count = this.getPlayersCount()
+    let count = this.#count
 
-    while (count) {
+    while (count && current) {
       if (current) callback(current, index)
 
       index++
       count--
-      current = current?.getNextPlayer() || this.#head
+      current = current.getNextPlayer()
     }
   }
   init() {}

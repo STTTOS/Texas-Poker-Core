@@ -2,6 +2,7 @@ import { equals } from 'ramda'
 
 import Deck from './index'
 import Dealer from '@/Dealer'
+import { Player } from '@/Player'
 import { handPokeMap, handPokeType } from './constant'
 
 describe('deck', () => {
@@ -53,8 +54,14 @@ describe('deck', () => {
     const hitCountsMap = new Map<handPokeType, number>([])
     while (count > 0) {
       count--
-      const dealer = new Dealer({ id: 1, balance: 500 }, 200)
+      const dealer = new Dealer(200)
 
+      dealer.join(
+        new Player({
+          user: { id: 1, balance: 500 },
+          lowestBetAmount: dealer.getLowestBetAmount()
+        })
+      )
       dealer.start()
       const type = dealer.getDeck().getMax().type
       if (hitCountsMap.has(type))
