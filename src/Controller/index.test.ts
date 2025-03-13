@@ -47,12 +47,12 @@ describe('class Controller', () => {
 
     expect(controller.getActivePlayer() === p2).toBe(true)
     // p2.log()
-    p2.allIn()
+    p2.allIn(dealer)
     // p2.log()
 
     expect(controller.getActivePlayer() === p3).toBe(true)
     // p3.log()
-    p3.allIn()
+    p3.allIn(dealer)
 
     // 控制权移交到了p4手上, 需要清除计时器
     p4.clearTimer()

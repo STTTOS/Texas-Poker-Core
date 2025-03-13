@@ -1,3 +1,4 @@
+import Dealer from '@/Dealer'
 import Controller from '@/Controller'
 import { Poke } from '../Deck/constant'
 
@@ -7,13 +8,11 @@ type PlayerStatus =
   | 'all-in'
   // 轮到该玩家的回合
   | 'active'
-  // 离线
-  | 'off-line'
   // 非玩家回合的状态
   | 'waiting'
   // 弃牌出局
   | 'out'
-
+type OnlineStatus = 'online' | 'offline'
 interface ActionWithOutPayload {
   type: Extract<ActionType, 'check' | 'fold'>
 }
@@ -65,6 +64,7 @@ export class Player {
   #role?: Role
   #userInfo: User
   #controller: Controller
+  #onlineStatus: OnlineStatus = 'online'
   /**
    * 积分
    */
@@ -160,6 +160,9 @@ export class Player {
   getStatus() {
     return this.#status
   }
+  getOnlineStatus() {
+    return this.#onlineStatus
+  }
   /**
    * @description 当前玩家采取的行动
    */
@@ -219,8 +222,8 @@ export class Player {
   }
 
   // TODO: 需调用api直接支付
-  raise(money: number, lastPlayer: Player) {
-    if (!this.#getAllowedActions().includes('raise'))
+  raise(money: number, dealer: Dealer) {
+    if (!this.#getAllowedActions(dealer).includes('raise'))
       throw new Error('不可加注')
 
     if (money > this.#balance) {
@@ -229,10 +232,13 @@ export class Player {
     if (money < this.#lowestBetAmount) {
       throw new Error('加注金额不可小于大盲注')
     }
-    if (
-      money + this.#currentStageTotalAmount <=
-      lastPlayer.#currentStageTotalAmount
-    ) {
+
+    const maxBetAmount = Math.max(
+      ...dealer
+        .filter((p) => p !== this)
+        .map((p) => p.getCurrentStageTotalAmount())
+    )
+    if (money + this.#currentStageTotalAmount <= maxBetAmount) {
       throw Error('必须加注更多的金额')
     }
     this.#action = {
@@ -248,23 +254,20 @@ export class Player {
     this.transferControl()
   }
 
-  resetAction() {
-    this.#action = undefined
-  }
   // TODO: 需调用api直接支付
-  call() {
+  call(dealer: Dealer) {
     this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes('call')) throw new Error('不可跟注')
+    if (!this.#getAllowedActions(dealer).includes('call'))
+      throw new Error('不可跟注')
 
-    // 需要找到上一个行动的玩家
-    const player = this.returnLatestPlayerIf(
-      (player) =>
-        player.#action?.type !== 'fold' && player.#action?.type !== 'check'
-    )!
-
-    // TODO: 这里还有特殊情况, 处理all-in金额小于大盲注的情况
-    const moneyShouldPay =
-      player.#currentStageTotalAmount - this.#currentStageTotalAmount
+    // 其他玩家的最大下注金额
+    const maxBetAmount = Math.max(
+      ...dealer
+        .filter((p) => p !== this)
+        .map((p) => p.getCurrentStageTotalAmount())
+    )
+    const moneyShouldPay = maxBetAmount - this.getCurrentStageTotalAmount()
+    if (moneyShouldPay <= 0) throw new Error('数据异常, 请手动下注')
     if (moneyShouldPay > this.#balance) {
       throw new Error('跟注金额不可大于筹码总数')
     }
@@ -286,26 +289,42 @@ export class Player {
   /**
    * @description all-in跟上一个玩家的选择没有任何关系
    */
-  allIn() {
+  allIn(dealer: Dealer) {
     this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes('all-in')) {
+    if (!this.#getAllowedActions(dealer).includes('all-in')) {
       throw new Error('不可全押')
     }
 
-    console.log(this.#userInfo.id, '全押', this.#balance)
+    // 其他玩家持有筹码的最大值, 全押金额不可超过该值
+    const maxAllInAmount = Math.max(
+      ...dealer
+        .filter((p) => p !== this)
+        .map(
+          (player) => player.getBalance() + player.getCurrentStageTotalAmount()
+        )
+    )
+    const moneyShouldPay = maxAllInAmount - this.#currentStageTotalAmount
+
+    if (moneyShouldPay <= 0) throw new Error('数据异常,请手动下注')
+
+    // 如果需要支付的金额大余额, 则全押剩余的所有金额
+    const money = Math.min(moneyShouldPay, this.#balance)
     this.#action = {
       type: 'all-in',
       payload: {
-        value: this.#balance
+        value: money
       }
     }
-    this.#currentStageTotalAmount += this.#balance
+    this.#currentStageTotalAmount += money
     this.#balance = 0
     this.#status = 'all-in'
-
+    console.log(this.#userInfo.id, '全押:', money)
     this.transferControl()
   }
 
+  resetAction() {
+    this.#action = undefined
+  }
   getAllowedActions() {
     return this.#getAllowedActions()
   }
@@ -314,48 +333,59 @@ export class Player {
    * @description 根据上一个玩家, 计算可以行动的行动列表
    * @param lastPlayer
    */
-  #getAllowedActions(
-    lastPlayer: Player | null = this.#lastPlayer
-  ): Array<ActionType> {
-    if (this.#status === 'all-in') return []
+  #getAllowedActions(dealer?: Dealer): Array<ActionType> {
+    const helper = (lastPlayer: Player | null): ActionType[] => {
+      if (this.#status === 'all-in') return []
 
-    // 当前阶段第一位行动的玩家
-    if (!lastPlayer?.getAction()) return ['bet', 'all-in', 'fold', 'check']
+      // 当前阶段第一位非`fold`行动的玩家
+      if (!lastPlayer || !lastPlayer.#action)
+        return ['bet', 'all-in', 'fold', 'check']
 
-    if (lastPlayer.#action?.type === 'check')
-      return ['all-in', 'bet', 'check', 'fold']
+      // 需要根据指针找到最近采取行动的玩家
+      if (lastPlayer.#action?.type === 'fold') {
+        const player = this.returnLatestPlayerIf(
+          (player) => player.#action?.type !== 'fold'
+        )
+        return helper(player)
+      }
 
-    if (lastPlayer.#action?.type === 'bet') {
-      if (this.#balance <= lastPlayer.#action.payload.value) {
+      if (lastPlayer.#action.type === 'check')
+        return ['all-in', 'bet', 'check', 'fold']
+
+      // 前置校验: 余额无法call住上一个玩家, 只能all-in
+      if (
+        this.#balance + this.#currentStageTotalAmount <=
+        lastPlayer.#currentStageTotalAmount
+      ) {
         return ['all-in', 'fold']
       }
-      return ['call', 'raise', 'all-in', 'fold']
-    }
 
-    if (lastPlayer.#action?.type === 'raise') {
-      if (this.#balance <= lastPlayer.#action.payload.value) {
-        return ['all-in', 'fold']
+      if (lastPlayer.#action!.type === 'bet') {
+        return ['call', 'raise', 'all-in', 'fold']
       }
-      return ['call', 'raise', 'all-in', 'fold']
-    }
 
-    // 需要根据指针找到最近采取行动的玩家
-    if (lastPlayer.#action?.type === 'fold') {
-      const player = this.returnLatestPlayerIf(
-        (player) => player.#action?.type !== 'fold'
-      )
-      return this.#getAllowedActions(player)
-    }
-
-    if (lastPlayer.#action?.type === 'all-in') {
-      if (this.#balance <= lastPlayer.#action.payload.value) {
-        return ['all-in', 'fold']
+      if (lastPlayer.#action?.type === 'raise') {
+        return ['call', 'raise', 'all-in', 'fold']
       }
+
+      // TODO: 这部分逻辑需要优化
+      if (lastPlayer.#action?.type === 'all-in') {
+        // 其他玩家的最大下注额
+        const maxBetAmount = Math.max(
+          ...dealer!
+            .filter((p) => p !== this)
+            .map((player) => player.getCurrentStageTotalAmount())
+        )
+        if (this.#balance + this.#currentStageTotalAmount <= maxBetAmount) {
+          return ['all-in', 'fold']
+        }
+        return ['call', 'raise', 'fold', 'all-in']
+      }
+
+      // 上个玩家的行为是: call
       return ['call', 'raise', 'fold', 'all-in']
     }
-
-    // call
-    return ['call', 'raise', 'fold', 'all-in']
+    return helper(this.#lastPlayer)
   }
 
   returnLatestPlayerIf(filter: (player: Player) => boolean): Player | null {
@@ -452,3 +482,11 @@ export class Player {
 
 // const l = p3.returnLatestPlayerIf((player) => player.getAction() !== "check");
 // l?.log();
+
+// const dealer = new Dealer(5000)
+// const controller = new Controller(dealer)
+// const p = new Player({
+//   lowestBetAmount: 500,
+//   user: { id: 1, balance: 5000 },
+//   controller
+// })

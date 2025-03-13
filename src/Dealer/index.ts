@@ -71,6 +71,12 @@ class Dealer {
   getLowestBetAmount() {
     return this.#lowestBetAmount
   }
+  logPlayers() {
+    console.log(
+      '玩家信息: \n',
+      this.map((player) => player.toString()).join('\n')
+    )
+  }
   setRoleToPlayers() {
     this.setButton()
     // if (process.env.PROJECT_ENV !== 'dev')
@@ -244,6 +250,14 @@ class Dealer {
     }
   }
 
+  /**
+   * @description 获取当前阶段的最大下注额
+   */
+  getCurrentStageMaxBetAmount() {
+    return Math.max(
+      ...this.map((player) => player.getCurrentStageTotalAmount())
+    )
+  }
   getPlayersCount() {
     return this.#count
     // let count = 0
@@ -342,11 +356,7 @@ class Dealer {
     let player: Player | null = null
 
     this.loop((p) => {
-      if (
-        !player &&
-        (p.getStatus() === 'waiting' || p.getStatus() === 'off-line')
-      )
-        player = p
+      if (!player && p.getStatus() === 'waiting') player = p
     }, this.#button?.getNextPlayer())
     return player
   }

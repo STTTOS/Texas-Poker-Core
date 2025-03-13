@@ -16,6 +16,9 @@ class Controller {
     this.#dealer = dealer
   }
 
+  getStage() {
+    return this.#stage
+  }
   setControl(player: Player | null) {
     if (player) this.#activePlayer = player
   }
@@ -34,23 +37,23 @@ class Controller {
   tryToAdvanceGameToNextStage() {
     if (this.#stage === 'showdown') throw new Error('游戏已经结束')
 
+    const maxBetAmount = this.#dealer.getCurrentStageMaxBetAmount()
     // this.#dealer.forEach((p) => p.log('ss,'))
     const players = this.#dealer
-      // 场上正常下注的玩家, 下注金额需要一致
-      .filter(
-        (p) => p.getStatus() === 'waiting' || p.getStatus() === 'off-line'
-        // p.getStatus() === 'active'
-      )
+      // 场上正常下注的玩家, 下注金额需要都等于最大下注金额
+      .filter((p) => p.getStatus() === 'waiting')
 
-    const betAmount = players.map((p) => p.getCurrentStageTotalAmount())
-
-    const allPlayersBetThSameAmount = new Set(betAmount).size === 1
+    const allPlayersBetThSameAmount = players
+      .map((p) => p.getCurrentStageTotalAmount())
+      .every((amount) => amount === maxBetAmount)
+    // const allPlayersBetThSameAmount = new Set(betAmount).size === 1
     if (allPlayersBetThSameAmount) {
       const index = stages.findIndex((stage) => stage === this.#stage)
       this.#stage = stages[index + 1]
       this.setControl(this.#dealer.getTheFirstPlayerToAct())
       this.#dealer.resetCurrentStageTotalAmount()
       this.#dealer.resetActionsOfPlayers()
+      console.log('游戏进入下一个阶段 => ', this.#stage)
       return true
     }
     return false
@@ -82,7 +85,7 @@ class Controller {
       clearInterval(this.#timer)
       this.#timer = null
     }
-    // this.#dealer.
+    this.#dealer.forEach((player) => player.clearTimer())
   }
 }
 export default Controller
