@@ -58,7 +58,7 @@ class Dealer {
     const { handPokes } = this.#deck.dealCards(this.getPlayersCount())
     this.loop((player, i) => {
       player.setHandPokes(handPokes[i])
-    })
+    }, this.#button)
   }
   getDeck() {
     return this.#deck
@@ -94,8 +94,6 @@ class Dealer {
       this.map((player) => player.getHandPokes()),
       this.#deck.getPokes().commonPokes
     )
-    console.log(maxPresentation)
-
     const winners = this.filter((player) => {
       return (
         getBestPokesPresentation(
@@ -104,7 +102,6 @@ class Dealer {
         ) === maxPresentation
       )
     })
-    this.log()
     console.log('底牌:', formatter(this.#deck.getPokes().commonPokes))
     console.log('赢家:')
 
@@ -184,6 +181,7 @@ class Dealer {
 
   log() {
     console.log(`玩家数量: ${this.getPlayersCount()}`)
+    console.log('底牌:', formatter(this.#deck.getPokes().commonPokes))
     this.forEach((player) => {
       const role = player.getRole()
 
@@ -275,6 +273,7 @@ class Dealer {
       count--
     }
   }
+  getTotal
 
   map<T>(callback: (p: Player, i: number) => T): T[] {
     const result: T[] = []
@@ -282,6 +281,16 @@ class Dealer {
       result.push(callback(player, i))
     })
     return result
+  }
+  /**
+   * @description 重置每个玩家当前阶段的下注额
+   */
+  resetCurrentStageTotalAmount() {
+    this.forEach((p) => p.resetCurrentStageTotalAmount())
+  }
+
+  resetActionsOfPlayers() {
+    this.forEach((p) => p.resetAction())
   }
 
   filter(callback: (p: Player, i: number) => boolean): Player[] {
@@ -306,16 +315,16 @@ class Dealer {
   }
 
   /**
-   * @description 从指定的玩家开始, 默认从庄家, 遍历一轮
+   * @description 从指定的玩家开始, 默认从庄家的下一位, 遍历一轮
    * @param callback
    * @param startFrom
    */
   loop(
     callback: (p: Player, i: number) => void,
-    startFrom: Player | null = this.#button
+    startFrom: Player | null | undefined = this.#button?.getNextPlayer()
   ) {
     let index = 0
-    let current: Player | null = startFrom
+    let current: Player | null | undefined = startFrom
     let count = this.#count
 
     while (count && current) {
@@ -326,6 +335,37 @@ class Dealer {
       current = current.getNextPlayer()
     }
   }
+  /**
+   * @description 从庄家的下一个玩家开始遍历, 获取第一个可以行动的玩家
+   */
+  getTheFirstPlayerToAct(): Player | null {
+    let player: Player | null = null
+
+    this.loop((p) => {
+      if (
+        !player &&
+        (p.getStatus() === 'waiting' || p.getStatus() === 'off-line')
+      )
+        player = p
+    }, this.#button?.getNextPlayer())
+    return player
+  }
+
+  // every(callback: (p: Player, i: number) => boolean) {
+  //   let result: boolean
+  //   this.loop((p, i) => (result = true))
+
+  //   return result
+  // }
+  // loopByTheGameController(
+  //   callback: (p: Player, i: number, next: (player: Player | null) => void) => void
+  // ) {
+  //   let index = 0
+  //   let current: Player | null | undefined = this.#button?.getNextPlayer()
+  //   if (current) callback(current, index, () => this.#controller.transferControlToNext())
+
+  // }
   init() {}
 }
+
 export default Dealer

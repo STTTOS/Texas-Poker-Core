@@ -3,6 +3,7 @@ import { equals } from 'ramda'
 import Deck from './index'
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
+import Controller from '@/Controller'
 import { handPokeMap, handPokeType } from './constant'
 
 describe('deck', () => {
@@ -55,11 +56,13 @@ describe('deck', () => {
     while (count > 0) {
       count--
       const dealer = new Dealer(200)
+      const controller = new Controller(dealer)
 
       dealer.join(
         new Player({
           user: { id: 1, balance: 500 },
-          lowestBetAmount: dealer.getLowestBetAmount()
+          lowestBetAmount: dealer.getLowestBetAmount(),
+          controller
         })
       )
       dealer.start()

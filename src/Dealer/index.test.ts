@@ -1,16 +1,25 @@
 import Dealer from '.'
 import { Player } from '@/Player'
+import Controller from '@/Controller'
 
 describe('dealer', () => {
   test('Game init successfully', () => {
     const dealer = new Dealer(200)
     const lowestBetAmount = dealer.getLowestBetAmount()
-
+    const controller = new Controller(dealer)
     dealer.join(
-      new Player({ user: { id: 2, balance: 40000 }, lowestBetAmount })
+      new Player({
+        user: { id: 2, balance: 40000 },
+        lowestBetAmount,
+        controller
+      })
     )
     dealer.join(
-      new Player({ user: { id: 3, balance: 40000 }, lowestBetAmount })
+      new Player({
+        user: { id: 3, balance: 40000 },
+        lowestBetAmount,
+        controller
+      })
     )
     dealer.start()
 

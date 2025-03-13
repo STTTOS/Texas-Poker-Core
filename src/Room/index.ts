@@ -1,5 +1,5 @@
 import Dealer from '@/Dealer'
-import { User, Player } from '@/Player'
+import { Player } from '@/Player'
 
 type RoomStatus = 'on' | 'waiting'
 // 房间
@@ -13,10 +13,20 @@ class Room {
   #maxPlayerCount = 10
   #players: Map<Player, 'hang' | 'on-set'> = new Map()
 
-  constructor(user: User, lowestBetAmount: number) {
-    this.#dealer = new Dealer(lowestBetAmount)
+  constructor(player: Player, dealer: Dealer) {
+    this.#dealer = dealer
+
+    const lowestBetAmount = dealer.getLowestBetAmount()
     this.#lowestBetAmount = lowestBetAmount
-    this.addPlayer(new Player({ user, lowestBetAmount }))
+    this.addPlayer(player)
+  }
+
+  ready() {
+    if (this.getPlayersOnSet() < 2)
+      throw new Error('玩家数量小于2, 无法开始游戏')
+
+    this.#dealer.start()
+    this.#status = 'on'
   }
 
   /**
@@ -28,7 +38,7 @@ class Room {
 
     this.#dealer.start()
     this.#status = 'on'
-    this.#dealer.settle()
+    // this.#dealer.settle()
   }
 
   nextGame() {
@@ -37,7 +47,7 @@ class Room {
 
     this.#dealer.start()
     this.#status = 'on'
-    this.#dealer.settle()
+    // this.#dealer.settle()
   }
 
   getDealer() {
@@ -46,10 +56,14 @@ class Room {
   getLowestBeAmount() {
     return this.#lowestBetAmount
   }
+
   getPlayersOnSet() {
     return Array.from(this.#players.values()).filter(
       (item) => item === 'on-set'
     ).length
+  }
+  getPlayersCount() {
+    return this.#players.size
   }
 
   getPlayersInRoomCount() {
@@ -59,7 +73,6 @@ class Room {
   addPlayer(player: Player) {
     if (this.#players.has(player)) return false
 
-    // const player = new Player({ user, lowestBeAmount: this.#lowestBetAmount })
     if (this.#lowestBetAmount !== player.getLowestBetAmount())
       throw new Error('最小下注金额异常, 无法加入对局')
 

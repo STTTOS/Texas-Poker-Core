@@ -1,18 +1,33 @@
+import Controller from '@/Controller'
 import { Poke } from '../Deck/constant'
 
 // 玩家的状态
 type PlayerStatus =
-  // 无法行动, 弃牌 和 全押后的状态
-  | 'unable-to-act'
+  // 全押
+  | 'all-in'
   // 轮到该玩家的回合
   | 'active'
   // 离线
   | 'off-line'
   // 非玩家回合的状态
   | 'waiting'
+  // 弃牌出局
+  | 'out'
 
+interface ActionWithOutPayload {
+  type: Extract<ActionType, 'check' | 'fold'>
+}
+interface ActionWithPayload {
+  type: Exclude<ActionType, 'check' | 'fold'>
+  payload: {
+    value: number
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [key: string]: any
+  }
+}
+type Action = ActionWithOutPayload | ActionWithPayload
 // 玩家回合时采取的行动
-type Action =
+type ActionType =
   // 过牌
   | 'check'
   // 弃牌
@@ -49,11 +64,12 @@ export class Player {
    */
   #role?: Role
   #userInfo: User
+  #controller: Controller
   /**
    * 积分
    */
   #balance: number
-  #status: PlayerStatus = 'active'
+  #status: PlayerStatus = 'waiting'
   /**
    * 默认的思考时间为30s
    */
@@ -74,6 +90,7 @@ export class Player {
   #nextPlayer: Player | null = null
 
   #isLast: boolean = false
+  #timer: NodeJS.Timeout | null = null
   /**
    * 玩家的手牌
    */
@@ -83,7 +100,8 @@ export class Player {
     lowestBetAmount,
     user,
     lastPlayer = null,
-    nextPlayer = null
+    nextPlayer = null,
+    controller
   }: {
     lowestBetAmount: number
     role?: Role
@@ -91,6 +109,7 @@ export class Player {
     lastPlayer?: Player | null
     nextPlayer?: Player | null
     handPokes?: Poke[]
+    controller: Controller
   }) {
     if (user.balance < lowestBetAmount) {
       throw new Error('筹码小于大盲注, 不可参与游戏')
@@ -100,6 +119,8 @@ export class Player {
     this.#userInfo = user
     this.#lastPlayer = lastPlayer
     this.#nextPlayer = nextPlayer
+
+    this.#controller = controller
   }
 
   setNextPlayer(player: Player | null) {
@@ -133,11 +154,17 @@ export class Player {
   setIsLast(value: boolean) {
     this.#isLast = value
   }
+  getCurrentStageTotalAmount() {
+    return this.#currentStageTotalAmount
+  }
+  getStatus() {
+    return this.#status
+  }
   /**
    * @description 当前玩家采取的行动
    */
   takeAction(action: Action) {
-    if (this.#status === 'unable-to-act') {
+    if (this.#status === 'all-in') {
       throw new Error('不可行动')
     }
     this.#action = action
@@ -150,18 +177,26 @@ export class Player {
     if (!this.#getAllowedActions().includes('check'))
       throw new Error('不可过牌')
 
-    this.#action = 'check'
+    this.#action = {
+      type: 'check'
+    }
+    this.#status = 'waiting'
+    this.transferControl()
   }
 
   fold() {
     if (!this.#getAllowedActions().includes('fold')) throw new Error('不可弃牌')
 
-    this.#action = 'fold'
-    this.#status = 'unable-to-act'
+    this.#action = {
+      type: 'fold'
+    }
+    this.#status = 'out'
+    this.transferControl()
   }
 
   // TODO: 需调用api直接支付
   bet(money: number) {
+    this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('bet')) throw new Error('不可下注')
 
     if (money > this.#balance) {
@@ -170,9 +205,17 @@ export class Player {
     if (money < this.#lowestBetAmount) {
       throw new Error('下注金额不可小于大盲注')
     }
-    this.#action = 'bet'
+    console.log(this.getUserInfo().id, '下注金额:', money)
+    this.#action = {
+      type: 'bet',
+      payload: {
+        value: money
+      }
+    }
     this.#balance -= money
     this.#currentStageTotalAmount += money
+    this.#status = 'waiting'
+    this.transferControl()
   }
 
   // TODO: 需调用api直接支付
@@ -183,34 +226,60 @@ export class Player {
     if (money > this.#balance) {
       throw new Error('加注金额不可大于筹码总数')
     }
+    if (money < this.#lowestBetAmount) {
+      throw new Error('加注金额不可小于大盲注')
+    }
     if (
       money + this.#currentStageTotalAmount <=
       lastPlayer.#currentStageTotalAmount
     ) {
       throw Error('必须加注更多的金额')
     }
-    this.#action = 'raise'
+    this.#action = {
+      type: 'raise',
+      payload: {
+        value: money
+      }
+    }
     this.#balance -= money
     this.#currentStageTotalAmount += money
+    this.#status = 'waiting'
+
+    this.transferControl()
   }
 
+  resetAction() {
+    this.#action = undefined
+  }
   // TODO: 需调用api直接支付
   call() {
+    this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('call')) throw new Error('不可跟注')
 
     // 需要找到上一个行动的玩家
     const player = this.returnLatestPlayerIf(
-      (player) => player.#action !== 'fold' && player.#action !== 'check'
+      (player) =>
+        player.#action?.type !== 'fold' && player.#action?.type !== 'check'
     )!
-    // TODO: 这里还有特殊情况
+
+    // TODO: 这里还有特殊情况, 处理all-in金额小于大盲注的情况
     const moneyShouldPay =
       player.#currentStageTotalAmount - this.#currentStageTotalAmount
-    if (moneyShouldPay < this.#balance) {
-      throw new Error('跟注金额不可小于筹码总数')
+    if (moneyShouldPay > this.#balance) {
+      throw new Error('跟注金额不可大于筹码总数')
     }
-    this.#action = 'call'
+    console.log(this.#userInfo.id, '跟注', moneyShouldPay)
+    this.#action = {
+      type: 'call',
+      payload: {
+        value: moneyShouldPay
+      }
+    }
     this.#balance -= moneyShouldPay
     this.#currentStageTotalAmount += moneyShouldPay
+    this.#status = 'waiting'
+
+    this.transferControl()
   }
 
   // TODO: 需调用api直接支付
@@ -218,14 +287,23 @@ export class Player {
    * @description all-in跟上一个玩家的选择没有任何关系
    */
   allIn() {
+    this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('all-in')) {
       throw new Error('不可全押')
     }
 
-    this.#action = 'all-in'
+    console.log(this.#userInfo.id, '全押', this.#balance)
+    this.#action = {
+      type: 'all-in',
+      payload: {
+        value: this.#balance
+      }
+    }
     this.#currentStageTotalAmount += this.#balance
     this.#balance = 0
-    this.#status = 'unable-to-act'
+    this.#status = 'all-in'
+
+    this.transferControl()
   }
 
   getAllowedActions() {
@@ -238,40 +316,53 @@ export class Player {
    */
   #getAllowedActions(
     lastPlayer: Player | null = this.#lastPlayer
-  ): Array<Action> {
-    if (this.#status === 'unable-to-act') return []
+  ): Array<ActionType> {
+    if (this.#status === 'all-in') return []
 
     // 当前阶段第一位行动的玩家
-    if (!lastPlayer) return ['bet', 'all-in', 'fold', 'check']
+    if (!lastPlayer?.getAction()) return ['bet', 'all-in', 'fold', 'check']
 
-    if (lastPlayer.#action === 'check')
+    if (lastPlayer.#action?.type === 'check')
       return ['all-in', 'bet', 'check', 'fold']
 
-    if (lastPlayer.#action === 'bet') return ['call', 'raise', 'all-in', 'fold']
-
-    if (lastPlayer.#action === 'raise')
+    if (lastPlayer.#action?.type === 'bet') {
+      if (this.#balance <= lastPlayer.#action.payload.value) {
+        return ['all-in', 'fold']
+      }
       return ['call', 'raise', 'all-in', 'fold']
+    }
+
+    if (lastPlayer.#action?.type === 'raise') {
+      if (this.#balance <= lastPlayer.#action.payload.value) {
+        return ['all-in', 'fold']
+      }
+      return ['call', 'raise', 'all-in', 'fold']
+    }
 
     // 需要根据指针找到最近采取行动的玩家
-    if (lastPlayer.#action === 'fold') {
+    if (lastPlayer.#action?.type === 'fold') {
       const player = this.returnLatestPlayerIf(
-        (player) => player.#action !== 'fold'
+        (player) => player.#action?.type !== 'fold'
       )
       return this.#getAllowedActions(player)
     }
 
-    if (lastPlayer.#action === 'all-in')
+    if (lastPlayer.#action?.type === 'all-in') {
+      if (this.#balance <= lastPlayer.#action.payload.value) {
+        return ['all-in', 'fold']
+      }
       return ['call', 'raise', 'fold', 'all-in']
+    }
 
     // call
     return ['call', 'raise', 'fold', 'all-in']
   }
 
   returnLatestPlayerIf(filter: (player: Player) => boolean): Player | null {
-    let current = this.#lastPlayer
+    let current = this.getLastPlayer()
     while (current) {
       if (filter(current)) return current
-      current = current.#lastPlayer
+      current = current.getLastPlayer()
     }
     return null
   }
@@ -290,11 +381,16 @@ export class Player {
     return this.#userInfo
   }
 
-  toString() {
-    return `${JSON.stringify(this.#userInfo)}`
+  checkIfCanAct() {
+    if (this.#status !== 'active') throw new Error('不可行动')
   }
-  log() {
-    console.log(this.toString())
+  toString() {
+    return `status: ${this.#status};id: ${this.#userInfo.id};balance: ${
+      this.#balance
+    }`
+  }
+  log(prefix: string = '') {
+    console.log(prefix + this.toString())
   }
 
   setHandPokes(pokes: Poke[]) {
@@ -307,6 +403,39 @@ export class Player {
 
   earn(money: number) {
     console.log(money)
+  }
+
+  // 游戏推进到下个阶段后, 需要将此字段清空
+  resetCurrentStageTotalAmount() {
+    this.#currentStageTotalAmount = 0
+  }
+
+  clearTimer() {
+    if (this.#timer) {
+      clearTimeout(this.#timer)
+      this.#timer = null
+    }
+  }
+
+  transferControl() {
+    this.clearTimer()
+
+    // 在移交控制权之前, 需要校验游戏是否该进入下个阶段
+    const canAdvanceToNextStage = this.#controller.tryToAdvanceGameToNextStage()
+    if (canAdvanceToNextStage) return
+
+    this.#controller.transferControlToNext(this.getNextPlayer())
+  }
+  getControl() {
+    this.#status = 'active'
+
+    this.#timer = setTimeout(() => {
+      this.#countDownTime--
+      if (this.#countDownTime === 0 && this.#timer) {
+        //  TODO: 超时采取的默认行为
+        this.transferControl()
+      }
+    }, 30 * 1000)
   }
 }
 // 庄家

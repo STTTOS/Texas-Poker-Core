@@ -1,22 +1,41 @@
 import Room from '.'
+import Dealer from '@/Dealer'
 import { Player } from '../Player'
+import Controller from '@/Controller'
 
 describe('Room', () => {
   test('init room successfully', () => {
-    const room = new Room({ id: 1, balance: 500 }, 200)
+    const dealer = new Dealer(200)
+    const controller = new Controller(dealer)
+    const player = new Player({
+      user: { id: 1, balance: 500 },
+      lowestBetAmount: dealer.getLowestBetAmount(),
+      controller
+    })
+    const room = new Room(player, dealer)
     expect(room.getLowestBeAmount()).toEqual(200)
   })
   test('test function addPlayer', () => {
     // 创建房间
-    const room = new Room({ id: 1, balance: 5000 }, 1000)
+    const dealer = new Dealer(200)
+    const controller = new Controller(dealer)
+    const player = new Player({
+      user: { id: 1, balance: 500 },
+      lowestBetAmount: dealer.getLowestBetAmount(),
+      controller
+    })
+    const room = new Room(player, dealer)
+
     const lowestBetAmount = room.getLowestBeAmount()
     const p2 = new Player({
       user: { id: 2, balance: 20000 },
-      lowestBetAmount
+      lowestBetAmount,
+      controller
     })
     const p3 = new Player({
       user: { id: 3, balance: 20000 },
-      lowestBetAmount
+      lowestBetAmount,
+      controller
     })
 
     room.addPlayer(p2)
@@ -28,15 +47,25 @@ describe('Room', () => {
   })
   test('test function removePlayer', () => {
     // 创建房间
-    const room = new Room({ id: 1, balance: 5000 }, 1000)
+    const dealer = new Dealer(200)
+    const controller = new Controller(dealer)
+    const player = new Player({
+      user: { id: 1, balance: 500 },
+      lowestBetAmount: dealer.getLowestBetAmount(),
+      controller
+    })
+    const room = new Room(player, dealer)
+
     const lowestBetAmount = room.getLowestBeAmount()
     const p2 = new Player({
       user: { id: 2, balance: 20000 },
-      lowestBetAmount
+      lowestBetAmount,
+      controller
     })
     const p3 = new Player({
       user: { id: 3, balance: 20000 },
-      lowestBetAmount
+      lowestBetAmount,
+      controller
     })
     room.addPlayer(p2)
     room.addPlayer(p3)
@@ -46,11 +75,20 @@ describe('Room', () => {
     expect(removeAgain).toBe(false)
   })
   test('test function seat', () => {
-    const room = new Room({ id: 1, balance: 5000 }, 1000)
+    const dealer = new Dealer(200)
+    const controller = new Controller(dealer)
+    const player = new Player({
+      user: { id: 1, balance: 500 },
+      lowestBetAmount: dealer.getLowestBetAmount(),
+      controller
+    })
+    const room = new Room(player, dealer)
+
     const lowestBetAmount = room.getLowestBeAmount()
     const p2 = new Player({
       user: { id: 2, balance: 20000 },
-      lowestBetAmount
+      lowestBetAmount,
+      controller
     })
     const canNotBeSeat = room.seat(p2)
     expect(canNotBeSeat).toBe(false)
