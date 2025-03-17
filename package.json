@@ -32,11 +32,13 @@
     "@types/node": "^22.13.9",
     "@types/ramda": "^0.30.2",
     "commitlint": "^19.7.1",
+    "core-js": "3",
     "eslint": "^9.21.0",
     "globals": "^16.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.4.3",
     "prettier-plugin-classify-imports": "^0.0.2",
+    "ts-jest": "^29.2.6",
     "ts-node": "^10.9.2",
     "typescript-eslint": "^8.26.0"
   },

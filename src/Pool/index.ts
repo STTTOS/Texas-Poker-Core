@@ -1,6 +1,6 @@
 import { Player } from '@/Player'
 import { Stage } from '@/Controller'
-import { sum, everyMap, filterMap } from '@/utils'
+import { sum, filterMap } from '@/utils'
 
 // 提供奖池结算的能力
 interface Pot {
@@ -36,7 +36,6 @@ class Pool {
   getPots() {
     return this.#pots
   }
-
   // TODO: 边池的合并
   /**
    * @description 根据主池 和 边池的金额, 结算出
@@ -74,7 +73,12 @@ class Pool {
     if (!records || records.size === 0) return
 
     // 所有玩家都有下注, 将其中的部分金额计算入主池
-    if (filterMap((value) => value !== 0, records).size === countOfPlayers) {
+    if (
+      records
+        .values()
+        .filter((value) => value !== 0)
+        .toArray().length === countOfPlayers
+    ) {
       const minBetAmount = Math.min(...records.values())
       this.#mainPool += minBetAmount * countOfPlayers
 
@@ -90,7 +94,7 @@ class Pool {
    * @description 计算边池
    */
   calculateSidePot(bets: Map<Player, number>) {
-    if (bets.size === 0 || everyMap((value) => value === 0, bets)) return
+    if (bets.size === 0 || bets.values().every((amount) => amount === 0)) return
 
     const minBetAmount = Math.min(...bets.values())
 
@@ -104,4 +108,5 @@ class Pool {
     this.calculateSidePot(filterMap((value) => value !== 0, bets))
   }
 }
+
 export default Pool

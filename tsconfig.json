@@ -8,7 +8,7 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "target": "ESNext",
+    "target": "ES2017",
     "noImplicitAny": false,
     "module": "commonJS",
     "skipLibCheck": true,
