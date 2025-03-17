@@ -316,7 +316,7 @@ export class Player {
       }
     }
     this.#currentStageTotalAmount += money
-    this.#balance = 0
+    this.#balance -= money
     this.#status = 'all-in'
     console.log(this.#userInfo.id, '全押:', money)
     this.transferControl()

@@ -30,18 +30,20 @@ describe('class Player', () => {
     room.ready()
     controller.start()
 
-    // dealer.allIn(p1)
     p1.bet(2000)
     p1.log()
     p2.allIn(dealer)
     p2.log()
     p3.allIn(dealer)
     p3.log()
-    // p1.allIn(dealer)
     p1.call(dealer)
     p1.log()
     dealer.logPlayers()
 
     controller.end()
+
+    expect(p1.getBalance()).toEqual(8000)
+    expect(p2.getBalance()).toEqual(0)
+    expect(p3.getBalance()).toEqual(0)
   })
 })

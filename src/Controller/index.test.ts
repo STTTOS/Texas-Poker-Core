@@ -39,7 +39,7 @@ describe('class Controller', () => {
     // room.getDealer().log()
 
     controller.start()
-
+    room.getDealer().log()
     expect(controller.getActivePlayer() === p1).toBe(true)
     // p1.log()
     p1.bet(4000)
@@ -54,8 +54,12 @@ describe('class Controller', () => {
     // p3.log()
     p3.allIn(dealer)
 
-    // 控制权移交到了p4手上, 需要清除计时器
-    p4.clearTimer()
+    expect(controller.getActivePlayer() === p4).toBe(true)
+    p4.allIn(dealer)
     controller.end()
+    expect(p1.getBalance()).toEqual(1000)
+    expect(p2.getBalance()).toEqual(10_000)
+    expect(p3.getBalance()).toEqual(0)
+    expect(p4.getBalance()).toEqual(0)
   })
 })
