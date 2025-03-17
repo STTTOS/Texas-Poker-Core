@@ -2,7 +2,7 @@
 import Dealer from '../Dealer'
 import { Player } from '../Player'
 
-type Stage = 'pre-flop' | 'flop' | 'turn' | 'river' | 'showdown'
+export type Stage = 'pre-flop' | 'flop' | 'turn' | 'river' | 'showdown'
 const stages: Stage[] = ['pre-flop', 'flop', 'turn', 'river', 'showdown']
 
 class Controller {
