@@ -81,6 +81,10 @@ class Pool {
     }
     this.reset()
   }
+
+  get totalAmount() {
+    return this.#totalAmount
+  }
   /**
    * @description 根据主池 和 边池的金额, 结算出
    * 需要给各个玩家支付的金额

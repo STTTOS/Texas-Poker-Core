@@ -66,7 +66,7 @@ describe('class pool', () => {
     expect(pool.getSpecificPot(new Set([p3, p4]))).toEqual(4000)
   })
 
-  test('function settle', () => {
+  test('function settle & (getter)totalAmount', () => {
     const pool = new Pool()
     const dealer = new Dealer(500)
     const controller = new Controller(dealer)
@@ -111,5 +111,6 @@ describe('class pool', () => {
 
     const result = pool.settle()
     expect(result.values().reduce(sum, 0)).toEqual(18_000)
+    expect(pool.totalAmount).toEqual(18_000)
   })
 })
