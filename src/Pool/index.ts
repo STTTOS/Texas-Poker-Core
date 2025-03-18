@@ -24,7 +24,7 @@ class Pool {
    * @param amount
    * @param stage
    */
-  add(player: Player, amount: number, stage: Exclude<Stage, 'showdown'>) {
+  add(player: Player, amount: number, stage) {
     if (amount <= 0 || player.getBalance() < amount)
       throw new Error('下注金额异常')
 
@@ -93,7 +93,6 @@ class Pool {
     for (const [player, amount] of bills) {
       await player.earn(amount)
     }
-    this.reset()
   }
 
   get totalAmount() {
@@ -135,11 +134,11 @@ class Pool {
     })
 
     const filtered = filterMap((value) => value !== 0, result)
-    console.log('奖池分配情况:')
-    filtered.forEach((amount, winner) => {
-      console.log('amount:', amount)
-      winner.log()
-    })
+    // console.log('奖池分配情况:')
+    // filtered.forEach((amount, winner) => {
+    //   console.log('amount:', amount)
+    //   winner.log()
+    // })
     return filtered
   }
 

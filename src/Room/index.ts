@@ -8,17 +8,22 @@ class Room {
   #dealer: Dealer
   #lowestBetAmount: number
   // 是否允许观战
-  #allowView = true
+  #allowPlayersToWatch: boolean
   // TODO: 从常量里取
-  #maxPlayerCount = 10
+  #maximumCountOfPlayers: number
   #players: Map<Player, 'hang' | 'on-set'> = new Map()
 
-  constructor(player: Player, dealer: Dealer) {
+  constructor(
+    dealer: Dealer,
+    allowPlayersToWatch = true,
+    maximumCountOfPlayers = 10
+  ) {
     this.#dealer = dealer
+    this.#allowPlayersToWatch = allowPlayersToWatch
+    this.#maximumCountOfPlayers = maximumCountOfPlayers
 
     const lowestBetAmount = dealer.getLowestBetAmount()
     this.#lowestBetAmount = lowestBetAmount
-    this.addPlayer(player)
   }
 
   ready() {
@@ -74,6 +79,9 @@ class Room {
     return this.#players.size
   }
 
+  addPlayers(...players: Player[]) {
+    players.forEach((player) => this.addPlayer(player))
+  }
   addPlayer(player: Player) {
     if (this.#players.has(player)) return false
 
@@ -85,7 +93,7 @@ class Room {
       return false
     }
     // waiting
-    if (this.getPlayersOnSet() === this.#maxPlayerCount) {
+    if (this.getPlayersOnSet() === this.#maximumCountOfPlayers) {
       this.#players.set(player, 'hang')
       return false
     }
@@ -100,7 +108,7 @@ class Room {
   seat(player: Player) {
     if (!this.#players.has(player)) return false
 
-    if (this.getPlayersOnSet() === this.#maxPlayerCount)
+    if (this.getPlayersOnSet() === this.#maximumCountOfPlayers)
       throw new Error('位置已满,无法加入')
 
     this.#players.set(player, 'on-set')
@@ -108,13 +116,27 @@ class Room {
     return true
   }
 
+  watch(player: Player) {
+    if (!this.#players.has(player)) return false
+
+    this.#players.set(player, 'hang')
+    this.#dealer.remove(player)
+    return true
+  }
+
   getPlayer(player: Player) {
     return this.#players.get(player)
   }
+
   setStatus(status: RoomStatus) {
     this.#status = status
   }
 
+  /**
+   * @description 玩家离开房间
+   * @param player
+   * @returns
+   */
   removePlayer(player: Player | null) {
     if (!player || !this.#players.has(player)) return false
 

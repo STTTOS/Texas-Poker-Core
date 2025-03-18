@@ -170,6 +170,14 @@ export class Player {
   getOnlineStatus() {
     return this.#onlineStatus
   }
+
+  reset() {
+    this.resetAction()
+    this.resetCurrentStageTotalAmount()
+    this.#handPokes = []
+    this.#presentation = undefined
+    this.clearTimer()
+  }
   /**
    * @description 当前玩家采取的行动
    */
@@ -215,7 +223,6 @@ export class Player {
     if (money < this.#lowestBetAmount) {
       throw new Error('下注金额不可小于大盲注')
     }
-    console.log(this.getUserInfo().id, '下注金额:', money)
     this.#action = {
       type: 'bet',
       payload: {
@@ -226,6 +233,15 @@ export class Player {
     this.#currentStageTotalAmount += money
     this.#status = 'waiting'
     this.transferControl()
+    console.log(
+      this.getUserInfo().id,
+      '下注金额:',
+      money,
+      '剩余筹码:',
+      this.#balance
+    )
+
+    return money
   }
 
   // TODO: 需调用api直接支付
@@ -325,8 +341,9 @@ export class Player {
     this.#currentStageTotalAmount += money
     this.#balance -= money
     this.#status = 'all-in'
-    console.log(this.#userInfo.id, '全押:', money)
+    console.log(this.#userInfo.id, '全押:', money, '剩余筹码: ', this.#balance)
     this.transferControl()
+    return money
   }
 
   resetAction() {
@@ -436,10 +453,12 @@ export class Player {
   getHandPokes() {
     return this.#handPokes
   }
-  // pay(money: number) {}
 
+  // TODO: api call
   async earn(money: number) {
-    console.log(money)
+    this.#balance += money
+    this.#userInfo.balance += money
+    console.log(this.#userInfo.id, '分得奖池金额:', money)
   }
 
   // 游戏推进到下个阶段后, 需要将此字段清空
@@ -463,16 +482,28 @@ export class Player {
 
     this.#controller.transferControlToNext(this.getNextPlayer())
   }
-  getControl() {
-    this.#status = 'active'
 
-    this.#timer = setTimeout(() => {
+  continue() {
+    this.#timer = setInterval(() => {
       this.#countDownTime--
       if (this.#countDownTime === 0 && this.#timer) {
         //  TODO: 超时采取的默认行为
         this.transferControl()
       }
-    }, 30 * 1000)
+    }, 1000)
+  }
+  pause() {
+    this.clearTimer()
+  }
+  removeControl() {
+    if (this.#status === 'active') {
+      this.#status = 'waiting'
+    }
+    this.clearTimer()
+  }
+  getControl() {
+    this.#status = 'active'
+    this.continue()
   }
 }
 // 庄家

@@ -4,10 +4,6 @@ import { Role, Player } from '@/Player'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
 import { formatter, getBestHand, getHandPresentation } from '@/Deck/core'
 
-interface SidePool {
-  amount: number
-  players: Player[]
-}
 type GameStatus = 'waiting' | 'in-progress'
 /**
  * 荷官, 控制游戏进行
@@ -25,22 +21,9 @@ class Dealer {
   #button: Player | null = null
   #last: Player | null = null
   #head: Player | null = null
-  /**
-   * 存储玩家信息
-   */
-  #positions: Player[] = []
-  /**
-   * 主池
-   */
-  #mainPool = 0
-  /**
-   * 边池可能会形成多个
-   */
-  #sidePools: SidePool[] = []
 
   constructor(lowestBetAmount: number) {
     this.#lowestBetAmount = lowestBetAmount
-    // this.#buttonId = user.id
 
     this.#deck = new Deck()
   }
@@ -80,6 +63,12 @@ class Dealer {
     this.setButton()
     // if (process.env.PROJECT_ENV !== 'dev')
     this.setOthers()
+    console.log('玩家信息:')
+    console.log(
+      this.map(
+        (player) => roleMap.get(player.getRole()!) + ': ' + player.toString()
+      )
+    )
   }
   /**
    * 暂停游戏
@@ -286,6 +275,14 @@ class Dealer {
 
   resetActionsOfPlayers() {
     this.forEach((p) => p.resetAction())
+  }
+
+  /**
+   * @description 重置玩家的`action`,当前阶段下注额, 手牌, 手牌牌力信息
+   * 在游戏结束后调用
+   */
+  reset() {
+    this.forEach((player) => player.reset())
   }
 
   filter(callback: (p: Player, i: number) => boolean): Player[] {

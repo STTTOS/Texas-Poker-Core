@@ -10,7 +10,7 @@ const p1 = new Player({
   lowestBetAmount: dealer.getLowestBetAmount(),
   controller
 })
-const room = new Room(p1, dealer)
+const room = new Room(dealer)
 
 const p2 = new Player({
   lowestBetAmount: 1000,
@@ -30,6 +30,7 @@ const p4 = new Player({
 })
 describe('class Controller', () => {
   test('function transferControl', () => {
+    room.addPlayer(p1)
     room.addPlayer(p2)
     room.addPlayer(p3)
     room.addPlayer(p4)
@@ -40,21 +41,21 @@ describe('class Controller', () => {
 
     controller.start()
     room.getDealer().log()
-    expect(controller.getActivePlayer() === p1).toBe(true)
+    expect(controller.activePlayer === p1).toBe(true)
     // p1.log()
     p1.bet(4000)
     // p1.log()
 
-    expect(controller.getActivePlayer() === p2).toBe(true)
+    expect(controller.activePlayer === p2).toBe(true)
     // p2.log()
     p2.allIn(dealer)
     // p2.log()
 
-    expect(controller.getActivePlayer() === p3).toBe(true)
+    expect(controller.activePlayer === p3).toBe(true)
     // p3.log()
     p3.allIn(dealer)
 
-    expect(controller.getActivePlayer() === p4).toBe(true)
+    expect(controller.activePlayer === p4).toBe(true)
     p4.allIn(dealer)
     controller.end()
     expect(p1.getBalance()).toEqual(1000)

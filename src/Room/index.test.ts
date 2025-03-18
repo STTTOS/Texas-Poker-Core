@@ -12,7 +12,8 @@ describe('Room', () => {
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller
     })
-    const room = new Room(player, dealer)
+    const room = new Room(dealer)
+    room.addPlayer(player)
     expect(room.getLowestBeAmount()).toEqual(200)
   })
   test('test function addPlayer', () => {
@@ -24,8 +25,8 @@ describe('Room', () => {
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller
     })
-    const room = new Room(player, dealer)
-
+    const room = new Room(dealer)
+    room.addPlayer(player)
     const lowestBetAmount = room.getLowestBeAmount()
     const p2 = new Player({
       user: { id: 2, balance: 20000 },
@@ -54,7 +55,8 @@ describe('Room', () => {
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller
     })
-    const room = new Room(player, dealer)
+    const room = new Room(dealer)
+    room.addPlayer(player)
 
     const lowestBetAmount = room.getLowestBeAmount()
     const p2 = new Player({
@@ -82,7 +84,8 @@ describe('Room', () => {
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller
     })
-    const room = new Room(player, dealer)
+    const room = new Room(dealer)
+    room.addPlayer(player)
 
     const lowestBetAmount = room.getLowestBeAmount()
     const p2 = new Player({

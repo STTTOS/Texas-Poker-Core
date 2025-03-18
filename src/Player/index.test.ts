@@ -22,7 +22,8 @@ describe('class Player', () => {
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller
     })
-    const room = new Room(p1, dealer)
+    const room = new Room(dealer)
+    room.addPlayer(p1)
 
     room.addPlayer(p2)
     room.addPlayer(p3)

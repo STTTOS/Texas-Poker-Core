@@ -6,28 +6,30 @@ export type Stage = 'pre-flop' | 'flop' | 'turn' | 'river' | 'showdown'
 const stages: Stage[] = ['pre-flop', 'flop', 'turn', 'river', 'showdown']
 
 class Controller {
+  #status: 'on' | 'pause' | 'abort' | 'waiting' = 'waiting'
   #stage: Stage = 'pre-flop'
   #activePlayer: Player | null = null
   #timer: NodeJS.Timeout | null = null
-  // 记录游戏的进行时间
+  // 记录游戏的进行时间,单位 second
   #count = 0
   #dealer: Dealer
   constructor(dealer: Dealer) {
     this.#dealer = dealer
   }
 
-  getStage() {
+  get stage() {
     return this.#stage
   }
   setControl(player: Player | null) {
-    if (player) this.#activePlayer = player
+    this.#activePlayer = player
   }
 
   transferControlToNext(nextPlayer: Player | null) {
     this.setControl(nextPlayer)
     nextPlayer?.getControl()
   }
-  getActivePlayer() {
+
+  get activePlayer() {
     return this.#activePlayer
   }
 
@@ -46,7 +48,7 @@ class Controller {
     const allPlayersBetThSameAmount = players
       .map((p) => p.getCurrentStageTotalAmount())
       .every((amount) => amount === maxBetAmount)
-    // const allPlayersBetThSameAmount = new Set(betAmount).size === 1
+
     if (allPlayersBetThSameAmount) {
       const index = stages.findIndex((stage) => stage === this.#stage)
       this.#stage = stages[index + 1]
@@ -69,23 +71,61 @@ class Controller {
   }
 
   /**
-   * @description 开始游戏, 开始计时器, 将控制权移交给第一个可以行动的玩家
+   * @description 开始计时器, 将控制权移交给第一个可以行动的玩家
    */
   start() {
     // 将控制权给第一个可以行动的玩家
     this.transferControlToNext(this.#dealer.getTheFirstPlayerToAct())
+
+    this.#status = 'on'
+    this.#stage = 'pre-flop'
+    this.startTimer()
+  }
+
+  startTimer() {
+    // 避免重复开启计时器
+    if (this.#timer) return
 
     this.#timer = setInterval(() => {
       this.#count++
     }, 1000)
   }
 
-  end() {
+  /**
+   * @description 继续游戏
+   */
+  continue() {
+    this.#status = 'on'
+    this.#activePlayer?.continue()
+    this.startTimer()
+  }
+
+  clearTimer() {
     if (this.#timer) {
       clearInterval(this.#timer)
       this.#timer = null
     }
-    this.#dealer.forEach((player) => player.clearTimer())
+  }
+  /**
+   * @description 结束游戏, 回收控制权, 清除玩家的计时器
+   */
+  end() {
+    this.clearTimer()
+    this.#stage = 'showdown'
+
+    this.#activePlayer?.removeControl()
+    this.#activePlayer?.clearTimer()
+    this.#activePlayer = null
+  }
+
+  /**
+   * @description 暂停游戏
+   */
+  pause() {
+    this.#status = 'pause'
+
+    this.clearTimer()
+    this.activePlayer?.pause()
   }
 }
 export default Controller
