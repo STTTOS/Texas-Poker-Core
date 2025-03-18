@@ -95,6 +95,7 @@ export class Player {
    * 玩家的手牌
    */
   #handPokes: Poke[] = []
+  #presentation: string | undefined
 
   constructor({
     lowestBetAmount,
@@ -125,6 +126,12 @@ export class Player {
 
   setNextPlayer(player: Player | null) {
     this.#nextPlayer = player
+  }
+  setPresentation(presentation: string) {
+    this.#presentation = presentation
+  }
+  getPresentation() {
+    return this.#presentation
   }
 
   getNextPlayer() {
@@ -431,7 +438,7 @@ export class Player {
   }
   // pay(money: number) {}
 
-  earn(money: number) {
+  async earn(money: number) {
     console.log(money)
   }
 

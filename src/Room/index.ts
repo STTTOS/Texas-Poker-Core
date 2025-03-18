@@ -41,6 +41,10 @@ class Room {
     // this.#dealer.settle()
   }
 
+  settle() {
+    this.#dealer.settle()
+  }
+
   nextGame() {
     if (this.getPlayersOnSet() < 2)
       throw new Error('玩家数量小于2, 无法开始游戏')

@@ -1,9 +1,8 @@
 import Deck from '@/Deck'
 import { getRandomInt } from '@/utils'
 import { Role, Player } from '@/Player'
-import { handPokeMap, handPokeType } from '@/Deck/constant'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
-import { formatter, getBestPokesPresentation } from '@/Deck/core'
+import { formatter, getBestHand, getHandPresentation } from '@/Deck/core'
 
 interface SidePool {
   amount: number
@@ -93,35 +92,17 @@ class Dealer {
   end() {}
 
   /**
-   * 根据当前的牌局给各个玩家结算, 将底池和边池分给对应的赢家, 并调用api
+   * 计算各个玩家的最大牌力
    */
   settle() {
-    const maxPresentation = getBestPokesPresentation(
-      this.map((player) => player.getHandPokes()),
-      this.#deck.getPokes().commonPokes
-    )
-    const winners = this.filter((player) => {
-      return (
-        getBestPokesPresentation(
-          [player.getHandPokes()],
-          this.#deck.getPokes().commonPokes
-        ) === maxPresentation
+    this.forEach((player) => {
+      player.setPresentation(
+        getHandPresentation(
+          getBestHand(player.getHandPokes(), this.#deck.getPokes().commonPokes)
+        )
       )
     })
     console.log('底牌:', formatter(this.#deck.getPokes().commonPokes))
-    console.log('赢家:')
-
-    winners.forEach((winner) => {
-      const presentation = getBestPokesPresentation(
-        [winner.getHandPokes()],
-        this.#deck.getPokes().commonPokes
-      )
-      console.log(
-        ` ${handPokeMap.get(
-          presentation[0] as handPokeType
-        )}, ${winner.toString()},手牌: ${formatter(winner.getHandPokes())}`
-      )
-    })
   }
 
   remove(player: Player) {

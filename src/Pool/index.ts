@@ -1,15 +1,15 @@
+import { equals } from 'ramda'
+
 import { Player } from '@/Player'
 import { Stage } from '@/Controller'
 import { sum, filterMap } from '@/utils'
+import { formatter, getWinner } from '@/Deck/core'
 
 // 提供奖池结算的能力
-interface Pot {
-  amount: number
-  players: Set<Player>
-}
 class Pool {
+  #totalAmount = 0
   #mainPool = 0
-  #pots: Pot[] = []
+  #pots: Map<Set<Player>, number> = new Map()
   #players: Set<Player> = new Set()
   // 存储下注记录
   #betRecords: Map<Stage, Map<Player, number>> = new Map()
@@ -18,6 +18,7 @@ class Pool {
     if (amount <= 0 || player.getBalance() < amount)
       throw new Error('下注金额异常')
 
+    this.#totalAmount += amount
     this.#players.add(player)
     const target = this.#betRecords.get(stage)
     if (!target) {
@@ -25,7 +26,11 @@ class Pool {
     } else target.set(player, target.get(player) || 0 + amount)
   }
   reset() {
-    this.#pots = []
+    this.#pots = new Map()
+    this.#mainPool = 0
+    this.#totalAmount = 0
+    this.#players = new Set()
+    this.#betRecords = new Map()
   }
   getBetHistory() {
     return this.#betRecords
@@ -36,7 +41,46 @@ class Pool {
   getPots() {
     return this.#pots
   }
-  // TODO: 边池的合并
+  getSpecificPot(key: Set<Player>) {
+    let result = 0
+
+    this.#pots.forEach((amount, players) => {
+      if (equals(players, key)) {
+        result = amount
+      }
+    })
+    return result
+  }
+
+  #distribute(
+    players: Player[],
+    totalAmount: number,
+    callback: (player: Player, amount: number) => void
+  ) {
+    getWinner(
+      Array.from(players).filter((p) => p.getStatus() !== 'out')
+    ).forEach((player, _, arr) => {
+      callback(player, totalAmount / arr.length)
+    })
+  }
+
+  /**
+   * @description 根据计算结果进行支付
+   */
+  async pay() {
+    const bills = this.settle()
+
+    // 如果剩奖池不够支付所有玩家, 说明游戏的计算出现异常, 需要中止这场比赛,并作废
+    if (bills.values().reduce(sum, 0) > this.#totalAmount) {
+      // TODO: 需要给所有玩家提示游戏发生异常, 此局作废
+      throw new Error('支付发生错误,游戏中止')
+    }
+
+    for (const [player, amount] of bills) {
+      await player.earn(amount)
+    }
+    this.reset()
+  }
   /**
    * @description 根据主池 和 边池的金额, 结算出
    * 需要给各个玩家支付的金额
@@ -44,16 +88,47 @@ class Pool {
   settle() {
     this.calculateMainPoolAndSidePots()
 
-    this.#pots.forEach((pot) => {
-      console.log(pot.amount)
-      console.log(Array.from(pot.players).map((p) => p.toString()))
+    console.log('玩家牌力大小:')
+    this.#players.forEach((player) => {
+      console.log(
+        player.getUserInfo().id,
+        player.getPresentation(),
+        formatter(player.getHandPokes())
+      )
+    })
+    console.log('主池:', this.#mainPool)
+    console.log(Array.from(this.#players).map((p) => p.getUserInfo().id))
+    console.log('边池:')
+    this.#pots.forEach((amount, players) => {
+      console.log(amount)
+      console.log(Array.from(players).map((p) => p.getUserInfo().id))
     })
 
-    return {
-      mainPool: this.#mainPool,
-      sidePool: this.#pots.map((pot) => pot.amount).reduce(sum)
-    }
+    // 记录需要给每个玩家支付多少Money
+    const result: Map<Player, number> = new Map()
+    this.#distribute(Array.from(this.#players), this.#mainPool, (p, amount) =>
+      result.set(p, (result.get(p) || 0) + amount)
+    )
+
+    this.#pots.forEach((total, players) => {
+      this.#distribute(Array.from(players), total, (player, amount) =>
+        result.set(player, (result.get(player) || 0) + amount)
+      )
+    })
+
+    const filtered = filterMap((value) => value !== 0, result)
+    console.log('奖池分配情况:')
+    filtered.forEach((amount, winner) => {
+      console.log('amount:', amount)
+      winner.log()
+    })
+    return filtered
   }
+  /**
+   * @description 边池的合并
+   */
+  combineSameSidePots() {}
+
   /**
    * @description 根据各个阶段的下注情况, 计算主池 + 边池
    */
@@ -98,10 +173,18 @@ class Pool {
 
     const minBetAmount = Math.min(...bets.values())
 
-    this.#pots.push({
-      amount: minBetAmount * bets.size,
-      players: new Set(bets.keys())
+    const totalAmount = minBetAmount * bets.size
+    let findTarget = false
+    this.#pots.forEach((amount = 0, players) => {
+      if (equals(players, new Set(bets.keys()))) {
+        findTarget = true
+        this.#pots.set(players, amount + totalAmount)
+      }
     })
+    if (!findTarget) {
+      this.#pots.set(new Set(bets.keys()), totalAmount)
+    }
+
     bets.forEach((value, key) => {
       bets.set(key, value - minBetAmount)
     })

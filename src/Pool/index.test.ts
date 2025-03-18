@@ -1,5 +1,7 @@
 import Pool from '.'
+import Room from '@/Room'
 import Dealer from '@/Dealer'
+import { sum } from '@/utils'
 import { Player } from '@/Player'
 import Controller from '@/Controller'
 
@@ -58,12 +60,10 @@ describe('class pool', () => {
 
     pool.calculateStage('pre-flop')
     expect(pool.getMainPool()).toEqual(4000)
-    expect(pool.getPots().length).toEqual(2)
-    expect(pool.getPots()[0].amount).toEqual(3000)
-    expect(pool.getPots()[0].players).toEqual(new Set([p2, p3, p4]))
+    expect(pool.getPots().size).toEqual(2)
+    expect(pool.getSpecificPot(new Set([p2, p3, p4]))).toEqual(3000)
 
-    expect(pool.getPots()[1].amount).toEqual(4000)
-    expect(pool.getPots()[1].players).toEqual(new Set([p3, p4]))
+    expect(pool.getSpecificPot(new Set([p3, p4]))).toEqual(4000)
   })
 
   test('function settle', () => {
@@ -75,6 +75,7 @@ describe('class pool', () => {
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller
     })
+    const room = new Room(p1, dealer)
 
     const p2 = new Player({
       user: { id: 2, balance: 10000 },
@@ -91,6 +92,13 @@ describe('class pool', () => {
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller
     })
+    room.addPlayer(p1)
+    room.addPlayer(p2)
+    room.addPlayer(p3)
+    room.addPlayer(p4)
+
+    room.startGame()
+    room.settle()
     pool.add(p1, 1000, 'pre-flop')
     pool.add(p2, 2000, 'pre-flop')
     pool.add(p3, 4000, 'pre-flop')
@@ -101,8 +109,7 @@ describe('class pool', () => {
     pool.add(p3, 2000, 'flop')
     pool.add(p4, 2000, 'flop')
 
-    const { mainPool, sidePool } = pool.settle()
-    expect(mainPool).toEqual(8000)
-    expect(sidePool).toEqual(10_000)
+    const result = pool.settle()
+    expect(result.values().reduce(sum, 0)).toEqual(18_000)
   })
 })

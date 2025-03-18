@@ -1,5 +1,6 @@
 import { equals } from 'ramda'
 
+import { Player } from '@/Player'
 import {
   Poke,
   Rank,
@@ -100,11 +101,14 @@ export const compareFn = (a: Poke[], b: Poke[]) => {
     getHandPresentation(a),
     getHandPresentation(b)
   ]
-  const [typeA, typeB] = [presentationA[0], presentationB[0]]
+  return comparePresentation(presentationA, presentationB)
+}
+export const comparePresentation = (p1: string, p2: string) => {
+  const [typeA, typeB] = [p1[0], p2[0]]
 
   // 最高牌型相同
   if (typeA === typeB) {
-    return compareFnOfSameType(presentationA, presentationB)
+    return compareFnOfSameType(p1, p2)
   }
 
   // 不同类型直接比较
@@ -191,7 +195,7 @@ export function getHandPresentation(input: Poke[]) {
  * @param commonPokes
  * @returns
  */
-export function getBestHand(pokes: Poke[], commonPokes: Poke[]) {
+export function getBestHand(pokes: Poke[], commonPokes: Poke[]): Poke[] {
   const [maxOne] = getCombinations(pokes.concat(commonPokes)).sort(compareFn)
 
   return maxOne
@@ -225,4 +229,17 @@ export const formatter = (input: Poke[]) => {
   return input
     .map((item) => `${suitsMap.get(item[0] as Suit)}${item[1]}`)
     .join(',')
+}
+
+/**
+ * @description 根据玩家presentation, 计算出赢家
+ */
+export const getWinner = (players: Player[]) => {
+  if (players.some((p) => !p.getPresentation()))
+    throw new Error('未计算玩家手牌大小,无法比较')
+
+  const [max] = [...players].sort((a, b) =>
+    comparePresentation(a.getPresentation()!, b.getPresentation()!)
+  )
+  return players.filter((p) => p.getPresentation() === max.getPresentation())
 }
