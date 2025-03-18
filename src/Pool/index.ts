@@ -33,7 +33,7 @@ class Pool {
     const target = this.#betRecords.get(stage)
     if (!target) {
       this.#betRecords.set(stage, new Map([[player, amount]]))
-    } else target.set(player, target.get(player) || 0 + amount)
+    } else target.set(player, (target.get(player) || 0) + amount)
   }
   /**
    * @description 重置下注信息
