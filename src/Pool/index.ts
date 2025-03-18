@@ -7,13 +7,23 @@ import { formatter, getWinner } from '@/Deck/core'
 
 // 提供奖池结算的能力
 class Pool {
+  // 这场游戏总下注额度
   #totalAmount = 0
+  // 主池
   #mainPool = 0
+  // 存储边池信息
   #pots: Map<Set<Player>, number> = new Map()
+  // 参与下注的玩家
   #players: Set<Player> = new Set()
   // 存储下注记录
   #betRecords: Map<Stage, Map<Player, number>> = new Map()
 
+  /**
+   * @description 玩家在特定的阶段下注时, 记录下注信息
+   * @param player
+   * @param amount
+   * @param stage
+   */
   add(player: Player, amount: number, stage: Exclude<Stage, 'showdown'>) {
     if (amount <= 0 || player.getBalance() < amount)
       throw new Error('下注金额异常')
@@ -25,6 +35,9 @@ class Pool {
       this.#betRecords.set(stage, new Map([[player, amount]]))
     } else target.set(player, target.get(player) || 0 + amount)
   }
+  /**
+   * @description 重置下注信息
+   */
   reset() {
     this.#pots = new Map()
     this.#mainPool = 0
@@ -32,15 +45,16 @@ class Pool {
     this.#players = new Set()
     this.#betRecords = new Map()
   }
-  getBetHistory() {
+  get betRecords() {
     return this.#betRecords
   }
-  getMainPool() {
+  get mainPool() {
     return this.#mainPool
   }
-  getPots() {
+  get pots() {
     return this.#pots
   }
+
   getSpecificPot(key: Set<Player>) {
     let result = 0
 
@@ -128,10 +142,6 @@ class Pool {
     })
     return filtered
   }
-  /**
-   * @description 边池的合并
-   */
-  combineSameSidePots() {}
 
   /**
    * @description 根据各个阶段的下注情况, 计算主池 + 边池

@@ -24,8 +24,8 @@ describe('class pool', () => {
     pool.add(p1, 1000, 'pre-flop')
     pool.add(p2, 2000, 'pre-flop')
 
-    expect(pool.getBetHistory().get('pre-flop')?.get(p1)).toEqual(1000)
-    expect(pool.getBetHistory().get('pre-flop')?.get(p2)).toEqual(2000)
+    expect(pool.betRecords.get('pre-flop')?.get(p1)).toEqual(1000)
+    expect(pool.betRecords.get('pre-flop')?.get(p2)).toEqual(2000)
   })
 
   test('function calculateStage', () => {
@@ -59,8 +59,8 @@ describe('class pool', () => {
     pool.add(p4, 4000, 'pre-flop')
 
     pool.calculateStage('pre-flop')
-    expect(pool.getMainPool()).toEqual(4000)
-    expect(pool.getPots().size).toEqual(2)
+    expect(pool.mainPool).toEqual(4000)
+    expect(pool.pots.size).toEqual(2)
     expect(pool.getSpecificPot(new Set([p2, p3, p4]))).toEqual(3000)
 
     expect(pool.getSpecificPot(new Set([p3, p4]))).toEqual(4000)
