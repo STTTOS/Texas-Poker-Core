@@ -1,11 +1,11 @@
 {
   "name": "texas-poker-core",
-  "version": "1.0.4",
+  "version": "1.0.11",
   "description": "德州扑克核心功能",
   "main": "dist/index.js",
   "types": "types/index.d.ts",
   "scripts": {
-    "test": "cross-env PROJECT_ENV=dev jest",
+    "test": "cross-env PROJECT_ENV=dev jest --silent",
     "prettier": "prettier --write \"**/*.{js,ts}\"",
     "prepare": "husky",
     "commitlint": "commitlint --edit",
@@ -14,7 +14,8 @@
     "prepublishOnly": "tsc --noEmit && pnpm run test",
     "build:types": "tsc && tsc-alias",
     "build:core": "babel src --out-dir dist --extensions \".ts\"",
-    "build": "cross-env PROJECT_ENV=prd pnpm run build:types && pnpm run build:core"
+    "build": "cross-env PROJECT_ENV=prd pnpm run build:types && pnpm run build:core",
+    "push": "ts-node ./publish"
   },
   "files": [
     "dist/**/*",
