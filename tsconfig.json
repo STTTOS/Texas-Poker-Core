@@ -12,10 +12,10 @@
     "noImplicitAny": false,
     "module": "commonJS",
     "skipLibCheck": true,
-    "emitDeclarationOnly": true,
     "declaration": true,
-    "removeComments": true,
+    "removeComments": false,
     "esModuleInterop": true,
+    "resolveJsonModule": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true
   },
