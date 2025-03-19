@@ -24,7 +24,7 @@ class Pool {
    * @param amount
    * @param stage
    */
-  add(player: Player, amount: number, stage) {
+  add(player: Player, amount: number, stage: Stage) {
     if (amount <= 0 || player.getBalance() < amount)
       throw new Error('下注金额异常')
 

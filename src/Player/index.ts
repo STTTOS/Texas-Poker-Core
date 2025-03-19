@@ -450,7 +450,7 @@ export class Player {
   setHandPokes(pokes: Poke[]) {
     this.#handPokes = pokes
   }
-  getHandPokes() {
+  getHandPokes(): Poke[] {
     return this.#handPokes
   }
 
@@ -473,6 +473,7 @@ export class Player {
     }
   }
 
+  onStatusChange() {}
   transferControl() {
     this.clearTimer()
 
