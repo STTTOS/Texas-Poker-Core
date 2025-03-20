@@ -15,12 +15,18 @@ export const ranks = [
   'a'
 ] as const
 
+// 花色
 export type Suit = (typeof suits)[number]
+// 大小
 export type Rank = (typeof ranks)[number]
+// 扑克牌的存储 比如h2, h8
+export type Poke = `${Suit}${Rank}`
+
 /**
  * 2 + 5 一共7张牌的组合
  */
 export type HandPoke = Poke[]
+/**牌型枚举 */
 export type handPokeType =
   /*
    * 皇家同花顺
@@ -72,6 +78,7 @@ export const suitsMap = new Map<Suit, string>([
   ['d', '♦️'],
   ['c', '♣']
 ])
+// 牌型枚举中文映射
 export const handPokeMap = new Map<handPokeType, string>([
   ['z', '皇家同花顺'],
   ['y', '同花顺'],
@@ -95,7 +102,6 @@ export const rankMap = (input: Rank) => {
 
   return Number(input)
 }
-export type Poke = `${Suit}${Rank}`
 
 export const comboIndices = [
   [0, 1, 2, 3, 4],

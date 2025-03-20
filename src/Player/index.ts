@@ -24,9 +24,9 @@ interface ActionWithPayload {
     [key: string]: any
   }
 }
-type Action = ActionWithOutPayload | ActionWithPayload
+export type Action = ActionWithOutPayload | ActionWithPayload
 // 玩家回合时采取的行动
-type ActionType =
+export type ActionType =
   // 过牌
   | 'check'
   // 弃牌
@@ -42,7 +42,18 @@ type ActionType =
 
 export interface User {
   id: number
+  /**
+   * 账户余额
+   */
   balance: number
+  /**
+   * 昵称
+   */
+  name?: string
+  /**
+   * 用户头像
+   */
+  avatar?: string
 }
 
 export type Role =
@@ -507,6 +518,7 @@ export class Player {
     this.continue()
   }
 }
+export default Player
 // 庄家
 // const p1 = new Player(200, "button", { id: 1, balance: 20000 }, null);
 // const p2 = new Player(200, "small-blind", { id: 2, balance: 30000 }, p1);

@@ -59,6 +59,7 @@ class Dealer {
       this.map((player) => player.toString()).join('\n')
     )
   }
+
   setRoleToPlayers() {
     this.setButton()
     // if (process.env.PROJECT_ENV !== 'dev')
