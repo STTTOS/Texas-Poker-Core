@@ -51,10 +51,12 @@ if (args.length === 0) {
   process.exit(1)
 }
 const newVersion = replaceVersion((version) => updateVersion(version, 'up'))
-const child = spawn('npm', ['publish'], { stdio: 'ignore' })
 const message = args[0]
 const readme = readFileSync('./README.md').toString()
-writeFileSync('./README.md', readme + `\n## ${newVersion}\n${message}`)
+const appendText = `\n## ${newVersion}\n${message}`
+writeFileSync('./README.md', readme + appendText)
+
+const child = spawn('npm', ['publish'], { stdio: 'ignore' })
 
 child.on('error', (error) => {
   replaceVersion((version) => updateVersion(version, 'down'))
@@ -66,6 +68,8 @@ child.on('exit', (code) => {
     console.log(`包成功发布，version: ${oldVersion} => ${newVersion}`)
   } else {
     replaceVersion((version) => updateVersion(version, 'down'))
+    const readme = readFileSync('./README.md').toString()
+    writeFileSync('./README.md', readme.replace(appendText, ''))
     console.error('命令执行异常')
   }
 })
