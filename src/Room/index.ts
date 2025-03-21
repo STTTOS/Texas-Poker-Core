@@ -128,6 +128,11 @@ class Room {
     return this.#players.get(player)
   }
 
+  has(userId: number) {
+    return Array.from(this.#players.keys())
+      .map((player) => player.getUserInfo().id)
+      .includes(userId)
+  }
   setStatus(status: RoomStatus) {
     this.#status = status
   }

@@ -106,4 +106,17 @@ describe('Room', () => {
     expect(room.getPlayersInRoomCount()).toEqual(2)
     expect(room.getPlayer(p2)).toEqual('on-set')
   })
+  test('test function has', () => {
+    const dealer = new Dealer(200)
+    const controller = new Controller(dealer)
+    const player = new Player({
+      user: { id: 1, balance: 500 },
+      lowestBetAmount: dealer.getLowestBetAmount(),
+      controller
+    })
+    const room = new Room(dealer)
+    room.addPlayer(player)
+
+    expect(room.has(player.getUserInfo().id)).toEqual(true)
+  })
 })

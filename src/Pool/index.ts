@@ -85,7 +85,7 @@ class Pool {
     const bills = this.settle()
 
     // 如果剩奖池不够支付所有玩家, 说明游戏的计算出现异常, 需要中止这场比赛,并作废
-    if (bills.values().reduce(sum, 0) > this.#totalAmount) {
+    if (Array.from(bills.values()).reduce(sum, 0) > this.#totalAmount) {
       // TODO: 需要给所有玩家提示游戏发生异常, 此局作废
       throw new Error('支付发生错误,游戏中止')
     }
@@ -162,10 +162,8 @@ class Pool {
 
     // 所有玩家都有下注, 将其中的部分金额计算入主池
     if (
-      records
-        .values()
-        .filter((value) => value !== 0)
-        .toArray().length === countOfPlayers
+      Array.from(records.values()).filter((value) => value !== 0).length ===
+      countOfPlayers
     ) {
       const minBetAmount = Math.min(...records.values())
       this.#mainPool += minBetAmount * countOfPlayers
@@ -182,7 +180,11 @@ class Pool {
    * @description 计算边池
    */
   calculateSidePot(bets: Map<Player, number>) {
-    if (bets.size === 0 || bets.values().every((amount) => amount === 0)) return
+    if (
+      bets.size === 0 ||
+      Array.from(bets.values()).every((amount) => amount === 0)
+    )
+      return
 
     const minBetAmount = Math.min(...bets.values())
 

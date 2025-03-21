@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext", "DOM"],
+    "lib": ["ES2024", "DOM"],
     "strict": true,
     "sourceMap": true,
     "outDir": "./types",

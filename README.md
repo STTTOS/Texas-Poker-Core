@@ -43,3 +43,7 @@ readme 中增加 api 文档地址
 ## 1.0.18
 
 增加 User 类型字段
+
+## 1.0.19
+
+class Room 增加 function
