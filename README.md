@@ -47,3 +47,63 @@ readme 中增加 api 文档地址
 ## 1.0.19
 
 class Room 增加 function
+
+## 1.0.21
+
+room 增加方法 getPlayerById
+
+## 1.0.22
+
+class room 修改方法 getPlayerById 的返回值类型
+
+## 1.0.23
+
+完善 room api
+
+## 1.0.24
+
+test
+
+## 1.0.25
+
+test again
+
+## 1.0.26
+
+somthing went wrong
+
+## 1.0.30
+
+...
+
+## 1.0.31
+
+修复重复加入房间的问题
+
+## 1.0.32
+
+...
+
+## 1.0.33
+
+fix
+
+## 1.0.34
+
+修复 getUserInfo
+
+## 1.0.39
+
+调整 Room 的部分 api
+
+## 1.0.40
+
+add room => getPlayersBySeatStatus
+
+## 1.0.41
+
+add room => change the return type of getPlayersBySeatStatus to array
+
+## 1.0.42
+
+增加 log 信息

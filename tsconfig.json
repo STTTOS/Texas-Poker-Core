@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["ES2024", "DOM"],
+    "lib": ["ES2022", "DOM"],
     "strict": true,
     "sourceMap": true,
     "outDir": "./types",
@@ -14,11 +14,12 @@
     "skipLibCheck": true,
     "declaration": true,
     "removeComments": false,
+    "emitDeclarationOnly": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true
   },
-  "exclude": ["node_modules", "**/*.test.ts"],
+  "exclude": ["node_modules"],
   "include": ["src", "global.env.d.ts"]
 }

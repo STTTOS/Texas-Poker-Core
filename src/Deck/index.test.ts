@@ -62,7 +62,8 @@ describe('deck', () => {
         new Player({
           user: { id: 1, balance: 500 },
           lowestBetAmount: dealer.getLowestBetAmount(),
-          controller
+          controller,
+          dealer
         })
       )
       dealer.start()

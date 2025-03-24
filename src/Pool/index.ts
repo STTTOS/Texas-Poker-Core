@@ -9,8 +9,6 @@ import { formatter, getWinner } from '@/Deck/core'
 class Pool {
   // 这场游戏总下注额度
   #totalAmount = 0
-  // 主池
-  #mainPool = 0
   // 存储边池信息
   #pots: Map<Set<Player>, number> = new Map()
   // 参与下注的玩家
@@ -25,8 +23,7 @@ class Pool {
    * @param stage
    */
   add(player: Player, amount: number, stage: Stage) {
-    if (amount <= 0 || player.getBalance() < amount)
-      throw new Error('下注金额异常')
+    if (amount < 0) throw new Error('下注金额异常')
 
     this.#totalAmount += amount
     this.#players.add(player)
@@ -40,7 +37,6 @@ class Pool {
    */
   reset() {
     this.#pots = new Map()
-    this.#mainPool = 0
     this.#totalAmount = 0
     this.#players = new Set()
     this.#betRecords = new Map()
@@ -48,9 +44,7 @@ class Pool {
   get betRecords() {
     return this.#betRecords
   }
-  get mainPool() {
-    return this.#mainPool
-  }
+
   get pots() {
     return this.#pots
   }
@@ -85,7 +79,7 @@ class Pool {
     const bills = this.settle()
 
     // 如果剩奖池不够支付所有玩家, 说明游戏的计算出现异常, 需要中止这场比赛,并作废
-    if (Array.from(bills.values()).reduce(sum, 0) > this.#totalAmount) {
+    if (Array.from(bills.values()).reduce(sum, 0) !== this.#totalAmount) {
       // TODO: 需要给所有玩家提示游戏发生异常, 此局作废
       throw new Error('支付发生错误,游戏中止')
     }
@@ -108,25 +102,23 @@ class Pool {
     console.log('玩家牌力大小:')
     this.#players.forEach((player) => {
       console.log(
-        player.getUserInfo().id,
+        player.getUserInfo().name,
         player.getPresentation(),
         formatter(player.getHandPokes())
       )
     })
-    console.log('主池:', this.#mainPool)
-    console.log(Array.from(this.#players).map((p) => p.getUserInfo().id))
-    console.log('边池:')
-    this.#pots.forEach((amount, players) => {
-      console.log(amount)
-      console.log(Array.from(players).map((p) => p.getUserInfo().id))
-    })
+    console.log('奖池:')
+    console.log(
+      Array.from(this.#pots.entries()).map(
+        ([players, amount]) =>
+          `(${Array.from(players)
+            .map((player) => player.getUserInfo().name)
+            .join(',')})` + amount
+      )
+    )
 
     // 记录需要给每个玩家支付多少Money
     const result: Map<Player, number> = new Map()
-    this.#distribute(Array.from(this.#players), this.#mainPool, (p, amount) =>
-      result.set(p, (result.get(p) || 0) + amount)
-    )
-
     this.#pots.forEach((total, players) => {
       this.#distribute(Array.from(players), total, (player, amount) =>
         result.set(player, (result.get(player) || 0) + amount)
@@ -134,11 +126,6 @@ class Pool {
     })
 
     const filtered = filterMap((value) => value !== 0, result)
-    // console.log('奖池分配情况:')
-    // filtered.forEach((amount, winner) => {
-    //   console.log('amount:', amount)
-    //   winner.log()
-    // })
     return filtered
   }
 
@@ -155,24 +142,24 @@ class Pool {
    * @description 计算单个阶段的奖池分配情况
    */
   calculateStage(stage: Stage) {
-    const countOfPlayers = this.#players.size
+    // const countOfPlayers = this.#players.size
     const records = this.#betRecords.get(stage)
 
     if (!records || records.size === 0) return
 
     // 所有玩家都有下注, 将其中的部分金额计算入主池
-    if (
-      Array.from(records.values()).filter((value) => value !== 0).length ===
-      countOfPlayers
-    ) {
-      const minBetAmount = Math.min(...records.values())
-      this.#mainPool += minBetAmount * countOfPlayers
+    // if (
+    //   Array.from(records.values()).filter((value) => value !== 0).length ===
+    //   countOfPlayers
+    // ) {
+    //   const minBetAmount = Math.min(...records.values())
+    //   this.#mainPool += minBetAmount * countOfPlayers
 
-      records.forEach((value, key) => {
-        const result = value - minBetAmount
-        records.set(key, result)
-      })
-    }
+    //   records.forEach((value, key) => {
+    //     const result = value - minBetAmount
+    //     records.set(key, result)
+    //   })
+    // }
     this.calculateSidePot(filterMap((value) => value !== 0, records))
   }
 

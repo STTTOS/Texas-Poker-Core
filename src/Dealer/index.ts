@@ -28,6 +28,9 @@ class Dealer {
     this.#deck = new Deck()
   }
 
+  get count() {
+    return this.#count
+  }
   /**
    * 开始游戏
    */
@@ -36,6 +39,9 @@ class Dealer {
     this.dealCards()
   }
 
+  get button() {
+    return this.#button
+  }
   dealCards() {
     const { handPokes } = this.#deck.dealCards(this.getPlayersCount())
     this.loop((player, i) => {
@@ -50,6 +56,19 @@ class Dealer {
     return this.#head
   }
 
+  getPreviousPlayers(callback: (p: Player) => boolean, from: Player) {
+    const result: Player[] = []
+    let count = this.#count
+    let current: Player | null = from.getLastPlayer()
+
+    while (current && count) {
+      if (callback(current)) result.push(current)
+
+      current = current.getLastPlayer()
+      count--
+    }
+    return result
+  }
   getLowestBetAmount() {
     return this.#lowestBetAmount
   }
@@ -267,6 +286,17 @@ class Dealer {
     })
     return result
   }
+
+  every(callback: (p: Player, i: number) => boolean): boolean {
+    let result: boolean
+    this.forEach((player, i) => {
+      const value = callback(player, i)
+      if (!result) result = value
+      else result = result && value
+    })
+    return result!
+  }
+
   /**
    * @description 重置每个玩家当前阶段的下注额
    */
@@ -284,6 +314,20 @@ class Dealer {
    */
   reset() {
     this.forEach((player) => player.reset())
+  }
+
+  // 反向遍历
+  findReverse(callback: (p: Player) => boolean, from: Player | null) {
+    let count = this.#count
+    let current: Player | null = from
+
+    while (current && count) {
+      if (callback(current)) return current
+
+      current = current.getLastPlayer()
+      count--
+    }
+    return null
   }
 
   filter(callback: (p: Player, i: number) => boolean): Player[] {
@@ -333,6 +377,15 @@ class Dealer {
    */
   getTheFirstPlayerToAct(): Player | null {
     let player: Player | null = null
+
+    // 翻牌前从大盲的下一位开始行动
+    // 翻牌后从庄家的下一位开始行动
+    // const start =
+    //   stage === 'pre-flop'
+    //     ? this.find(
+    //         (player) => player.getRole() === 'big-blind'
+    //       )?.getNextPlayer()
+    //     : this.#button?.getNextPlayer()
 
     this.loop((p) => {
       if (!player && p.getStatus() === 'waiting') player = p

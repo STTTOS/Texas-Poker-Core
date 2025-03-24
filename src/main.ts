@@ -5,6 +5,7 @@ import Pool from './Pool'
 import Dealer from './Dealer'
 import Controller from './Controller'
 import { User, Player } from './Player'
+import { ActionType } from './Player/index'
 
 // 在表单中填入一些基本的信息
 // 比如大盲注
@@ -14,16 +15,26 @@ interface CreateRoomInputArgs {
   lowestBetAmount: number
   maximumCountOfPlayers: number
   allowPlayersToWatch: boolean
+  // 需要传入用户信息, 在创建房间时同时指定房主
+  user: User
 }
 const initialGame = ({
   lowestBetAmount,
   maximumCountOfPlayers,
-  allowPlayersToWatch
+  allowPlayersToWatch,
+  user
 }: CreateRoomInputArgs) => {
   const dealer = new Dealer(lowestBetAmount)
   const controller = new Controller(dealer)
   const pool = new Pool()
-  const room = new Room(dealer, allowPlayersToWatch, maximumCountOfPlayers)
+  const owner = new Player({ user, lowestBetAmount, controller, dealer, pool })
+  const room = new Room(
+    dealer,
+    owner,
+    allowPlayersToWatch,
+    maximumCountOfPlayers
+  )
+  let _callback: () => void = () => void 0
 
   return {
     room,
@@ -34,12 +45,25 @@ const initialGame = ({
       return new Player({
         user: userInfo,
         lowestBetAmount: dealer.getLowestBetAmount(),
-        controller
+        controller,
+        dealer,
+        pool
       })
     },
     start() {
       room.startGame()
       controller.start()
+      controller.onEnd(() => {
+        this.settle()
+        _callback()
+      })
+    },
+    takeAction(player: Player, action: ActionType, amount = 0) {
+      player[action](amount)
+      pool.add(player, amount, controller.stage)
+    },
+    onEnd(callback: () => void) {
+      _callback = callback
     },
     async settle() {
       // 先结束游戏

@@ -13,13 +13,15 @@ describe('class pool', () => {
     const p1 = new Player({
       user: { id: 1, balance: 5000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
 
     const p2 = new Player({
       user: { id: 1, balance: 5000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
     pool.add(p1, 1000, 'pre-flop')
     pool.add(p2, 2000, 'pre-flop')
@@ -35,23 +37,27 @@ describe('class pool', () => {
     const p1 = new Player({
       user: { id: 1, balance: 5000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
 
     const p2 = new Player({
       user: { id: 2, balance: 10000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
     const p3 = new Player({
       user: { id: 3, balance: 5000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
     const p4 = new Player({
       user: { id: 4, balance: 4000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
     pool.add(p1, 1000, 'pre-flop')
     pool.add(p2, 2000, 'pre-flop')
@@ -59,8 +65,8 @@ describe('class pool', () => {
     pool.add(p4, 4000, 'pre-flop')
 
     pool.calculateStage('pre-flop')
-    expect(pool.mainPool).toEqual(4000)
-    expect(pool.pots.size).toEqual(2)
+    expect(pool.pots.size).toEqual(3)
+    expect(pool.getSpecificPot(new Set([p1, p2, p3, p4]))).toEqual(4000)
     expect(pool.getSpecificPot(new Set([p2, p3, p4]))).toEqual(3000)
 
     expect(pool.getSpecificPot(new Set([p3, p4]))).toEqual(4000)
@@ -73,30 +79,31 @@ describe('class pool', () => {
     const p1 = new Player({
       user: { id: 1, balance: 5000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
-    const room = new Room(dealer)
-    room.addPlayer(p1)
-
+    const room = new Room(dealer, p1)
     const p2 = new Player({
       user: { id: 2, balance: 10000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
     const p3 = new Player({
       user: { id: 3, balance: 5000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
     const p4 = new Player({
       user: { id: 4, balance: 4000 },
       lowestBetAmount: dealer.getLowestBetAmount(),
-      controller
+      controller,
+      dealer
     })
-    room.addPlayer(p1)
-    room.addPlayer(p2)
-    room.addPlayer(p3)
-    room.addPlayer(p4)
+    room.join(p2)
+    room.join(p3)
+    room.join(p4)
 
     room.startGame()
     room.settle()
@@ -111,7 +118,7 @@ describe('class pool', () => {
     pool.add(p4, 2000, 'flop')
 
     const result = pool.settle()
-    expect(result.values().reduce(sum, 0)).toEqual(18_000)
+    expect(Array.from(result.values()).reduce(sum, 0)).toEqual(18_000)
     expect(pool.totalAmount).toEqual(18_000)
   })
 })

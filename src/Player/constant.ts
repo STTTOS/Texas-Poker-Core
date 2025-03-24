@@ -33,7 +33,7 @@ export const actionMap = new Map<ActionType, string>([
   ['check', '过牌'],
   ['fold', '弃牌'],
   ['raise', '加注'],
-  ['all-in', '全押'],
+  ['allIn', '全押'],
   ['bet', '下注']
 ])
 export const roleMap = new Map<Role, string>([

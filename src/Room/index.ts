@@ -1,44 +1,96 @@
+import { omit } from 'ramda'
+
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
 
-type RoomStatus = 'on' | 'waiting'
+export type RoomStatus = 'on' | 'waiting'
+export type PlayerSeatStatus = 'hang' | 'on-set'
 // 房间
 class Room {
+  /**
+   * 房间为 公开 / 私密; 如果是私密房间, 只可以受邀进入
+   */
+  #private = false
+  /**
+   * 房间秘钥, 仅匹配后(通过分享)才可加入
+   */
+  #privateKey?: string
+  /**
+   * 房间的创建者
+   */
+  #owner: Player
   #status: RoomStatus = 'waiting'
   #dealer: Dealer
   #lowestBetAmount: number
   // 是否允许观战
   #allowPlayersToWatch: boolean
-  // TODO: 从常量里取
   #maximumCountOfPlayers: number
-  #players: Map<Player, 'hang' | 'on-set'> = new Map()
+  // #players: Map<Player, PlayerSeatStatus> = new Map()
+  #playersOnSet: Set<Player> = new Set()
+  #playersHang: Set<Player> = new Set()
+  // 存储于id => Player的实例
+  #idToPlayerMap: Map<number, Player> = new Map()
 
   constructor(
     dealer: Dealer,
+    player: Player,
     allowPlayersToWatch = true,
     maximumCountOfPlayers = 10
   ) {
+    this.#owner = player
     this.#dealer = dealer
     this.#allowPlayersToWatch = allowPlayersToWatch
     this.#maximumCountOfPlayers = maximumCountOfPlayers
 
     const lowestBetAmount = dealer.getLowestBetAmount()
     this.#lowestBetAmount = lowestBetAmount
+    this.join(player)
   }
 
   ready() {
-    if (this.getPlayersOnSet() < 2)
+    if (this.playersCountOnSeat < 2)
       throw new Error('玩家数量小于2, 无法开始游戏')
 
     this.#dealer.start()
     this.#status = 'on'
   }
 
+  setOwner(player?: Player) {
+    if (!player) throw new Error('房主不可为Null')
+
+    this.#owner = player
+  }
+
+  get owner() {
+    return this.#owner
+  }
+
+  /**
+   * 获取房间的基本信息
+   */
+  getBaseInfo() {
+    return {
+      status: this.#status,
+      private: this.#private,
+      totalCount: this.#players.size,
+      hangCount: this.playersCountHang,
+      lowestBetAmount: this.#lowestBetAmount,
+      onSeatCount: this.playersCountOnSeat,
+      allowPlayersToWatch: this.#allowPlayersToWatch,
+      maximumCountOfPlayers: this.#maximumCountOfPlayers,
+      owner: omit(['balance'], this.#owner.getUserInfo())
+    }
+  }
+
+  getAllPlayers() {
+    return Array.from(this.#players.values())
+  }
+
   /**
    * 将所有入座的玩家初始化
    */
   startGame() {
-    if (this.getPlayersOnSet() < 2)
+    if (this.playersCountOnSeat < 2)
       throw new Error('玩家数量小于2, 无法开始游戏')
 
     this.#dealer.start()
@@ -50,105 +102,173 @@ class Room {
     this.#dealer.settle()
   }
 
-  nextGame() {
-    if (this.getPlayersOnSet() < 2)
-      throw new Error('玩家数量小于2, 无法开始游戏')
-
-    this.#dealer.start()
-    this.#status = 'on'
-    // this.#dealer.settle()
+  get #players() {
+    return new Set([...this.#playersOnSet, ...this.#playersHang])
   }
 
+  get totalPlayersCount() {
+    return this.playersCountHang + this.playersCountOnSeat
+  }
+  get playersCountOnSeat() {
+    return this.#playersOnSet.size
+  }
+  get playersCountHang() {
+    return this.#playersHang.size
+  }
+
+  getPlayersBySeatStatus(status: PlayerSeatStatus) {
+    return Array.from(
+      status === 'on-set' ? this.#playersOnSet : this.#playersHang
+    )
+  }
+  /**
+   * @description 根据id返回player实例 以及 用户是否在桌上/观战席
+   * @param userId
+   * @returns
+   */
+  getPlayerById(userId: number) {
+    const player = this.#idToPlayerMap.get(userId)
+    if (!player) return null
+
+    const seatStatus = this.#playersOnSet.has(player) ? 'on-set' : 'hang'
+    return {
+      seatStatus,
+      player
+    }
+  }
   getDealer() {
     return this.#dealer
   }
-  getLowestBeAmount() {
+  get lowestBetAmount() {
     return this.#lowestBetAmount
   }
 
-  getPlayersOnSet() {
-    return Array.from(this.#players.values()).filter(
-      (item) => item === 'on-set'
-    ).length
+  joinMany(...players: Player[]) {
+    players.forEach((player) => this.join(player))
   }
-  getPlayersCount() {
-    return this.#players.size
-  }
+  /**
+   * @description 玩家加入房间, 如果位置还够, 会自动入座
+   * @param player
+   * @returns
+   */
+  join(player: Player, key?: string) {
+    if (this.#idToPlayerMap.has(player.getUserInfo().id))
+      throw new Error('您已经在房间中,不可重复加入')
 
-  getPlayersInRoomCount() {
-    return this.#players.size
-  }
+    if (this.#private && this.#privateKey !== key)
+      throw new Error('私密房间不可加入')
 
-  addPlayers(...players: Player[]) {
-    players.forEach((player) => this.addPlayer(player))
-  }
-  addPlayer(player: Player) {
-    if (this.#players.has(player)) return false
+    if (
+      !this.#allowPlayersToWatch &&
+      this.playersCountOnSeat === this.#maximumCountOfPlayers
+    )
+      throw new Error('房间设置了不可观战,并且玩家已满,不可加入')
 
-    if (this.#lowestBetAmount !== player.getLowestBetAmount())
-      throw new Error('最小下注金额异常, 无法加入对局')
+    if (
+      !this.#allowPlayersToWatch &&
+      player.getLowestBetAmount() < this.#lowestBetAmount
+    )
+      throw new Error(
+        '房间设置了不可观战, 并且您的余额小于房间的最底下注,无法加入'
+      )
 
-    if (this.#status === 'on') {
-      this.#players.set(player, 'hang')
-      return false
+    const seatStatus: PlayerSeatStatus =
+      this.playersCountOnSeat === this.#maximumCountOfPlayers
+        ? 'hang'
+        : 'on-set'
+
+    if (seatStatus === 'hang') {
+      this.#playersHang.add(player)
+    } else {
+      this.#dealer.join(player)
+      this.#playersOnSet.add(player)
     }
-    // waiting
-    if (this.getPlayersOnSet() === this.#maximumCountOfPlayers) {
-      this.#players.set(player, 'hang')
-      return false
-    }
+    this.#idToPlayerMap.set(player.getUserInfo().id, player)
+  }
 
-    this.#players.set(player, 'on-set')
-    this.#dealer.join(player)
-    return true
+  getPlayerSeatStatus(player: Player) {
+    if (this.#playersOnSet.has(player)) return 'on-set'
+    return 'hang'
   }
   /**
    * @description 将观战席的玩家入座
    */
-  seat(player: Player) {
-    if (!this.#players.has(player)) return false
+  seat(player?: Player) {
+    if (!player || !this.#idToPlayerMap.has(player.getUserInfo().id))
+      throw new Error('您不在房间中,无法入座')
 
-    if (this.getPlayersOnSet() === this.#maximumCountOfPlayers)
-      throw new Error('位置已满,无法加入')
+    if (this.getPlayerSeatStatus(player) === 'on-set')
+      throw new Error('您已在坐席中,请勿重复操作')
 
-    this.#players.set(player, 'on-set')
+    if (this.playersCountOnSeat === this.#maximumCountOfPlayers)
+      throw new Error('位置已满,无法加入坐席')
+
+    this.#playersOnSet.add(player)
     this.#dealer.join(player)
-    return true
   }
 
-  watch(player: Player) {
-    if (!this.#players.has(player)) return false
+  seatById(userId: number) {
+    const player = this.#idToPlayerMap.get(userId)
+    this.seat(player)
+  }
 
-    this.#players.set(player, 'hang')
+  watch(player?: Player) {
+    if (!player || !this.#idToPlayerMap.has(player.getUserInfo().id))
+      throw new Error('您不在房间中,无法观战')
+
+    if (this.getPlayerSeatStatus(player) === 'hang')
+      throw new Error('您已再观战席中,请勿重复操作')
+
+    this.#playersHang.add(player)
     this.#dealer.remove(player)
-    return true
   }
 
-  getPlayer(player: Player) {
-    return this.#players.get(player)
-  }
-
-  has(userId: number) {
-    return Array.from(this.#players.keys())
-      .map((player) => player.getUserInfo().id)
-      .includes(userId)
-  }
-  setStatus(status: RoomStatus) {
-    this.#status = status
+  watchById(userId: number) {
+    const player = this.#idToPlayerMap.get(userId)
+    this.watch(player)
   }
 
   /**
-   * @description 玩家离开房间
+   * @description 玩家退出房间
    * @param player
-   * @returns
    */
-  removePlayer(player: Player | null) {
-    if (!player || !this.#players.has(player)) return false
+  remove(player?: Player) {
+    if (!player || !this.#players.has(player))
+      throw new Error('您不在房间中,无法退出')
 
-    this.#dealer.remove(player)
-    this.#players.delete(player)
-    this.checkIfCloseRoom()
-    return true
+    // 在游戏没开始时离开
+    if (this.status === 'waiting') {
+      this.#idToPlayerMap.delete(player.getUserInfo().id)
+      this.#dealer.remove(player)
+      if (this.getPlayerSeatStatus(player) === 'hang') {
+        this.#playersHang.delete(player)
+      } else {
+        this.#playersOnSet.delete(player)
+      }
+
+      const newOwner = player.getNextPlayer()
+      if (!newOwner) throw new Error('发生了意料之外的错误, 导致房间没有房主')
+
+      this.setOwner(newOwner)
+      return
+    }
+    throw new Error('游戏进行中, 不可退出')
+  }
+  removeById(userId: number) {
+    const player = this.#idToPlayerMap.get(userId)
+    this.remove(player)
+  }
+  get status() {
+    return this.#status
+  }
+
+  has(userId: number) {
+    const player = this.#idToPlayerMap.get(userId)
+    return !!player && this.#players.has(player)
+  }
+
+  setStatus(status: RoomStatus) {
+    this.#status = status
   }
 
   /**

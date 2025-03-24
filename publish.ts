@@ -50,26 +50,34 @@ if (args.length === 0) {
   console.error('请描述此次发版的内容, 比如: pnpm run push "更新了一些内容..."')
   process.exit(1)
 }
-const newVersion = replaceVersion((version) => updateVersion(version, 'up'))
-const message = args[0]
-const readme = readFileSync('./README.md').toString()
-const appendText = `\n## ${newVersion}\n${message}`
-writeFileSync('./README.md', readme + appendText)
+// 先构建
+const build = spawn('npm', ['run', 'build'])
 
-const child = spawn('npm', ['publish'], { stdio: 'ignore' })
-
-child.on('error', (error) => {
-  replaceVersion((version) => updateVersion(version, 'down'))
-  console.error(`执行错误: ${error.message}`)
-})
-
-child.on('exit', (code) => {
+build.on('exit', (code) => {
   if (code === 0) {
-    console.log(`包成功发布，version: ${oldVersion} => ${newVersion}`)
-  } else {
-    replaceVersion((version) => updateVersion(version, 'down'))
+    const newVersion = replaceVersion((version) => updateVersion(version, 'up'))
+    const message = args[0]
     const readme = readFileSync('./README.md').toString()
-    writeFileSync('./README.md', readme.replace(appendText, ''))
-    console.error('命令执行异常')
+    const appendText = `\n## ${newVersion}\n${message}`
+    writeFileSync('./README.md', readme + appendText)
+
+    const publish = spawn('npm', ['publish'])
+    publish.on('error', (error) => {
+      replaceVersion((version) => updateVersion(version, 'down'))
+      console.error(`执行错误: ${error.message}`)
+    })
+
+    publish.on('exit', (code) => {
+      if (code === 0) {
+        console.log(`包成功发布，version: ${oldVersion} => ${newVersion}`)
+      } else {
+        replaceVersion((version) => updateVersion(version, 'down'))
+        const readme = readFileSync('./README.md').toString()
+        writeFileSync('./README.md', readme.replace(appendText, ''))
+        console.error('命令执行异常')
+      }
+    })
+  } else {
+    console.error('构建出错')
   }
 })

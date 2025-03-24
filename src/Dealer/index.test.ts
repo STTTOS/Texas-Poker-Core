@@ -11,14 +11,16 @@ describe('dealer', () => {
       new Player({
         user: { id: 2, balance: 40000 },
         lowestBetAmount,
-        controller
+        controller,
+        dealer
       })
     )
     dealer.join(
       new Player({
         user: { id: 3, balance: 40000 },
         lowestBetAmount,
-        controller
+        controller,
+        dealer
       })
     )
     dealer.start()
