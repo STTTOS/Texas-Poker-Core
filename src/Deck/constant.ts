@@ -15,11 +15,18 @@ export const ranks = [
   'a'
 ] as const
 
-// 花色
+/**
+ * h: 红心
+ * s: 黑桃
+ * d: 方块
+ * c: 梅花
+ */
 export type Suit = (typeof suits)[number]
 // 大小
 export type Rank = (typeof ranks)[number]
-// 扑克牌的存储 比如h2, h8
+/**
+ * 扑克牌的存储 比如h2, h8
+ */
 export type Poke = `${Suit}${Rank}`
 
 /**
@@ -69,6 +76,9 @@ export type handPokeType =
    */
   | 'q'
 
+/**
+ * 花色format map
+ */
 export const suitsMap = new Map<Suit, string>([
   /*
    * hearts, spades, Diamonds, Clubs

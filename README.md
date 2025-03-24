@@ -107,3 +107,27 @@ add room => change the return type of getPlayersBySeatStatus to array
 ## 1.0.42
 
 增加 log 信息
+
+## 1.1.1
+
+room.remove
+
+## 1.1.2
+
+main.end
+
+## 1.1.3
+
+人数小于 2 无法开始
+
+## 1.1.4
+
+reset room status
+
+## 1.1.5
+
+type Suit js Doc
+
+## 1.1.6
+
+导出扑克牌花色 type, map

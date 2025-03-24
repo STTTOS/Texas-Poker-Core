@@ -51,6 +51,9 @@ const initialGame = ({
       })
     },
     start() {
+      if (room.status === 'on') throw new Error('游戏正在进行中')
+      if (dealer.count < 2) throw new Error('人数小于2, 无法开始游戏')
+
       room.startGame()
       controller.start()
       controller.onEnd(() => {
@@ -65,6 +68,15 @@ const initialGame = ({
     onEnd(callback: () => void) {
       _callback = callback
     },
+    // 测试阶段方法, 手动结束游戏
+    end() {
+      if (room.status === 'waiting') throw new Error('游戏还未开始')
+
+      controller.end()
+      room.reset()
+      dealer.reset()
+      pool.reset()
+    },
     async settle() {
       // 先结束游戏
       controller.end()
@@ -75,6 +87,8 @@ const initialGame = ({
       pool.reset()
       // 荷官重置各玩家的手牌, 行为, 以及下注金额
       dealer.reset()
+      // 结算完成后, 房间状态重置
+      room.reset()
     }
   }
 }

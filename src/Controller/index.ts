@@ -199,6 +199,7 @@ class Controller {
   end() {
     this.clearTimer()
     this.#stage = 'showdown'
+    this.#status = 'waiting'
 
     this.#activePlayer?.removeControl()
     this.#activePlayer?.clearTimer()

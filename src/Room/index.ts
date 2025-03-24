@@ -55,6 +55,10 @@ class Room {
     this.#status = 'on'
   }
 
+  setOwnerById(userId: number) {
+    const player = this.#idToPlayerMap.get(userId)
+    this.setOwner(player)
+  }
   setOwner(player?: Player) {
     if (!player) throw new Error('房主不可为Null')
 
@@ -141,6 +145,10 @@ class Room {
   }
   get lowestBetAmount() {
     return this.#lowestBetAmount
+  }
+
+  reset() {
+    this.#status = 'waiting'
   }
 
   joinMany(...players: Player[]) {
@@ -232,7 +240,7 @@ class Room {
    * @description 玩家退出房间
    * @param player
    */
-  remove(player?: Player) {
+  remove(player?: Player): number | null {
     if (!player || !this.#players.has(player))
       throw new Error('您不在房间中,无法退出')
 
@@ -247,16 +255,16 @@ class Room {
       }
 
       const newOwner = player.getNextPlayer()
-      if (!newOwner) throw new Error('发生了意料之外的错误, 导致房间没有房主')
+      if (!newOwner) return null
 
       this.setOwner(newOwner)
-      return
+      return newOwner.getUserInfo().id
     }
     throw new Error('游戏进行中, 不可退出')
   }
   removeById(userId: number) {
     const player = this.#idToPlayerMap.get(userId)
-    this.remove(player)
+    return this.remove(player)
   }
   get status() {
     return this.#status
