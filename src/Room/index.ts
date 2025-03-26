@@ -49,7 +49,7 @@ class Room {
 
   ready() {
     if (this.playersCountOnSeat < 2)
-      throw new Error('玩家数量小于2, 无法开始游戏')
+      throw new Error('玩家数量小于2, 无法进行游戏')
 
     this.#dealer.setRoleToPlayers()
     this.#status = 'on'

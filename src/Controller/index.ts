@@ -21,6 +21,9 @@ class Controller {
     this.#dealer = dealer
   }
 
+  get status() {
+    return this.#status
+  }
   #callback?: () => void
   get stage() {
     return this.#stage

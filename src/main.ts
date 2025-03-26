@@ -51,13 +51,16 @@ const initialGame = ({
     },
     // 设置各个玩家的初始角色
     ready() {
-      if (room.status === 'on') throw new Error('游戏正在进行中, 请勿重复开始')
+      if (dealer.rolesArranged) throw new Error('玩家角色已确认, 请勿重复设置')
 
       room.ready()
-      return room.status
     },
     start() {
-      if (room.status === 'waiting') throw new Error('游戏未开始无法发牌')
+      if (!dealer.rolesArranged) throw new Error('玩家位置未确认, 无法开始游戏')
+
+      if (controller.status == 'on')
+        throw new Error('游戏已经开始, 请勿重复操作')
+
       // 庄家发牌
       if (!dealer.button) throw new Error('游戏未指定庄家, 无法发牌')
 
