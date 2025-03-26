@@ -21,6 +21,7 @@ class Dealer {
   #button: Player | null = null
   #last: Player | null = null
   #head: Player | null = null
+  #rolesArranged = false
 
   constructor(lowestBetAmount: number) {
     this.#lowestBetAmount = lowestBetAmount
@@ -31,16 +32,13 @@ class Dealer {
   get count() {
     return this.#count
   }
-  /**
-   * 开始游戏
-   */
-  start() {
-    this.setRoleToPlayers()
-    this.dealCards()
-  }
 
   get button() {
     return this.#button
+  }
+
+  get rolesArranged() {
+    return this.#rolesArranged
   }
   dealCards() {
     const { handPokes } = this.#deck.dealCards(this.getPlayersCount())
@@ -80,6 +78,7 @@ class Dealer {
   }
 
   setRoleToPlayers() {
+    this.#rolesArranged = true
     this.setButton()
     // if (process.env.PROJECT_ENV !== 'dev')
     this.setOthers()

@@ -86,7 +86,7 @@ export class Player {
   /**
    * 默认的思考时间为30s
    */
-  #thinkingTime = 1
+  #thinkingTime = 30
   #countDownTime = this.#thinkingTime
   #action?: Action
   /**
@@ -111,6 +111,7 @@ export class Player {
    */
   #handPokes: Poke[] = []
   #presentation: string | undefined
+  #isOwner? = false
 
   constructor({
     lowestBetAmount,
@@ -119,7 +120,8 @@ export class Player {
     nextPlayer = null,
     controller,
     dealer,
-    pool
+    pool,
+    isOwner
   }: {
     lowestBetAmount: number
     role?: Role
@@ -130,6 +132,7 @@ export class Player {
     controller: Controller
     dealer: Dealer
     pool?: Pool
+    isOwner?: boolean
   }) {
     if (user.balance < lowestBetAmount) {
       throw new Error('筹码小于大盲注, 不可参与游戏')
@@ -140,6 +143,7 @@ export class Player {
     this.#lastPlayer = lastPlayer
     this.#nextPlayer = nextPlayer
     this.#dealer = dealer
+    this.#isOwner = isOwner
 
     this.#controller = controller
     this.#pool = pool || new Pool()
@@ -176,6 +180,10 @@ export class Player {
     this.#action = action
   }
 
+  setIsOwner(value: boolean) {
+    this.#isOwner = value
+  }
+
   setStatus(status: PlayerStatus) {
     this.#status = status
   }
@@ -196,6 +204,7 @@ export class Player {
     this.#presentation = undefined
     this.#status = 'waiting'
 
+    this.#balance = this.#userInfo.balance
     this.clearTimer()
   }
 
@@ -485,7 +494,7 @@ export class Player {
   // TODO: 需要先写到数据库
   async earn(money: number) {
     this.#balance += money
-    this.#userInfo.balance += money
+    // this.#userInfo.balance += money
     console.log(this.#userInfo.name, '分得奖池金额:', money)
   }
 
@@ -531,8 +540,6 @@ export class Player {
     this[actions[index]](800)
   }
   takeDefaultAction() {
-    this.__testTakeAction()
-    return
     if (this.#getAllowedActions().includes('check')) {
       this.check()
     } else {
@@ -546,7 +553,7 @@ export class Player {
         return
       }
       this.#countDownTime--
-    }, 5)
+    }, 1000)
   }
   pause() {
     this.clearTimer()

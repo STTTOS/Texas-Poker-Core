@@ -34,7 +34,6 @@ const initialGame = ({
     allowPlayersToWatch,
     maximumCountOfPlayers
   )
-  let _callback: () => void = () => void 0
 
   return {
     room,
@@ -43,30 +42,34 @@ const initialGame = ({
     controller,
     createPlayer(userInfo: User) {
       return new Player({
-        user: userInfo,
-        lowestBetAmount: dealer.getLowestBetAmount(),
-        controller,
+        pool,
         dealer,
-        pool
+        controller,
+        user: userInfo,
+        lowestBetAmount: dealer.getLowestBetAmount()
       })
     },
-    start() {
-      if (room.status === 'on') throw new Error('游戏正在进行中')
-      if (dealer.count < 2) throw new Error('人数小于2, 无法开始游戏')
+    // 设置各个玩家的初始角色
+    ready() {
+      if (room.status === 'on') throw new Error('游戏正在进行中, 请勿重复开始')
 
-      room.startGame()
+      room.ready()
+      return room.status
+    },
+    start() {
+      if (room.status === 'waiting') throw new Error('游戏未开始无法发牌')
+      // 庄家发牌
+      if (!dealer.button) throw new Error('游戏未指定庄家, 无法发牌')
+
+      dealer.dealCards()
       controller.start()
       controller.onEnd(() => {
         this.settle()
-        _callback()
       })
     },
     takeAction(player: Player, action: ActionType, amount = 0) {
       player[action](amount)
       pool.add(player, amount, controller.stage)
-    },
-    onEnd(callback: () => void) {
-      _callback = callback
     },
     // 测试阶段方法, 手动结束游戏
     end() {

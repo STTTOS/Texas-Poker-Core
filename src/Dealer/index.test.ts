@@ -23,7 +23,9 @@ describe('dealer', () => {
         dealer
       })
     )
-    dealer.start()
+    dealer.setRoleToPlayers()
+    dealer.dealCards()
+    dealer.settle()
 
     expect(dealer.getDeck().getCards().length).toEqual(52)
     expect(dealer.getDeck().getPokes().commonPokes.length).toEqual(5)

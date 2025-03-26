@@ -26,6 +26,7 @@ const delay = (ms = 1000) => {
 }
 async function test() {
   while (true) {
+    texas.ready()
     texas.start()
     await delay(50_000)
   }

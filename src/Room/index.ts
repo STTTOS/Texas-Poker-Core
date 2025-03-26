@@ -51,18 +51,23 @@ class Room {
     if (this.playersCountOnSeat < 2)
       throw new Error('玩家数量小于2, 无法开始游戏')
 
-    this.#dealer.start()
+    this.#dealer.setRoleToPlayers()
     this.#status = 'on'
   }
 
   setOwnerById(userId: number) {
     const player = this.#idToPlayerMap.get(userId)
+
+    this.#players.forEach((player) => {
+      player.setIsOwner(false)
+    })
     this.setOwner(player)
   }
   setOwner(player?: Player) {
     if (!player) throw new Error('房主不可为Null')
 
     this.#owner = player
+    player.setIsOwner(true)
   }
 
   get owner() {
@@ -88,22 +93,6 @@ class Room {
 
   getAllPlayers() {
     return Array.from(this.#players.values())
-  }
-
-  /**
-   * 将所有入座的玩家初始化
-   */
-  startGame() {
-    if (this.playersCountOnSeat < 2)
-      throw new Error('玩家数量小于2, 无法开始游戏')
-
-    this.#dealer.start()
-    this.#status = 'on'
-    // this.#dealer.settle()
-  }
-
-  settle() {
-    this.#dealer.settle()
   }
 
   get #players() {

@@ -105,8 +105,10 @@ describe('class pool', () => {
     room.join(p3)
     room.join(p4)
 
-    room.startGame()
-    room.settle()
+    room.ready()
+    dealer.dealCards()
+    dealer.settle()
+
     pool.add(p1, 1000, 'pre-flop')
     pool.add(p2, 2000, 'pre-flop')
     pool.add(p3, 4000, 'pre-flop')

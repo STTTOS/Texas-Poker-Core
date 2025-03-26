@@ -12,10 +12,11 @@ describe('entery', () => {
     const p2 = texas.createPlayer({ id: 2, balance: 10_000, name: 'yt' })
     texas.room.join(p2)
     texas.dealer.setButton(p1)
+
+    texas.ready()
     texas.start()
 
-    // texas.pool.add(p1, p1.bet(2000), texas.controller.stage)
-    // texas.pool.add(p2, p2.allIn(), texas.controller.stage)
+    expect(() => texas.ready()).toThrow('游戏正在进行中')
 
     await texas.settle()
 

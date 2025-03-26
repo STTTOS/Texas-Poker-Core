@@ -66,7 +66,8 @@ describe('deck', () => {
           dealer
         })
       )
-      dealer.start()
+      dealer.setRoleToPlayers()
+      dealer.dealCards()
       const type = dealer.getDeck().getMax().type
       if (hitCountsMap.has(type))
         hitCountsMap.set(type, hitCountsMap.get(type)! + 1)
