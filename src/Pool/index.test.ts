@@ -23,11 +23,11 @@ describe('class pool', () => {
       controller,
       dealer
     })
-    pool.add(p1, 1000, 'pre-flop')
-    pool.add(p2, 2000, 'pre-flop')
+    pool.add(p1, 1000, 'pre_flop')
+    pool.add(p2, 2000, 'pre_flop')
 
-    expect(pool.betRecords.get('pre-flop')?.get(p1)).toEqual(1000)
-    expect(pool.betRecords.get('pre-flop')?.get(p2)).toEqual(2000)
+    expect(pool.betRecords.get('pre_flop')?.get(p1)).toEqual(1000)
+    expect(pool.betRecords.get('pre_flop')?.get(p2)).toEqual(2000)
   })
 
   test('function calculateStage', () => {
@@ -59,12 +59,12 @@ describe('class pool', () => {
       controller,
       dealer
     })
-    pool.add(p1, 1000, 'pre-flop')
-    pool.add(p2, 2000, 'pre-flop')
-    pool.add(p3, 4000, 'pre-flop')
-    pool.add(p4, 4000, 'pre-flop')
+    pool.add(p1, 1000, 'pre_flop')
+    pool.add(p2, 2000, 'pre_flop')
+    pool.add(p3, 4000, 'pre_flop')
+    pool.add(p4, 4000, 'pre_flop')
 
-    pool.calculateStage('pre-flop')
+    pool.calculateStage('pre_flop')
     expect(pool.pots.size).toEqual(3)
     expect(pool.getSpecificPot(new Set([p1, p2, p3, p4]))).toEqual(4000)
     expect(pool.getSpecificPot(new Set([p2, p3, p4]))).toEqual(3000)
@@ -109,10 +109,10 @@ describe('class pool', () => {
     dealer.dealCards()
     dealer.settle()
 
-    pool.add(p1, 1000, 'pre-flop')
-    pool.add(p2, 2000, 'pre-flop')
-    pool.add(p3, 4000, 'pre-flop')
-    pool.add(p4, 4000, 'pre-flop')
+    pool.add(p1, 1000, 'pre_flop')
+    pool.add(p2, 2000, 'pre_flop')
+    pool.add(p3, 4000, 'pre_flop')
+    pool.add(p4, 4000, 'pre_flop')
 
     pool.add(p1, 1000, 'flop')
     pool.add(p2, 2000, 'flop')

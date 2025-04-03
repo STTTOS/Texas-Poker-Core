@@ -3,9 +3,12 @@
 import Room from './Room'
 import Pool from './Pool'
 import Dealer from './Dealer'
-import Controller from './Controller'
 import { User, Player } from './Player'
 import { ActionType } from './Player/index'
+import Controller, {
+  CallbackOfGameEnd,
+  CallbackOnNextStage
+} from './Controller'
 
 // 在表单中填入一些基本的信息
 // 比如大盲注
@@ -17,6 +20,14 @@ interface CreateRoomInputArgs {
   allowPlayersToWatch: boolean
   // 需要传入用户信息, 在创建房间时同时指定房主
   user: User
+}
+export interface PreAction {
+  userId: number
+  allowedActions: ActionType[]
+  restrict?: {
+    min: number
+    max: number
+  }
 }
 const initialGame = ({
   lowestBetAmount,
@@ -34,6 +45,7 @@ const initialGame = ({
     allowPlayersToWatch,
     maximumCountOfPlayers
   )
+  let callbackOfEnd: CallbackOfGameEnd
 
   return {
     room,
@@ -51,12 +63,13 @@ const initialGame = ({
     },
     // 设置各个玩家的初始角色
     ready() {
-      if (dealer.rolesArranged) throw new Error('玩家角色已确认, 请勿重复设置')
+      if (room.status === 'on') throw new Error('玩家角色已确认, 请勿重复设置')
 
       room.ready()
     },
     start() {
-      if (!dealer.rolesArranged) throw new Error('玩家位置未确认, 无法开始游戏')
+      if (room.status === 'unReady')
+        throw new Error('玩家位置未确认, 无法开始游戏')
 
       if (controller.status == 'on')
         throw new Error('游戏已经开始, 请勿重复操作')
@@ -64,11 +77,29 @@ const initialGame = ({
       // 庄家发牌
       if (!dealer.button) throw new Error('游戏未指定庄家, 无法发牌')
 
+      room.start()
       dealer.dealCards()
-      controller.start()
-      controller.onEnd(() => {
-        this.settle()
+      controller.onGameEnd((params) => {
+        this.end()
+        console.log('触发游戏结束, 游戏状态: ', controller.status)
+        callbackOfEnd?.(params)
       })
+      controller.start()
+    },
+    // 获取默认下注行为
+    getDefaultBet() {
+      return controller.defaultBets
+    },
+    onPreAction(callback: (params: PreAction) => void) {
+      this.dealer.forEach((player) => {
+        player.onPreAction(callback)
+      })
+    },
+    onGameEnd(callback: CallbackOfGameEnd) {
+      callbackOfEnd = callback
+    },
+    onNextStage(callback: CallbackOnNextStage) {
+      controller.onNextStage(callback)
     },
     takeAction(player: Player, action: ActionType, amount = 0) {
       player[action](amount)
@@ -76,25 +107,21 @@ const initialGame = ({
     },
     // 测试阶段方法, 手动结束游戏
     end() {
-      if (room.status === 'waiting') throw new Error('游戏还未开始')
+      if (room.status === 'waiting' || room.status === 'unReady')
+        throw new Error('游戏还未开始')
 
       controller.end()
       room.reset()
-      dealer.reset()
-      pool.reset()
     },
     async settle() {
-      // 先结束游戏
-      controller.end()
-      dealer.settle()
+      this.end()
 
+      dealer.settle()
       // 计算并分配奖池
       await pool.pay()
+
       pool.reset()
-      // 荷官重置各玩家的手牌, 行为, 以及下注金额
       dealer.reset()
-      // 结算完成后, 房间状态重置
-      room.reset()
     }
   }
 }

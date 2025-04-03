@@ -3,7 +3,7 @@ import { omit } from 'ramda'
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
 
-export type RoomStatus = 'on' | 'waiting'
+export type RoomStatus = 'on' | 'waiting' | 'unReady'
 export type PlayerSeatStatus = 'hang' | 'on-set'
 // 房间
 class Room {
@@ -19,7 +19,7 @@ class Room {
    * 房间的创建者
    */
   #owner: Player
-  #status: RoomStatus = 'waiting'
+  #status: RoomStatus = 'unReady'
   #dealer: Dealer
   #lowestBetAmount: number
   // 是否允许观战
@@ -109,6 +109,9 @@ class Room {
     return this.#playersHang.size
   }
 
+  start() {
+    this.#status = 'on'
+  }
   getPlayersBySeatStatus(status: PlayerSeatStatus) {
     return Array.from(
       status === 'on-set' ? this.#playersOnSet : this.#playersHang
@@ -121,13 +124,7 @@ class Room {
    */
   getPlayerById(userId: number) {
     const player = this.#idToPlayerMap.get(userId)
-    if (!player) return null
-
-    const seatStatus = this.#playersOnSet.has(player) ? 'on-set' : 'hang'
-    return {
-      seatStatus,
-      player
-    }
+    return player
   }
   getDealer() {
     return this.#dealer
@@ -187,6 +184,12 @@ class Room {
     if (this.#playersOnSet.has(player)) return 'on-set'
     return 'hang'
   }
+  getPlayerSeatStatusById(userId: number) {
+    const player = this.#idToPlayerMap.get(userId)
+    if (!player) return null
+
+    return this.getPlayerSeatStatus(player)
+  }
   /**
    * @description 将观战席的玩家入座
    */
@@ -234,7 +237,7 @@ class Room {
       throw new Error('您不在房间中,无法退出')
 
     // 在游戏没开始时离开
-    if (this.status === 'waiting') {
+    if (this.status === 'waiting' || this.#status === 'unReady') {
       this.#idToPlayerMap.delete(player.getUserInfo().id)
       this.#dealer.remove(player)
       if (this.getPlayerSeatStatus(player) === 'hang') {

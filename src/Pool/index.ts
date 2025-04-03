@@ -3,7 +3,7 @@ import { equals } from 'ramda'
 import { Player } from '@/Player'
 import { Stage } from '@/Controller'
 import { sum, filterMap } from '@/utils'
-import { formatter, getWinner } from '@/Deck/core'
+import { formatter, getWinners } from '@/Deck/core'
 
 // 提供奖池结算的能力
 class Pool {
@@ -15,7 +15,7 @@ class Pool {
   #players: Set<Player> = new Set()
   // 存储下注记录
   #betRecords: Map<Stage, Map<Player, number>> = new Map()
-
+  #bills: Map<number, number> = new Map()
   /**
    * @description 玩家在特定的阶段下注时, 记录下注信息
    * @param player
@@ -40,6 +40,10 @@ class Pool {
     this.#totalAmount = 0
     this.#players = new Set()
     this.#betRecords = new Map()
+    this.#bills = new Map()
+  }
+  get bills() {
+    return this.#bills
   }
   get betRecords() {
     return this.#betRecords
@@ -65,7 +69,7 @@ class Pool {
     totalAmount: number,
     callback: (player: Player, amount: number) => void
   ) {
-    getWinner(
+    getWinners(
       Array.from(players).filter((p) => p.getStatus() !== 'out')
     ).forEach((player, _, arr) => {
       callback(player, totalAmount / arr.length)
@@ -77,6 +81,9 @@ class Pool {
    */
   async pay() {
     const bills = this.settle()
+    bills.forEach((amount, player) => {
+      this.#bills.set(player.getUserInfo().id, amount)
+    })
 
     // 如果剩奖池不够支付所有玩家, 说明游戏的计算出现异常, 需要中止这场比赛,并作废
     if (Array.from(bills.values()).reduce(sum, 0) !== this.#totalAmount) {

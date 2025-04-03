@@ -39,6 +39,11 @@ class Deck {
     // this.#deck.sort(() => Math.random() - 0.5)
   }
 
+  reset() {
+    this.#commonPokes = []
+    this.#handPokes = []
+  }
+
   shuffle() {
     this.#shuffle()
   }

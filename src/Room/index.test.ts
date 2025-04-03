@@ -74,7 +74,6 @@ describe('Room', () => {
     room.join(p2)
     room.join(p3)
     room.remove(p2)
-    expect(() => room.remove(p2)).toThrow('您不在房间中,无法退出')
     expect(room.totalPlayersCount).toEqual(2)
   })
   test('test function seat', () => {

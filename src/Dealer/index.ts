@@ -1,15 +1,20 @@
 import Deck from '@/Deck'
 import { getRandomInt } from '@/utils'
 import { Role, Player } from '@/Player'
+import { handPokeType } from '@/Deck/constant'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
-import { formatter, getBestHand, getHandPresentation } from '@/Deck/core'
+import {
+  formatter,
+  getWinners,
+  getBestHand,
+  comparePresentation,
+  getHandPresentation
+} from '@/Deck/core'
 
-type GameStatus = 'waiting' | 'in-progress'
 /**
  * 荷官, 控制游戏进行
  */
 class Dealer {
-  #status: GameStatus = 'waiting'
   #lowestBetAmount: number
   #deck: Deck
   /**
@@ -21,7 +26,10 @@ class Dealer {
   #button: Player | null = null
   #last: Player | null = null
   #head: Player | null = null
-  #rolesArranged = false
+
+  // 记录最近一个玩家的操作记录
+  #actionsHistory: Player[] = []
+  // #rolesArranged = false
 
   constructor(lowestBetAmount: number) {
     this.#lowestBetAmount = lowestBetAmount
@@ -29,6 +37,17 @@ class Dealer {
     this.#deck = new Deck()
   }
 
+  get actionHistory() {
+    return this.#actionsHistory
+  }
+
+  addAction(player: Player) {
+    // 只需记录一圈的操作记录
+    if (this.#actionsHistory.length === this.#count) {
+      this.#actionsHistory.shift()
+    }
+    this.#actionsHistory.push(player)
+  }
   get count() {
     return this.#count
   }
@@ -36,11 +55,16 @@ class Dealer {
   get button() {
     return this.#button
   }
-
-  get rolesArranged() {
-    return this.#rolesArranged
-  }
+  // get rolesArranged() {
+  //   return this.#rolesArranged
+  // }
   dealCards() {
+    console.log('玩家信息:')
+    console.log(
+      this.map(
+        (player) => roleMap.get(player.getRole()!) + ': ' + player.toString()
+      )
+    )
     const { handPokes } = this.#deck.dealCards(this.getPlayersCount())
     this.loop((player, i) => {
       player.setHandPokes(handPokes[i])
@@ -48,6 +72,40 @@ class Dealer {
   }
   getDeck() {
     return this.#deck
+  }
+  getMaxPresentation() {
+    const [max] = this.map((player) => player.getPresentation()!).sort(
+      comparePresentation
+    )
+
+    return max[0] as handPokeType
+  }
+  get players() {
+    return this.map((p) => p)
+  }
+
+  getWinners() {
+    return getWinners(this.players)
+  }
+  // 获取所有的最大牌型
+  getMaxPokes() {
+    // getBestHand()
+    const result = this.map((player) => {
+      const pokes = getBestHand(
+        player.getHandPokes(),
+        this.#deck.getPokes().commonPokes
+      )
+      return {
+        presentation: getHandPresentation(pokes),
+        pokes
+      }
+    })
+    const [max] = result.sort((a, b) =>
+      comparePresentation(a.presentation, b.presentation)
+    )
+    return result
+      .filter((item) => item.presentation === max.presentation)
+      .map((item) => item.pokes)
   }
 
   getHeadPlayer() {
@@ -78,16 +136,10 @@ class Dealer {
   }
 
   setRoleToPlayers() {
-    this.#rolesArranged = true
+    // this.#rolesArranged = true
     this.setButton()
     // if (process.env.PROJECT_ENV !== 'dev')
     this.setOthers()
-    console.log('玩家信息:')
-    console.log(
-      this.map(
-        (player) => roleMap.get(player.getRole()!) + ': ' + player.toString()
-      )
-    )
   }
   /**
    * 暂停游戏
@@ -308,10 +360,12 @@ class Dealer {
   }
 
   /**
-   * @description 重置玩家的`action`,当前阶段下注额, 手牌, 手牌牌力信息
+   * @description 重置玩家的`action`,当前阶段下注额, 手牌, 手牌牌力信息, 底牌等信息
    * 在游戏结束后调用
    */
   reset() {
+    this.#deck.reset()
+    this.#actionsHistory = []
     this.forEach((player) => player.reset())
   }
 
@@ -380,7 +434,7 @@ class Dealer {
     // 翻牌前从大盲的下一位开始行动
     // 翻牌后从庄家的下一位开始行动
     // const start =
-    //   stage === 'pre-flop'
+    //   stage === 'pre_flop'
     //     ? this.find(
     //         (player) => player.getRole() === 'big-blind'
     //       )?.getNextPlayer()

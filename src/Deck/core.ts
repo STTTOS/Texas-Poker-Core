@@ -234,7 +234,7 @@ export const formatter = (input: Poke[]) => {
 /**
  * @description 根据玩家presentation, 计算出赢家
  */
-export const getWinner = (players: Player[]) => {
+export const getWinners = (players: Player[]) => {
   if (players.some((p) => !p.getPresentation()))
     throw new Error('未计算玩家手牌大小,无法比较')
 

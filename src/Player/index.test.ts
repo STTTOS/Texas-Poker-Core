@@ -8,19 +8,19 @@ describe('class Player', () => {
     const dealer = new Dealer(500)
     const controller = new Controller(dealer)
     const p1 = new Player({
-      user: { id: 1, balance: 18000 },
+      user: { id: 1, balance: 18000, name: 'ycr' },
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller,
       dealer
     })
     const p2 = new Player({
-      user: { id: 2, balance: 5000 },
+      user: { id: 2, balance: 5000, name: 'yt' },
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller,
       dealer
     })
     const p3 = new Player({
-      user: { id: 3, balance: 10_000 },
+      user: { id: 3, balance: 10_000, name: 'wyz' },
       lowestBetAmount: dealer.getLowestBetAmount(),
       controller,
       dealer
@@ -33,18 +33,15 @@ describe('class Player', () => {
     room.ready()
     controller.start()
 
-    p1.bet(2000)
-    p1.log()
+    p3.call()
+    p1.allIn()
     p2.allIn()
-    p2.log()
-    p3.allIn()
-    p3.log()
     dealer.logPlayers()
 
     controller.end()
 
-    expect(p1.getBalance()).toEqual(16000)
+    expect(p1.getBalance()).toEqual(8000)
     expect(p2.getBalance()).toEqual(0)
-    expect(p3.getBalance()).toEqual(0)
+    expect(p3.getBalance()).toEqual(9500)
   })
 })

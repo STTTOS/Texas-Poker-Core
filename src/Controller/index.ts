@@ -3,20 +3,36 @@ import { isNil, complement } from 'ramda'
 
 import Dealer from '../Dealer'
 import { Player } from '../Player'
+import { Poke } from '@/Deck/constant'
 
-export type Stage = 'pre-flop' | 'flop' | 'turn' | 'river' | 'showdown'
-const stages: Stage[] = ['pre-flop', 'flop', 'turn', 'river', 'showdown']
+export type Stage = 'pre_flop' | 'flop' | 'turn' | 'river'
+const stages: Stage[] = ['pre_flop', 'flop', 'turn', 'river']
 
+export type CallbackOfGameEnd = (params: {
+  restCommonPokes: Poke[]
+  currentStage: Stage
+  showHandPokes: boolean
+}) => void
+export type CallbackOnNextStage = (params: {
+  commonPokes: Poke[]
+  stage: Stage
+  lastStage: Stage
+}) => void
+export type ControllerStatus = 'on' | 'pause' | 'abort' | 'waiting'
 class Controller {
-  #status: 'on' | 'pause' | 'abort' | 'waiting' = 'waiting'
-  #stage: Stage = 'pre-flop'
+  #status: ControllerStatus = 'waiting'
+  #stage: Stage = 'pre_flop'
   // 游戏在哪个极端结束的, 比如翻牌圈其他玩家都弃牌, 游戏在这个阶段就结束了
-  #endAt: Stage = 'pre-flop'
+  #endAt: Stage = 'pre_flop'
   #activePlayer: Player | null = null
   #timer: NodeJS.Timeout | null = null
   // 记录游戏的进行时间,单位 second
   #count = 0
   #dealer: Dealer
+  #callback?: CallbackOfGameEnd
+  #callbackOnNextStage?: CallbackOnNextStage
+  #defaultBets: Array<{ userId: number; balance: number; amount: number }> = []
+
   constructor(dealer: Dealer) {
     this.#dealer = dealer
   }
@@ -24,7 +40,6 @@ class Controller {
   get status() {
     return this.#status
   }
-  #callback?: () => void
   get stage() {
     return this.#stage
   }
@@ -35,6 +50,10 @@ class Controller {
   transferControlToNext(player: Player | null) {
     this.setControl(player)
     player?.getControl()
+  }
+
+  get endAt() {
+    return this.#endAt
   }
 
   get activePlayer() {
@@ -52,7 +71,11 @@ class Controller {
     // 其他玩家都弃牌了
     if (otherPlayersFold) {
       this.#endAt = this.#stage
-      this.#callback?.()
+      this.#callback?.({
+        restCommonPokes: this.getCommonPokes(this.stage, this.#endAt),
+        currentStage: this.#stage,
+        showHandPokes: false
+      })
       console.log('游戏结束(otherPlayersFold):', this.#endAt)
       return true
     }
@@ -72,13 +95,15 @@ class Controller {
       this.#dealer.filter(
         (player) =>
           player.getStatus() !== 'out' && player.getStatus() !== 'allIn'
-      ).length <= 1
+      ).length === 0
 
     if (shouldEndGame) {
-      console.log('除了弃牌的玩家')
       this.#endAt = 'river'
-      this.#stage = 'showdown'
-      this.#callback?.()
+      this.#callback?.({
+        restCommonPokes: this.getCommonPokes(this.stage, 'river'),
+        currentStage: this.stage,
+        showHandPokes: true
+      })
       console.log('游戏结束(shouldEndGame):', this.#endAt)
       return true
     }
@@ -88,42 +113,43 @@ class Controller {
   // 推进到新的阶段后, 将控制权交给小盲位
   // 如果小盲位已经出局或者无法行动(all-in), 依次将控制权交给下一个可以行动的玩家
   tryToAdvanceGameToNextStage() {
-    if (this.#stage === 'showdown') throw new Error('游戏已经结束')
+    // if (this.#stage === 'river') return false
 
-    const maxBetAmount = this.#dealer.getCurrentStageMaxBetAmount()
-    // this.#dealer.forEach((p) => p.log('ss,'))
     const players = this.#dealer
       // 场上正常下注的玩家, 下注金额需要都等于最大下注金额
-      .filter((p) => p.getStatus() === 'waiting')
-
-    const allPlayersBetThSameAmount = players
-      .map((p) => p.getCurrentStageTotalAmount())
-      .every((amount) => amount === maxBetAmount)
-
-    const actions = this.#dealer
-      // 排除 all-in的玩家 与 弃牌的玩家
       .filter(
         (player) =>
           player.getStatus() !== 'allIn' && player.getStatus() !== 'out'
       )
-      .map((player) => player.getAction())
+
+    const bets = players.map((player) => player.getCurrentStageTotalAmount())
+    const maxBetAmount = Math.max(...bets)
+    const allPlayersBetThSameAmount = bets.every(
+      (amount) => amount === maxBetAmount
+    )
+
+    const actions = players.map((player) => player.getAction())
     const allPlayersTakeAction = actions.every(complement(isNil))
 
-    const canPushToNextStage = allPlayersTakeAction && allPlayersBetThSameAmount
+    const canPushToNextStage =
+      allPlayersTakeAction && allPlayersBetThSameAmount && bets.length > 1
     if (canPushToNextStage) {
       const index = stages.findIndex((stage) => stage === this.#stage)
-      const newStage = stages[index + 1]
-      // 出发游戏结束, 开始结算
-      if (newStage === 'showdown') {
-        this.#endAt = 'river'
-        this.#stage = newStage
-        this.#callback?.()
-        console.log('游戏结束', this.#endAt)
-        return
+      const lastStage = stages[index]
+      const stage = stages[index + 1]
+
+      if (!stage) {
+        this.tryToEndGame()
+        return true
       }
-      this.#stage = newStage
+      this.#stage = stage
       this.#dealer.resetCurrentStageTotalAmount()
       this.#dealer.resetActionsOfPlayers()
+      this.#callbackOnNextStage?.({
+        stage,
+        lastStage,
+        commonPokes: this.getCommonPokes(lastStage, stage)
+      })
       console.log('游戏进入下一个阶段 => ', this.#stage)
 
       this.transferControlToNext(this.#dealer.getTheFirstPlayerToAct())
@@ -132,7 +158,27 @@ class Controller {
     return false
   }
 
-  onEnd(callback: () => void) {
+  #getPokeEndIndex(stage: Stage) {
+    if (stage === 'pre_flop') return 0
+    if (stage === 'flop') return 3
+    if (stage === 'turn') return 4
+    if (stage === 'river') return 5
+  }
+  getCommonPokes(currentStage: Stage, endStage: Stage) {
+    if (currentStage === endStage) return []
+
+    const commonPokes = this.#dealer.getDeck().getPokes().commonPokes
+    return commonPokes.slice(
+      this.#getPokeEndIndex(currentStage),
+      this.#getPokeEndIndex(endStage)
+    )
+  }
+
+  onNextStage(callback: CallbackOnNextStage) {
+    this.#callbackOnNextStage = callback
+  }
+
+  onGameEnd(callback: CallbackOfGameEnd) {
     this.#callback = callback
   }
   // 创建一个迭代器控制游戏进行
@@ -144,31 +190,53 @@ class Controller {
     }
   }
 
+  get defaultBets() {
+    return this.#defaultBets
+  }
   // 大盲小盲的默认下注行为
   takeActionInPreFlop() {
-    const SM = this.#dealer.button?.getNextPlayer()
-    if (SM) {
-      this.transferControlToNext(SM)
-      SM.bet(this.#dealer.getLowestBetAmount() / 2, true)
+    console.log('takeActionInPreFlop')
+    let current = this.#dealer.button?.getNextPlayer()
+    if (current) {
+      // this.transferControlToNext(SM)
+      const amount = this.#dealer.getLowestBetAmount() / 2
+      current.bet(amount, true)
+      this.#defaultBets.push({
+        userId: current.getUserInfo().id,
+        balance: current.getBalance(),
+        amount
+      })
 
-      const BB = SM.getNextPlayer()
-      if (BB && this.#dealer.count > 2) {
-        BB.bet(this.#dealer.getLowestBetAmount(), true)
+      if (this.#dealer.count > 2) {
+        current = current.getNextPlayer()
+        if (current) {
+          const amount = this.#dealer.getLowestBetAmount()
+          current.bet(amount, true)
+          this.#defaultBets.push({
+            userId: current.getUserInfo().id,
+            balance: current.getBalance(),
+            amount
+          })
+        }
       }
     }
+    const activePlayer = current?.getNextPlayer()
+    if (activePlayer) this.transferControlToNext(activePlayer)
+    else throw new Error('游戏进程异常')
+    // console.log('大盲小盲的默认下注行为', this.defaultBets)
   }
   /**
    * @description 开始计时器, 将控制权移交给第一个可以行动的玩家
    */
   start() {
     this.#status = 'on'
-    this.#stage = 'pre-flop'
-    this.#endAt = 'pre-flop'
+    this.#stage = 'pre_flop'
+    // this.#endAt = 'pre_flop'
 
-    if (process.env.PROJECT_ENV === 'dev')
-      this.transferControlToNext(this.#dealer.getTheFirstPlayerToAct())
-    else this.takeActionInPreFlop()
+    // 测试环境保持玩家balance起始不变
+    if (process.env.PROJECT_ENV === 'dev') this.#dealer.reset()
 
+    this.takeActionInPreFlop()
     this.startTimer()
   }
 
@@ -201,12 +269,12 @@ class Controller {
    */
   end() {
     this.clearTimer()
-    this.#stage = 'showdown'
     this.#status = 'waiting'
 
     this.#activePlayer?.removeControl()
     this.#activePlayer?.clearTimer()
     this.#activePlayer = null
+    this.#defaultBets = []
   }
 
   /**
