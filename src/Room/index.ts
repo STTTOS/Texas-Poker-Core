@@ -2,8 +2,9 @@ import { omit } from 'ramda'
 
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
+import Controller from '@/Controller'
 
-export type RoomStatus = 'on' | 'waiting' | 'unReady'
+export type RoomStatus = 'ready' | 'unReady'
 export type PlayerSeatStatus = 'hang' | 'on-set'
 // 房间
 class Room {
@@ -30,15 +31,18 @@ class Room {
   #playersHang: Set<Player> = new Set()
   // 存储于id => Player的实例
   #idToPlayerMap: Map<number, Player> = new Map()
+  #controller: Controller
 
   constructor(
     dealer: Dealer,
     player: Player,
+    controller: Controller,
     allowPlayersToWatch = true,
     maximumCountOfPlayers = 10
   ) {
     this.#owner = player
     this.#dealer = dealer
+    this.#controller = controller
     this.#allowPlayersToWatch = allowPlayersToWatch
     this.#maximumCountOfPlayers = maximumCountOfPlayers
 
@@ -51,8 +55,10 @@ class Room {
     if (this.playersCountOnSeat < 2)
       throw new Error('玩家数量小于2, 无法进行游戏')
 
+    if (this.#status === 'ready') throw new Error('玩家位置已确认,请勿重复设置')
+
     this.#dealer.setRoleToPlayers()
-    this.#status = 'on'
+    this.#status = 'ready'
   }
 
   setOwnerById(userId: number) {
@@ -109,9 +115,6 @@ class Room {
     return this.#playersHang.size
   }
 
-  start() {
-    this.#status = 'on'
-  }
   getPlayersBySeatStatus(status: PlayerSeatStatus) {
     return Array.from(
       status === 'on-set' ? this.#playersOnSet : this.#playersHang
@@ -133,13 +136,10 @@ class Room {
     return this.#lowestBetAmount
   }
 
-  reset() {
-    this.#status = 'waiting'
-  }
-
   joinMany(...players: Player[]) {
     players.forEach((player) => this.join(player))
   }
+
   /**
    * @description 玩家加入房间, 如果位置还够, 会自动入座
    * @param player
@@ -237,7 +237,7 @@ class Room {
       throw new Error('您不在房间中,无法退出')
 
     // 在游戏没开始时离开
-    if (this.status === 'waiting' || this.#status === 'unReady') {
+    if (this.#controller.status === 'waiting') {
       this.#idToPlayerMap.delete(player.getUserInfo().id)
       this.#dealer.remove(player)
       if (this.getPlayerSeatStatus(player) === 'hang') {
@@ -254,10 +254,12 @@ class Room {
     }
     throw new Error('游戏进行中, 不可退出')
   }
+
   removeById(userId: number) {
     const player = this.#idToPlayerMap.get(userId)
     return this.remove(player)
   }
+
   get status() {
     return this.#status
   }

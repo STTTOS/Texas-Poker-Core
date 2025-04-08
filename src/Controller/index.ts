@@ -1,6 +1,4 @@
 // 控制游戏的进程
-import { isNil, complement } from 'ramda'
-
 import Dealer from '../Dealer'
 import { Player } from '../Player'
 import { Poke } from '@/Deck/constant'
@@ -62,17 +60,17 @@ class Controller {
 
   // 每个玩家行动之后都要调用此方法
   // 判断游戏是否该结束
-  // 所有玩家都采取了行动, 并且status为'waiting'的玩家只剩一个
-  tryToEndGame() {
+  tryToEndGame(end = false) {
     const otherPlayersFold =
       this.#dealer.filter((player) => player.getStatus() === 'out').length ===
       this.#dealer.count - 1
 
     // 其他玩家都弃牌了
     if (otherPlayersFold) {
+      this.end()
       this.#endAt = this.#stage
       this.#callback?.({
-        restCommonPokes: this.getCommonPokes(this.stage, this.#endAt),
+        restCommonPokes: this.getCommonPokes(this.#stage, this.#endAt),
         currentStage: this.#stage,
         showHandPokes: false
       })
@@ -80,28 +78,23 @@ class Controller {
       return true
     }
 
-    // const actions = this.#dealer
-    //   .filter(
-    //     (player) =>
-    //       player.getStatus() !== 'allIn' && player.getStatus() !== 'out'
-    //   )
-    //   .map((player) => player.getAction())
-    // const allPlayersTakeAction = actions.every(complement(isNil))
-
-    // 除了弃牌 与 all-in 并且都行动后的玩家 数量 <=1
-    // 表示该直接从当前阶段推进到 => river 阶段并且摊牌, 比牌
-    // 然后进入游戏结算状态
+    // 可以行动的人数(非allIn & out) <= 1 && 可以行动的人采取了行动
+    const playersCanAct = this.#dealer.getPlayersCanAct()
     const shouldEndGame =
-      this.#dealer.filter(
-        (player) =>
-          player.getStatus() !== 'out' && player.getStatus() !== 'allIn'
-      ).length === 0
-
-    if (shouldEndGame) {
+      playersCanAct.length === 0 ||
+      (playersCanAct.length === 1 && !playersCanAct[0].actionable()) ||
+      (this.#dealer.every((player) => !player.actionable()) &&
+        this.#stage === 'river')
+    // if (playersCanAct[0]) {
+    //   console.log(playersCanAct[0].actionable(), 'ss')
+    // }
+    // console.log(playersCanAct.length , playersCanAct[0].actionable())
+    if (shouldEndGame || end) {
+      this.end()
       this.#endAt = 'river'
       this.#callback?.({
-        restCommonPokes: this.getCommonPokes(this.stage, 'river'),
-        currentStage: this.stage,
+        restCommonPokes: this.getCommonPokes(this.#stage, 'river'),
+        currentStage: this.#stage,
         showHandPokes: true
       })
       console.log('游戏结束(shouldEndGame):', this.#endAt)
@@ -109,46 +102,36 @@ class Controller {
     }
     return false
   }
+
   // 每个玩家行动之后, 都要调用此方法
-  // 推进到新的阶段后, 将控制权交给小盲位
-  // 如果小盲位已经出局或者无法行动(all-in), 依次将控制权交给下一个可以行动的玩家
+  // 推进到新的阶段后, 将控制权交当前阶段第一位可以行动的玩家
   tryToAdvanceGameToNextStage() {
-    // if (this.#stage === 'river') return false
-
-    const players = this.#dealer
-      // 场上正常下注的玩家, 下注金额需要都等于最大下注金额
-      .filter(
-        (player) =>
-          player.getStatus() !== 'allIn' && player.getStatus() !== 'out'
-      )
-
-    const bets = players.map((player) => player.getCurrentStageTotalAmount())
-    const maxBetAmount = Math.max(...bets)
-    const allPlayersBetThSameAmount = bets.every(
-      (amount) => amount === maxBetAmount
+    const canPushToNextStage = this.#dealer.every(
+      (player) => !player.actionable()
     )
 
-    const actions = players.map((player) => player.getAction())
-    const allPlayersTakeAction = actions.every(complement(isNil))
-
-    const canPushToNextStage =
-      allPlayersTakeAction && allPlayersBetThSameAmount && bets.length > 1
     if (canPushToNextStage) {
+      console.log(
+        '推进到下个阶段, 触发人',
+        this.#activePlayer?.getUserInfo().name
+      )
       const index = stages.findIndex((stage) => stage === this.#stage)
-      const lastStage = stages[index]
-      const stage = stages[index + 1]
+      const lastStage = this.#stage
+      const nextStage = stages[index + 1]
 
-      if (!stage) {
-        this.tryToEndGame()
-        return true
-      }
-      this.#stage = stage
+      // if (!nextStage) {
+      //   this.tryToEndGame(true)
+      //   return true
+      // }
+      this.#stage = nextStage
       this.#dealer.resetCurrentStageTotalAmount()
       this.#dealer.resetActionsOfPlayers()
+      this.#dealer.resetActionsHistory()
+
       this.#callbackOnNextStage?.({
-        stage,
+        stage: nextStage,
         lastStage,
-        commonPokes: this.getCommonPokes(lastStage, stage)
+        commonPokes: this.getCommonPokes(lastStage, nextStage)
       })
       console.log('游戏进入下一个阶段 => ', this.#stage)
 
@@ -197,9 +180,12 @@ class Controller {
   takeActionInPreFlop() {
     console.log('takeActionInPreFlop')
     let current = this.#dealer.button?.getNextPlayer()
+
     if (current) {
-      // this.transferControlToNext(SM)
-      const amount = this.#dealer.getLowestBetAmount() / 2
+      const amount =
+        this.#dealer.count === 2
+          ? this.#dealer.getLowestBetAmount()
+          : this.#dealer.getLowestBetAmount() / 2
       current.bet(amount, true)
       this.#defaultBets.push({
         userId: current.getUserInfo().id,
@@ -231,7 +217,7 @@ class Controller {
   start() {
     this.#status = 'on'
     this.#stage = 'pre_flop'
-    // this.#endAt = 'pre_flop'
+    this.#endAt = 'pre_flop'
 
     // 测试环境保持玩家balance起始不变
     if (process.env.PROJECT_ENV === 'dev') this.#dealer.reset()

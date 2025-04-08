@@ -13,7 +13,7 @@ describe('class Controller', () => {
       controller,
       dealer
     })
-    const room = new Room(dealer, p1)
+    const room = new Room(dealer, p1, controller)
 
     const p2 = new Player({
       lowestBetAmount: 1000,
@@ -61,7 +61,7 @@ describe('class Controller', () => {
     p2.allIn()
     controller.end()
     expect(p1.getBalance()).toEqual(0)
-    expect(p2.getBalance()).toEqual(20000)
+    expect(p2.getBalance()).toEqual(10000)
     expect(p3.getBalance()).toEqual(9000)
     expect(p4.getBalance()).toEqual(0)
   })

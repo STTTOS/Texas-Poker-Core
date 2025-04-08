@@ -55,10 +55,10 @@ class Dealer {
   get button() {
     return this.#button
   }
-  // get rolesArranged() {
-  //   return this.#rolesArranged
-  // }
+
   dealCards() {
+    if (!this.#button) throw new Error('庄家未指定, 无法发牌')
+
     console.log('玩家信息:')
     console.log(
       this.map(
@@ -342,7 +342,7 @@ class Dealer {
     let result: boolean
     this.forEach((player, i) => {
       const value = callback(player, i)
-      if (!result) result = value
+      if (result === undefined) result = value
       else result = result && value
     })
     return result!
@@ -367,6 +367,10 @@ class Dealer {
     this.#deck.reset()
     this.#actionsHistory = []
     this.forEach((player) => player.reset())
+  }
+
+  resetActionsHistory() {
+    this.#actionsHistory = []
   }
 
   // 反向遍历
@@ -444,6 +448,12 @@ class Dealer {
       if (!player && p.getStatus() === 'waiting') player = p
     }, this.#button?.getNextPlayer())
     return player
+  }
+
+  getPlayersCanAct() {
+    return this.filter(
+      (player) => player.getStatus() !== 'out' && player.getStatus() !== 'allIn'
+    )
   }
 
   // every(callback: (p: Player, i: number) => boolean) {

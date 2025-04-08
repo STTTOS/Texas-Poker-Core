@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // 此文件为游戏进程的模拟
 // 循环运行, 尝试找出在实际运行中
 // 出现的边缘请款
@@ -28,23 +30,27 @@ const delay = (ms = 1000) => {
 }
 
 let count = 0
+let end = 0
 let errorCount = 0
+const errorInfo: string[] = []
 async function test() {
   texas.ready()
-  while (count < 10_000) {
-    try {
-      texas.end()
-    } catch {}
+  texas.onGameEnd(() => {
+    end ++
+  })
+  while (count < 10) {
     try {
       texas.start()
-      console.log(count)
-      await delay(20)
-    } catch {
+      await delay(50)
+    } catch(error: any) {
       errorCount++
+      errorInfo.push(error.message)
     } finally {
       count++
     }
   }
   console.log(`模拟运行${count}次, 失败: ${errorCount}次`)
+  console.log('游戏正常结束:', end)
+  console.log(errorInfo.join(','))
 }
 test()

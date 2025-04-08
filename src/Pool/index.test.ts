@@ -82,7 +82,7 @@ describe('class pool', () => {
       controller,
       dealer
     })
-    const room = new Room(dealer, p1)
+    const room = new Room(dealer, p1, controller)
     const p2 = new Player({
       user: { id: 2, balance: 10000 },
       lowestBetAmount: dealer.getLowestBetAmount(),

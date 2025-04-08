@@ -25,7 +25,7 @@ describe('class Player', () => {
       controller,
       dealer
     })
-    const room = new Room(dealer, p1)
+    const room = new Room(dealer, p1, controller)
 
     room.join(p2)
     room.join(p3)

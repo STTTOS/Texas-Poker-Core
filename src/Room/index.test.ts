@@ -13,7 +13,7 @@ describe('Room', () => {
       controller,
       dealer
     })
-    const room = new Room(dealer, player)
+    const room = new Room(dealer, player, controller)
     expect(room.lowestBetAmount).toEqual(200)
   })
   test('test function join', () => {
@@ -26,7 +26,7 @@ describe('Room', () => {
       controller,
       dealer
     })
-    const room = new Room(dealer, player)
+    const room = new Room(dealer, player, controller)
     const lowestBetAmount = room.lowestBetAmount
     const p2 = new Player({
       user: { id: 2, balance: 20000 },
@@ -56,7 +56,7 @@ describe('Room', () => {
       controller,
       dealer
     })
-    const room = new Room(dealer, player)
+    const room = new Room(dealer, player, controller)
 
     const lowestBetAmount = room.lowestBetAmount
     const p2 = new Player({
@@ -85,7 +85,7 @@ describe('Room', () => {
       controller,
       dealer
     })
-    const room = new Room(dealer, player, true, 1)
+    const room = new Room(dealer, player, controller, true, 1)
 
     const lowestBetAmount = room.lowestBetAmount
     const p2 = new Player({
@@ -110,7 +110,7 @@ describe('Room', () => {
       controller,
       dealer
     })
-    const room = new Room(dealer, player)
+    const room = new Room(dealer, player, controller)
 
     expect(room.has(player.getUserInfo().id)).toEqual(true)
   })
