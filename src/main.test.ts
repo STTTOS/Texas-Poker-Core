@@ -16,13 +16,14 @@ describe('entery', () => {
     texas.dealer.setButton(p1)
 
     texas.ready()
-    texas.start()
+    await texas.start()
 
     expect(() => texas.ready()).toThrow('玩家位置已确认,请勿重复设置')
-    expect(() => texas.start()).toThrow('游戏已经开始, 请勿重复操作')
+    expect(texas.start()).rejects.toThrow('游戏已经开始, 请勿重复操作')
 
+    texas.controller.end()
     await texas.settle()
-
+    texas.reset()
     expect(p1.getBalance() + p2.getBalance() + p3.getBalance()).toEqual(20_000)
   })
 })

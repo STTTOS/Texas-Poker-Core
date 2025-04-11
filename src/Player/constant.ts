@@ -50,6 +50,7 @@ export const roleMap = new Map<Role, string>([
   ['cut-off', '关煞']
 ])
 const playerRoleSetMap = new Map<number, Role[]>([
+  [1, ['button']],
   [2, twoPlayer],
   [3, threePlayer],
   [4, fourPlayer],

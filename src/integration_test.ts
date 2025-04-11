@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
 // 此文件为游戏进程的模拟
 // 循环运行, 尝试找出在实际运行中
 // 出现的边缘请款
@@ -36,13 +35,13 @@ const errorInfo: string[] = []
 async function test() {
   texas.ready()
   texas.onGameEnd(() => {
-    end ++
+    end++
   })
   while (count < 10) {
     try {
       texas.start()
       await delay(50)
-    } catch(error: any) {
+    } catch (error: any) {
       errorCount++
       errorInfo.push(error.message)
     } finally {

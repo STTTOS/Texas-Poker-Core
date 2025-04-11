@@ -1,6 +1,6 @@
 {
   "name": "texas-poker-core",
-  "version": "1.1.19",
+  "version": "1.1.36",
   "description": "德州扑克核心功能",
   "main": "dist/index.js",
   "types": "types/index.d.ts",
@@ -20,7 +20,8 @@
     "cp:types": "cp -r ./dist /Users/yangchengrong/Desktop/projects/wish_server/node_modules/texas-poker-core",
     "cp:js": "cp -r ./types /Users/yangchengrong/Desktop/projects/wish_server/node_modules/texas-poker-core",
     "cp": "pnpm run cp:types && pnpm run cp:js",
-    "integration-test": "cross-env PROJECT_ENV=dev ts-node -r tsconfig-paths/register  ./src/integration_test.ts"
+    "integration-test": "cross-env PROJECT_ENV=dev ts-node -r tsconfig-paths/register  ./src/integration_test.ts",
+    "simulator": "cross-env PROJECT_ENV=prd ts-node -r tsconfig-paths/register  ./src/simulator_game_run.ts"
   },
   "files": [
     "dist/**/*",

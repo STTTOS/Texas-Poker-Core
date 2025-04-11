@@ -29,6 +29,7 @@ class Controller {
   #dealer: Dealer
   #callback?: CallbackOfGameEnd
   #callbackOnNextStage?: CallbackOnNextStage
+  #callbackOfGameStart?: () => Promise<void>
   #defaultBets: Array<{ userId: number; balance: number; amount: number }> = []
 
   constructor(dealer: Dealer) {
@@ -91,7 +92,7 @@ class Controller {
     // console.log(playersCanAct.length , playersCanAct[0].actionable())
     if (shouldEndGame || end) {
       this.end()
-      this.#endAt = 'river'
+      this.#endAt = this.stage
       this.#callback?.({
         restCommonPokes: this.getCommonPokes(this.#stage, 'river'),
         currentStage: this.#stage,
@@ -177,7 +178,7 @@ class Controller {
     return this.#defaultBets
   }
   // 大盲小盲的默认下注行为
-  takeActionInPreFlop() {
+  async takeActionInPreFlop() {
     console.log('takeActionInPreFlop')
     let current = this.#dealer.button?.getNextPlayer()
 
@@ -207,14 +208,17 @@ class Controller {
       }
     }
     const activePlayer = current?.getNextPlayer()
-    if (activePlayer) this.transferControlToNext(activePlayer)
-    else throw new Error('游戏进程异常')
+    if (activePlayer) {
+      // 默认行为结束后, 游戏正式开始
+      await this.#callbackOfGameStart?.()
+      this.transferControlToNext(activePlayer)
+    } else throw new Error('游戏进程异常')
     // console.log('大盲小盲的默认下注行为', this.defaultBets)
   }
   /**
    * @description 开始计时器, 将控制权移交给第一个可以行动的玩家
    */
-  start() {
+  async start() {
     this.#status = 'on'
     this.#stage = 'pre_flop'
     this.#endAt = 'pre_flop'
@@ -222,10 +226,13 @@ class Controller {
     // 测试环境保持玩家balance起始不变
     if (process.env.PROJECT_ENV === 'dev') this.#dealer.reset()
 
-    this.takeActionInPreFlop()
+    await this.takeActionInPreFlop()
     this.startTimer()
   }
 
+  onGameStart(callback: () => Promise<void>) {
+    this.#callbackOfGameStart = callback
+  }
   startTimer() {
     // 避免重复开启计时器
     if (this.#timer) return
@@ -251,16 +258,25 @@ class Controller {
     }
   }
   /**
-   * @description 结束游戏, 回收控制权, 清除玩家的计时器
+   * @description 结束游戏, 回收玩家控制权
    */
   end() {
     this.clearTimer()
     this.#status = 'waiting'
 
     this.#activePlayer?.removeControl()
-    this.#activePlayer?.clearTimer()
+    this.#activePlayer = null
+  }
+
+  reset() {
+    this.#status = 'waiting'
+    this.#activePlayer?.removeControl()
     this.#activePlayer = null
     this.#defaultBets = []
+    this.clearTimer()
+    this.#count = 0
+    this.#endAt = 'pre_flop'
+    this.#stage = 'pre_flop'
   }
 
   /**

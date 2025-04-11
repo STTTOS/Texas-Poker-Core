@@ -4,7 +4,7 @@ import Dealer from '@/Dealer'
 import Controller from '@/Controller'
 
 describe('class Player', () => {
-  test('function allIn', () => {
+  test('function allIn', async () => {
     const dealer = new Dealer(500)
     const controller = new Controller(dealer)
     const p1 = new Player({
@@ -31,11 +31,11 @@ describe('class Player', () => {
     room.join(p3)
     room.getDealer().setButton(p2)
     room.ready()
-    controller.start()
+    await controller.start()
 
-    p3.call()
-    p1.allIn()
-    p2.allIn()
+    await p3.call()
+    await p1.allIn()
+    await p2.allIn()
     dealer.logPlayers()
 
     controller.end()

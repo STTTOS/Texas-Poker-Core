@@ -4,9 +4,9 @@ import { Role, Player } from '@/Player'
 import { handPokeType } from '@/Deck/constant'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
 import {
-  formatter,
   getWinners,
   getBestHand,
+  formatterPoke,
   comparePresentation,
   getHandPresentation
 } from '@/Deck/core'
@@ -74,9 +74,9 @@ class Dealer {
     return this.#deck
   }
   getMaxPresentation() {
-    const [max] = this.map((player) => player.getPresentation()!).sort(
-      comparePresentation
-    )
+    const [max] = this.filter((player) => player.getStatus() !== 'out')
+      .map((player) => player.getPresentation()!)
+      .sort(comparePresentation)
 
     return max[0] as handPokeType
   }
@@ -90,16 +90,18 @@ class Dealer {
   // 获取所有的最大牌型
   getMaxPokes() {
     // getBestHand()
-    const result = this.map((player) => {
-      const pokes = getBestHand(
-        player.getHandPokes(),
-        this.#deck.getPokes().commonPokes
-      )
-      return {
-        presentation: getHandPresentation(pokes),
-        pokes
+    const result = this.filter((player) => player.getStatus() !== 'out').map(
+      (player) => {
+        const pokes = getBestHand(
+          player.getHandPokes(),
+          this.#deck.getPokes().commonPokes
+        )
+        return {
+          presentation: getHandPresentation(pokes),
+          pokes
+        }
       }
-    })
+    )
     const [max] = result.sort((a, b) =>
       comparePresentation(a.presentation, b.presentation)
     )
@@ -162,7 +164,7 @@ class Dealer {
         )
       )
     })
-    console.log('底牌:', formatter(this.#deck.getPokes().commonPokes))
+    console.log('底牌:', formatterPoke(this.#deck.getPokes().commonPokes))
   }
 
   remove(player: Player) {
@@ -192,20 +194,14 @@ class Dealer {
     // 将下一个玩家的last player 设置为当前玩家的last player
     player.getNextPlayer()?.setLastPlayer(player.getLastPlayer())
     this.#count--
+
+    this.reArrangeRoles()
     return true
   }
 
   join(player: Player) {
     if (this.has(player)) return false
     this.#count++
-
-    // this.#head.setLastPlayer(player)
-
-    // const player = new Player({
-    //   user,
-    //   lowestBeAmount: this.#lowestBetAmount,
-    //   nextPlayer: this.#head
-    // })
 
     if (!this.#head) {
       this.#head = player
@@ -219,23 +215,38 @@ class Dealer {
     this.#head?.setLastPlayer(player)
 
     this.#last = player
+    this.reArrangeRoles()
     return true
   }
 
+  /**
+   * 玩家加入 / 离开时重新分配角色
+   */
+  reArrangeRoles() {
+    if (!this.#button) return
+
+    const roles = playerRoleSetMap.get(this.#count)
+
+    if (!roles) throw new Error('不支持的玩家人数对局')
+
+    this.loop((player, i) => {
+      player.setRole(roles[i])
+    }, this.#button)
+  }
   has(player: Player) {
     return !!this.find((p) => p === player)
   }
 
   log() {
     console.log(`玩家数量: ${this.getPlayersCount()}`)
-    console.log('底牌:', formatter(this.#deck.getPokes().commonPokes))
+    console.log('底牌:', formatterPoke(this.#deck.getPokes().commonPokes))
     this.forEach((player) => {
       const role = player.getRole()
 
       console.log(
         `${
           role ? roleMap.get(role) : 'unSettled'
-        }:  ${player.toString()}; 手牌: ${formatter(player.getHandPokes())}`
+        }:  ${player.toString()}; 手牌: ${formatterPoke(player.getHandPokes())}`
       )
     })
   }
@@ -365,7 +376,7 @@ class Dealer {
    */
   reset() {
     this.#deck.reset()
-    this.#actionsHistory = []
+    this.resetActionsHistory()
     this.forEach((player) => player.reset())
   }
 

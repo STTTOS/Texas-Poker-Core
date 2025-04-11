@@ -225,9 +225,9 @@ export function getBestPokesPresentation(
  * @param input
  * @returns
  */
-export const formatter = (input: Poke[]) => {
+export const formatterPoke = (input: Poke[]) => {
   return input
-    .map((item) => `${suitsMap.get(item[0] as Suit)}${item[1]}`)
+    .map((item) => `${suitsMap.get(item[0] as Suit)}${item[1].toUpperCase()}`)
     .join(',')
 }
 
@@ -238,8 +238,10 @@ export const getWinners = (players: Player[]) => {
   if (players.some((p) => !p.getPresentation()))
     throw new Error('未计算玩家手牌大小,无法比较')
 
-  const [max] = [...players].sort((a, b) =>
-    comparePresentation(a.getPresentation()!, b.getPresentation()!)
-  )
+  const [max] = [...players]
+    .filter((player) => player.getStatus() !== 'out')
+    .sort((a, b) =>
+      comparePresentation(a.getPresentation()!, b.getPresentation()!)
+    )
   return players.filter((p) => p.getPresentation() === max.getPresentation())
 }

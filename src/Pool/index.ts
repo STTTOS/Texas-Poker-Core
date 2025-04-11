@@ -3,7 +3,7 @@ import { equals } from 'ramda'
 import { Player } from '@/Player'
 import { Stage } from '@/Controller'
 import { sum, filterMap } from '@/utils'
-import { formatter, getWinners } from '@/Deck/core'
+import { getWinners, formatterPoke } from '@/Deck/core'
 
 // 提供奖池结算的能力
 class Pool {
@@ -100,18 +100,18 @@ class Pool {
     return this.#totalAmount
   }
   /**
-   * @description 根据主池 和 边池的金额, 结算出
+   * @description 计算各个边池
    * 需要给各个玩家支付的金额
    */
   settle() {
-    this.calculateMainPoolAndSidePots()
+    this.calculate()
 
     console.log('玩家牌力大小:')
     this.#players.forEach((player) => {
       console.log(
         player.getUserInfo().name,
         player.getPresentation(),
-        formatter(player.getHandPokes())
+        formatterPoke(player.getHandPokes())
       )
     })
     console.log('奖池:')
@@ -139,7 +139,7 @@ class Pool {
   /**
    * @description 根据各个阶段的下注情况, 计算主池 + 边池
    */
-  calculateMainPoolAndSidePots() {
+  calculate() {
     this.#betRecords.forEach((_, stage) => {
       this.calculateStage(stage)
     })
@@ -149,24 +149,9 @@ class Pool {
    * @description 计算单个阶段的奖池分配情况
    */
   calculateStage(stage: Stage) {
-    // const countOfPlayers = this.#players.size
     const records = this.#betRecords.get(stage)
 
     if (!records || records.size === 0) return
-
-    // 所有玩家都有下注, 将其中的部分金额计算入主池
-    // if (
-    //   Array.from(records.values()).filter((value) => value !== 0).length ===
-    //   countOfPlayers
-    // ) {
-    //   const minBetAmount = Math.min(...records.values())
-    //   this.#mainPool += minBetAmount * countOfPlayers
-
-    //   records.forEach((value, key) => {
-    //     const result = value - minBetAmount
-    //     records.set(key, result)
-    //   })
-    // }
     this.calculateSidePot(filterMap((value) => value !== 0, records))
   }
 

@@ -61,7 +61,7 @@ build.on('exit', (code) => {
     const appendText = `\n## ${newVersion}\n${message}`
     writeFileSync('./README.md', readme + appendText)
 
-    const publish = spawn('npm', ['publish'], { stdio: 'pipe' })
+    const publish = spawn('npm', ['publish'], { stdio: 'overlapped' })
     publish.on('error', (error) => {
       replaceVersion((version) => updateVersion(version, 'down'))
       console.error(`执行错误: ${error.message}`)
