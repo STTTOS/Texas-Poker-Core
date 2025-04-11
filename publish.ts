@@ -61,7 +61,7 @@ build.on('exit', (code) => {
     const appendText = `\n## ${newVersion}\n${message}`
     writeFileSync('./README.md', readme + appendText)
 
-    const publish = spawn('npm', ['publish'], { stdio: 'overlapped' })
+    const publish = spawn('npm', ['publish'], { stdio: 'pipe' })
     publish.on('error', (error) => {
       replaceVersion((version) => updateVersion(version, 'down'))
       console.error(`执行错误: ${error.message}`)
@@ -74,10 +74,10 @@ build.on('exit', (code) => {
         replaceVersion((version) => updateVersion(version, 'down'))
         const readme = readFileSync('./README.md').toString()
         writeFileSync('./README.md', readme.replace(appendText, ''))
-        console.error('命令执行异常')
+        console.error('发布失败, 清手动发布')
       }
     })
   } else {
-    console.error('构建出错')
+    console.error('构建出错, 请手动构建后发布')
   }
 })

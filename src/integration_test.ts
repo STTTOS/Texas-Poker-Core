@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // 此文件为游戏进程的模拟
 // 循环运行, 尝试找出在实际运行中
-// 出现的边缘请款
+// 出现的边缘情况
 import { initialGame } from './main'
 
 const texas = initialGame({
