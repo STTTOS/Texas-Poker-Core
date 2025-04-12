@@ -1,18 +1,21 @@
 import Dealer from '.'
+import Pool from '@/Pool'
 import { Player } from '@/Player'
 import Controller from '@/Controller'
 
 describe('dealer', () => {
   test('Game init successfully', () => {
     const dealer = new Dealer(200)
-    const lowestBetAmount = dealer.getLowestBetAmount()
+    const lowestBetAmount = dealer.lowestBetAmount
     const controller = new Controller(dealer)
+    const pool = new Pool()
     dealer.join(
       new Player({
         user: { id: 2, balance: 40000 },
         lowestBetAmount,
         controller,
-        dealer
+        dealer,
+        pool
       })
     )
     dealer.join(
@@ -20,17 +23,18 @@ describe('dealer', () => {
         user: { id: 3, balance: 40000 },
         lowestBetAmount,
         controller,
-        dealer
+        dealer,
+        pool
       })
     )
-    dealer.setRoleToPlayers()
+    dealer.setRoles()
     dealer.dealCards()
     dealer.settle()
 
-    expect(dealer.getDeck().getCards().length).toEqual(52)
-    expect(dealer.getDeck().getPokes().commonPokes.length).toEqual(5)
-    expect(dealer.getDeck().getPokes().handPokes.length).toEqual(2)
-    expect(dealer.getPlayersCount()).toEqual(2)
-    expect(dealer.getLowestBetAmount()).toEqual(200)
+    expect(dealer.deck.getCards().length).toEqual(52)
+    expect(dealer.deck.getPokes().commonPokes.length).toEqual(5)
+    expect(dealer.deck.getPokes().handPokes.length).toEqual(2)
+    expect(dealer.count).toEqual(2)
+    expect(dealer.lowestBetAmount).toEqual(200)
   })
 })

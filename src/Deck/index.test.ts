@@ -1,5 +1,6 @@
 import { equals } from 'ramda'
 
+import Pool from '@/Pool'
 import Deck from './index'
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
@@ -57,18 +58,20 @@ describe('deck', () => {
       count--
       const dealer = new Dealer(200)
       const controller = new Controller(dealer)
+      const pool = new Pool()
 
       dealer.join(
         new Player({
           user: { id: 1, balance: 500 },
-          lowestBetAmount: dealer.getLowestBetAmount(),
+          lowestBetAmount: dealer.lowestBetAmount,
           controller,
-          dealer
+          dealer,
+          pool
         })
       )
-      dealer.setRoleToPlayers()
+      dealer.setRoles()
       dealer.dealCards()
-      const type = dealer.getDeck().getMax().type
+      const type = dealer.deck.getMaxPresentation()
       if (hitCountsMap.has(type))
         hitCountsMap.set(type, hitCountsMap.get(type)! + 1)
       else hitCountsMap.set(type, 1)

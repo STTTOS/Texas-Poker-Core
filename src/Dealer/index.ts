@@ -17,11 +17,6 @@ import {
 class Dealer {
   #lowestBetAmount: number
   #deck: Deck
-  /**
-   * 存储庄家位的玩家id
-   */
-  // #buttonId: number
-
   #count = 0
   #button: Player | null = null
   #last: Player | null = null
@@ -29,7 +24,6 @@ class Dealer {
 
   // 记录最近一个玩家的操作记录
   #actionsHistory: Player[] = []
-  // #rolesArranged = false
 
   constructor(lowestBetAmount: number) {
     this.#lowestBetAmount = lowestBetAmount
@@ -41,19 +35,28 @@ class Dealer {
     return this.#actionsHistory
   }
 
-  addAction(player: Player) {
-    // 只需记录一圈的操作记录
-    if (this.#actionsHistory.length === this.#count) {
-      this.#actionsHistory.shift()
-    }
-    this.#actionsHistory.push(player)
-  }
   get count() {
     return this.#count
   }
 
   get button() {
     return this.#button
+  }
+
+  get deck() {
+    return this.#deck
+  }
+
+  get players() {
+    return this.map((p) => p)
+  }
+
+  get winners() {
+    return getWinners(this.players)
+  }
+
+  get lowestBetAmount() {
+    return this.#lowestBetAmount
   }
 
   dealCards() {
@@ -65,13 +68,18 @@ class Dealer {
         (player) => roleMap.get(player.getRole()!) + ': ' + player.toString()
       )
     )
-    const { handPokes } = this.#deck.dealCards(this.getPlayersCount())
+    const { handPokes } = this.#deck.dealCards(this.#count)
     this.loop((player, i) => {
       player.setHandPokes(handPokes[i])
     }, this.#button)
   }
-  getDeck() {
-    return this.#deck
+
+  addAction(player: Player) {
+    // 只需记录一圈的操作记录
+    if (this.#actionsHistory.length === this.#count) {
+      this.#actionsHistory.shift()
+    }
+    this.#actionsHistory.push(player)
   }
   getMaxPresentation() {
     const [max] = this.filter((player) => player.getStatus() !== 'out')
@@ -80,13 +88,7 @@ class Dealer {
 
     return max[0] as handPokeType
   }
-  get players() {
-    return this.map((p) => p)
-  }
 
-  getWinners() {
-    return getWinners(this.players)
-  }
   // 获取所有的最大牌型
   getMaxPokes() {
     // getBestHand()
@@ -110,26 +112,6 @@ class Dealer {
       .map((item) => item.pokes)
   }
 
-  getHeadPlayer() {
-    return this.#head
-  }
-
-  getPreviousPlayers(callback: (p: Player) => boolean, from: Player) {
-    const result: Player[] = []
-    let count = this.#count
-    let current: Player | null = from.getLastPlayer()
-
-    while (current && count) {
-      if (callback(current)) result.push(current)
-
-      current = current.getLastPlayer()
-      count--
-    }
-    return result
-  }
-  getLowestBetAmount() {
-    return this.#lowestBetAmount
-  }
   logPlayers() {
     console.log(
       '玩家信息: \n',
@@ -137,21 +119,10 @@ class Dealer {
     )
   }
 
-  setRoleToPlayers() {
-    // this.#rolesArranged = true
+  setRoles() {
     this.setButton()
-    // if (process.env.PROJECT_ENV !== 'dev')
     this.setOthers()
   }
-  /**
-   * 暂停游戏
-   */
-  pause() {}
-
-  /**
-   * 结束游戏
-   */
-  end() {}
 
   /**
    * 计算各个玩家的最大牌力
@@ -233,12 +204,25 @@ class Dealer {
       player.setRole(roles[i])
     }, this.#button)
   }
+
   has(player: Player) {
-    return !!this.find((p) => p === player)
+    return !!this.get(player)
+  }
+
+  hasById(userId: number) {
+    return !!this.getById(userId)
+  }
+
+  get(player: Player) {
+    return this.find((target) => target === player)
+  }
+
+  getById(userId: number) {
+    return this.find((player) => player.id === userId)
   }
 
   log() {
-    console.log(`玩家数量: ${this.getPlayersCount()}`)
+    console.log(`玩家数量: ${this.#count}`)
     console.log('底牌:', formatterPoke(this.#deck.getPokes().commonPokes))
     this.forEach((player) => {
       const role = player.getRole()
@@ -252,8 +236,10 @@ class Dealer {
   }
 
   changeButtonToNextPlayer() {
-    this.setButton(this.#button!.getNextPlayer()!)
-    // this.setOthers()
+    const next = this.#button?.getNextPlayer()
+    if (!next) throw new Error('将庄家移交给不存在的玩家')
+
+    this.setButton(next)
   }
 
   /**
@@ -272,7 +258,7 @@ class Dealer {
       return
     }
 
-    const count = this.getPlayersCount()
+    const count = this.#count
     const random = getRandomInt(0, count - 1)
 
     this.forEach((p, i) => {
@@ -283,7 +269,13 @@ class Dealer {
     })
   }
 
+  /**
+   * @description 设置除了庄家位之外的其他玩家的位置
+   * @returns
+   */
   setOthers() {
+    if (!this.#button) throw new Error('未指定庄家, 无法设置其余玩家位置')
+
     let count = this.#count
     if (process.env.PROJECT_ENV === 'dev' && count === 1) return
 
@@ -291,13 +283,13 @@ class Dealer {
 
     const roles = playerRoleSetMap.get(count)!.slice(1)
     let role: Role
-    let current = this.#button?.getNextPlayer()
+    let current = this.#button.getNextPlayer()
 
-    while (count - 1) {
+    while (count - 1 && current) {
       role = roles.shift()!
-      if (role) current?.setRole(role)
+      if (role) current.setRole(role)
 
-      current = current?.getNextPlayer()
+      current = current.getNextPlayer()
       count--
     }
   }
@@ -306,22 +298,7 @@ class Dealer {
    * @description 获取当前阶段的最大下注额
    */
   getCurrentStageMaxBetAmount() {
-    return Math.max(
-      ...this.map((player) => player.getCurrentStageTotalAmount())
-    )
-  }
-  getPlayersCount() {
-    return this.#count
-    // let count = 0
-    // let current: Player | null = this.#head
-    // const headId = current?.getUserInfo().id
-
-    // while (current) {
-    //   count++
-    //   current = current.getNextPlayer()
-    // }
-
-    // return count
+    return Math.max(...this.map((player) => player.lowestBetAmount))
   }
 
   /**
@@ -339,7 +316,6 @@ class Dealer {
       count--
     }
   }
-  getTotal
 
   map<T>(callback: (p: Player, i: number) => T): T[] {
     const result: T[] = []
@@ -366,10 +342,16 @@ class Dealer {
     this.forEach((p) => p.resetCurrentStageTotalAmount())
   }
 
+  /**
+   * @description 重置每个玩家的action记录
+   */
   resetActionsOfPlayers() {
     this.forEach((p) => p.resetAction())
   }
 
+  resetActionsHistory() {
+    this.#actionsHistory = []
+  }
   /**
    * @description 重置玩家的`action`,当前阶段下注额, 手牌, 手牌牌力信息, 底牌等信息
    * 在游戏结束后调用
@@ -378,10 +360,6 @@ class Dealer {
     this.#deck.reset()
     this.resetActionsHistory()
     this.forEach((player) => player.reset())
-  }
-
-  resetActionsHistory() {
-    this.#actionsHistory = []
   }
 
   // 反向遍历
@@ -440,20 +418,12 @@ class Dealer {
       current = current.getNextPlayer()
     }
   }
+
   /**
    * @description 从庄家的下一个玩家开始遍历, 获取第一个可以行动的玩家
    */
   getTheFirstPlayerToAct(): Player | null {
     let player: Player | null = null
-
-    // 翻牌前从大盲的下一位开始行动
-    // 翻牌后从庄家的下一位开始行动
-    // const start =
-    //   stage === 'pre_flop'
-    //     ? this.find(
-    //         (player) => player.getRole() === 'big-blind'
-    //       )?.getNextPlayer()
-    //     : this.#button?.getNextPlayer()
 
     this.loop((p) => {
       if (!player && p.getStatus() === 'waiting') player = p
@@ -461,27 +431,15 @@ class Dealer {
     return player
   }
 
+  /**
+   * @description 获取可以行动的玩家列表 排除弃牌 和 全押的玩家
+   * @returns
+   */
   getPlayersCanAct() {
     return this.filter(
       (player) => player.getStatus() !== 'out' && player.getStatus() !== 'allIn'
     )
   }
-
-  // every(callback: (p: Player, i: number) => boolean) {
-  //   let result: boolean
-  //   this.loop((p, i) => (result = true))
-
-  //   return result
-  // }
-  // loopByTheGameController(
-  //   callback: (p: Player, i: number, next: (player: Player | null) => void) => void
-  // ) {
-  //   let index = 0
-  //   let current: Player | null | undefined = this.#button?.getNextPlayer()
-  //   if (current) callback(current, index, () => this.#controller.transferControlToNext())
-
-  // }
-  init() {}
 }
 
 export default Dealer

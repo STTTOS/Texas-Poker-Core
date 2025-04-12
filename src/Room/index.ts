@@ -46,7 +46,7 @@ class Room {
     this.#allowPlayersToWatch = allowPlayersToWatch
     this.#maximumCountOfPlayers = maximumCountOfPlayers
 
-    const lowestBetAmount = dealer.getLowestBetAmount()
+    const lowestBetAmount = dealer.lowestBetAmount
     this.#lowestBetAmount = lowestBetAmount
     this.join(player)
   }
@@ -57,23 +57,19 @@ class Room {
 
     if (this.#status === 'ready') throw new Error('玩家位置已确认,请勿重复设置')
 
-    this.#dealer.setRoleToPlayers()
+    this.#dealer.setRoles()
     this.#status = 'ready'
   }
 
   setOwnerById(userId: number) {
     const player = this.#idToPlayerMap.get(userId)
 
-    this.#players.forEach((player) => {
-      player.setIsOwner(false)
-    })
     this.setOwner(player)
   }
   setOwner(player?: Player) {
     if (!player) throw new Error('房主不可为Null')
 
     this.#owner = player
-    player.setIsOwner(true)
   }
 
   get owner() {
@@ -160,7 +156,7 @@ class Room {
 
     if (
       !this.#allowPlayersToWatch &&
-      player.getLowestBetAmount() < this.#lowestBetAmount
+      player.lowestBetAmount < this.#lowestBetAmount
     )
       throw new Error(
         '房间设置了不可观战, 并且您的余额小于房间的最底下注,无法加入'

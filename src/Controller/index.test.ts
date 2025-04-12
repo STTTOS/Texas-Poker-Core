@@ -1,4 +1,5 @@
 import Room from '@/Room'
+import Pool from '@/Pool'
 import Controller from '.'
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
@@ -7,11 +8,13 @@ describe('class Controller', () => {
   test('function transferControl', async () => {
     const dealer = new Dealer(1000)
     const controller = new Controller(dealer)
+    const pool = new Pool()
     const p1 = new Player({
       user: { id: 1, balance: 5000, name: 'yt' },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const room = new Room(dealer, p1, controller)
 
@@ -19,20 +22,23 @@ describe('class Controller', () => {
       lowestBetAmount: 1000,
       user: { id: 2, balance: 30000, name: 'ycr' },
       controller,
-      dealer
+      dealer,
+      pool
     })
     const p3 = new Player({
       lowestBetAmount: 1000,
       user: { id: 3, balance: 10000, name: 'wzy' },
       controller,
-      dealer
+      dealer,
+      pool
     })
 
     const p4 = new Player({
       lowestBetAmount: 1000,
       user: { id: 4, balance: 20000, name: 'zhong' },
       controller,
-      dealer
+      dealer,
+      pool
     })
     room.join(p2)
     room.join(p3)

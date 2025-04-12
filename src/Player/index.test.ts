@@ -1,29 +1,34 @@
 import Room from '@/Room'
+import Pool from '@/Pool'
 import { Player } from '.'
 import Dealer from '@/Dealer'
 import Controller from '@/Controller'
 
 describe('class Player', () => {
   test('function allIn', async () => {
-    const dealer = new Dealer(500)
+    const dealer = new Dealer(1000)
     const controller = new Controller(dealer)
+    const pool = new Pool()
     const p1 = new Player({
       user: { id: 1, balance: 18000, name: 'ycr' },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const p2 = new Player({
       user: { id: 2, balance: 5000, name: 'yt' },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const p3 = new Player({
       user: { id: 3, balance: 10_000, name: 'wyz' },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const room = new Room(dealer, p1, controller)
 
@@ -36,12 +41,9 @@ describe('class Player', () => {
     await p3.call()
     await p1.allIn()
     await p2.allIn()
-    dealer.logPlayers()
 
-    controller.end()
-
-    expect(p1.getBalance()).toEqual(8000)
-    expect(p2.getBalance()).toEqual(0)
-    expect(p3.getBalance()).toEqual(9500)
+    expect(p1.balance).toEqual(8000)
+    expect(p2.balance).toEqual(0)
+    expect(p3.balance).toEqual(9000)
   })
 })

@@ -1,4 +1,5 @@
 import Room from '.'
+import Pool from '@/Pool'
 import Dealer from '@/Dealer'
 import { Player } from '../Player'
 import Controller from '@/Controller'
@@ -7,11 +8,13 @@ describe('Room', () => {
   test('init room successfully', () => {
     const dealer = new Dealer(200)
     const controller = new Controller(dealer)
+    const pool = new Pool()
     const player = new Player({
       user: { id: 1, balance: 500 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const room = new Room(dealer, player, controller)
     expect(room.lowestBetAmount).toEqual(200)
@@ -20,11 +23,13 @@ describe('Room', () => {
     // 创建房间
     const dealer = new Dealer(200)
     const controller = new Controller(dealer)
+    const pool = new Pool()
     const player = new Player({
       user: { id: 1, balance: 500 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const room = new Room(dealer, player, controller)
     const lowestBetAmount = room.lowestBetAmount
@@ -32,13 +37,15 @@ describe('Room', () => {
       user: { id: 2, balance: 20000 },
       lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const p3 = new Player({
       user: { id: 3, balance: 20000 },
       lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
 
     room.join(p2)
@@ -50,11 +57,13 @@ describe('Room', () => {
     // 创建房间
     const dealer = new Dealer(200)
     const controller = new Controller(dealer)
+    const pool = new Pool()
     const player = new Player({
       user: { id: 1, balance: 500 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const room = new Room(dealer, player, controller)
 
@@ -63,13 +72,15 @@ describe('Room', () => {
       user: { id: 2, balance: 20000 },
       lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const p3 = new Player({
       user: { id: 3, balance: 20000 },
       lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     room.join(p2)
     room.join(p3)
@@ -79,11 +90,13 @@ describe('Room', () => {
   test('test function seat', () => {
     const dealer = new Dealer(200)
     const controller = new Controller(dealer)
+    const pool = new Pool()
     const player = new Player({
       user: { id: 1, balance: 500 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const room = new Room(dealer, player, controller, true, 1)
 
@@ -92,7 +105,8 @@ describe('Room', () => {
       user: { id: 2, balance: 20000 },
       lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     expect(() => room.seat(p2)).toThrow('您不在房间中,无法入座')
 
@@ -104,11 +118,13 @@ describe('Room', () => {
   test('test function has', () => {
     const dealer = new Dealer(200)
     const controller = new Controller(dealer)
+    const pool = new Pool()
     const player = new Player({
       user: { id: 1, balance: 500 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const room = new Room(dealer, player, controller)
 

@@ -24,6 +24,6 @@ describe('entery', () => {
     texas.controller.end()
     await texas.settle()
     texas.reset()
-    expect(p1.getBalance() + p2.getBalance() + p3.getBalance()).toEqual(20_000)
+    expect(p1.balance + p2.balance + p3.balance).toEqual(20_000)
   })
 })

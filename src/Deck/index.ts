@@ -36,7 +36,6 @@ class Deck {
       const j = Math.floor(Math.random() * (i + 1))
       ;[this.#deck[i], this.#deck[j]] = [this.#deck[j], this.#deck[i]]
     }
-    // this.#deck.sort(() => Math.random() - 0.5)
   }
 
   reset() {
@@ -111,15 +110,12 @@ class Deck {
     return this.#deck
   }
 
-  getMax() {
+  getMaxPresentation() {
     const presentation = getBestPokesPresentation(
       this.#handPokes,
       this.#commonPokes
     )
-    return {
-      type: presentation[0] as handPokeType,
-      value: presentation
-    }
+    return presentation[0] as handPokeType
   }
 }
 export default Deck

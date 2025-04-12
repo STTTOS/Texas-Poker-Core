@@ -81,19 +81,27 @@ export class Player {
    * 玩家当前所处的位置
    */
   #role?: Role
+  /**
+   * 用户信息
+   */
   #userInfo: User
+  #pool: Pool
+  #dealer: Dealer
   #controller: Controller
   #onlineStatus: OnlineStatus = 'online'
   /**
    * 积分
    */
-  // #balance: number
+  // balance: number
   #status: PlayerStatus = 'waiting'
   /**
    * 默认的思考时间为30s
    */
-  #thinkingTime
-  #countDownTime
+  #thinkingTime: number
+  /**
+   * 计时器
+   */
+  #countDownTime: number
   #action?: Action
   /**
    * 最小下注金额
@@ -111,14 +119,11 @@ export class Player {
 
   #shouldTakeDefaultAction?: boolean
   #timer: NodeJS.Timeout | null = null
-  #dealer: Dealer
-  #pool: Pool
   /**
    * 玩家的手牌
    */
   #handPokes: Poke[] = []
   #presentation: string | undefined
-  #isOwner? = false
   #callback?: (params: PreAction) => void
   /**
    * 用户采取行动
@@ -133,51 +138,111 @@ export class Player {
     controller,
     dealer,
     pool,
-    isOwner,
     thinkingTime = defaultThinkingTime,
     shouldTakeDefaultAction = true
   }: {
-    lowestBetAmount: number
-    role?: Role
     user: User
+    role?: Role
+    pool: Pool
+    dealer: Dealer
+    isOwner?: boolean
+    handPokes?: Poke[]
+    thinkingTime?: number
+    controller: Controller
+    lowestBetAmount: number
     lastPlayer?: Player | null
     nextPlayer?: Player | null
-    handPokes?: Poke[]
-    controller: Controller
-    dealer: Dealer
-    pool?: Pool
-    isOwner?: boolean
-    thinkingTime?: number
     shouldTakeDefaultAction?: boolean
   }) {
     if (user.balance < lowestBetAmount) {
       throw new Error('筹码小于大盲注, 不可参与游戏')
     }
-    this.#lowestBetAmount = lowestBetAmount
+    this.#pool = pool
+    this.#dealer = dealer
     this.#userInfo = user
+    this.#controller = controller
     this.#lastPlayer = lastPlayer
     this.#nextPlayer = nextPlayer
-    this.#dealer = dealer
-    this.#isOwner = isOwner
     this.#thinkingTime = thinkingTime
+    this.#lowestBetAmount = lowestBetAmount
     this.#countDownTime = this.#thinkingTime
     this.#shouldTakeDefaultAction = shouldTakeDefaultAction
-
-    this.#controller = controller
-    this.#pool = pool || new Pool()
   }
-
-  get #balance() {
+  get balance() {
     return this.#userInfo.balance
   }
-  set #balance(value: number) {
+  set balance(value: number) {
     // 测试环境不改变真是余额
     if (process.env.PROJECT_ENV === 'dev') return
     this.#userInfo.balance = value
   }
 
+  get currentStageTotalAmount() {
+    return this.#currentStageTotalAmount
+  }
+  set currentStageTotalAmount(value: number) {
+    this.#currentStageTotalAmount = value
+  }
+
   get id() {
     return this.#userInfo.id
+  }
+
+  get lowestBetAmount() {
+    return this.#lowestBetAmount
+  }
+  /**
+   * @description 获取玩家允许的行动列表
+   * 防止预期外的行为
+   */
+  #getAllowedActions(): Array<ActionType> {
+    const helper = (lastPlayer?: Player | null): ActionType[] => {
+      if (this.#status === 'allIn' || this.#status === 'out') return []
+
+      // 当前阶段第一位非`fold`行动的玩家
+      if (!lastPlayer || !lastPlayer.#action)
+        return ['bet', 'allIn', 'fold', 'check']
+
+      // 上个玩家弃牌了, 需要知道最近采取行动的玩家
+      if (lastPlayer.#action?.type === 'fold') {
+        const player = [...this.#dealer.actionHistory]
+          .reverse()
+          .find((player) => player.getStatus() !== 'out')
+        return helper(player)
+      }
+
+      if (lastPlayer.#action.type === 'check')
+        return ['allIn', 'bet', 'check', 'fold']
+
+      // 前置all-in校验
+      // 其他玩家的最大下注额
+      const maxBetAmount = Math.max(
+        ...this.#dealer!.filter((p) => p !== this).map(
+          (player) => player.#currentStageTotalAmount
+        )
+      )
+      if (this.balance + this.#currentStageTotalAmount <= maxBetAmount) {
+        return ['allIn', 'fold']
+      }
+
+      if (lastPlayer.#action!.type === 'bet') {
+        return ['call', 'raise', 'allIn', 'fold']
+      }
+
+      if (lastPlayer.#action?.type === 'raise') {
+        return ['call', 'raise', 'allIn', 'fold']
+      }
+
+      if (lastPlayer.#action.type === 'allIn') {
+        return ['call', 'raise', 'allIn', 'fold']
+      }
+      // 上个玩家的行为是: call
+      return ['call', 'raise', 'fold', 'allIn']
+    }
+    const result = helper(
+      this.#dealer.actionHistory[this.#dealer.actionHistory.length - 1]
+    )
+    return result
   }
 
   setNextPlayer(player: Player | null) {
@@ -200,27 +265,11 @@ export class Player {
   setLastPlayer(player: Player | null) {
     this.#lastPlayer = player
   }
-  // getIsLast() {
-  //   return this.#isLast
-  // }
-  getLowestBetAmount() {
-    return this.#lowestBetAmount
-  }
-
-  #changeActionStatus(action: Action) {
-    this.#action = action
-  }
-
-  setIsOwner(value: boolean) {
-    this.#isOwner = value
-  }
 
   setStatus(status: PlayerStatus) {
     this.#status = status
   }
-  getCurrentStageTotalAmount() {
-    return this.#currentStageTotalAmount
-  }
+
   getStatus() {
     return this.#status
   }
@@ -231,6 +280,7 @@ export class Player {
   onPreAction(callback: (params: PreAction) => void) {
     this.#callback = callback
   }
+
   reset() {
     this.resetAction()
     this.resetCurrentStageTotalAmount()
@@ -238,8 +288,7 @@ export class Player {
     this.#presentation = undefined
     this.#status = 'waiting'
 
-    if (process.env.PROJECT_ENV === 'dev')
-      this.#balance = this.#userInfo.balance
+    if (process.env.PROJECT_ENV === 'dev') this.balance = this.#userInfo.balance
 
     this.clearTimer()
   }
@@ -281,7 +330,7 @@ export class Player {
     if (!this.#getAllowedActions().includes('bet') && !preFlopDefaultAction)
       throw new Error('不可下注')
 
-    if (money > this.#balance) {
+    if (money > this.balance) {
       throw new Error('下注金额不可大于筹码总数')
     }
     if (money < this.#lowestBetAmount && !preFlopDefaultAction) {
@@ -293,17 +342,15 @@ export class Player {
         value: money
       }
     }
-    this.#balance -= money
-    this.#currentStageTotalAmount += money
+
+    this.#pool.add(this, money, this.#controller.stage)
     console.log(
       this.#userInfo.name,
       '下注金额:',
       money,
       '剩余筹码:',
-      this.#balance
+      this.balance
     )
-    // 默认下注行为不触发
-    this.#pool.add(this, money, this.#controller.stage)
     this.#dealer.addAction(this)
 
     await this.#callbackOfAction?.(this, preFlopDefaultAction)
@@ -316,13 +363,13 @@ export class Player {
     const maxBetAmount = Math.max(
       ...this.#dealer
         .filter((p) => p !== this)
-        .map((p) => p.getCurrentStageTotalAmount())
+        .map((p) => p.#currentStageTotalAmount)
     )
 
     if (!this.#getAllowedActions().includes('raise'))
       throw new Error('不可加注')
 
-    if (money > this.#balance) {
+    if (money > this.balance) {
       return
     }
     if (money < this.#lowestBetAmount) {
@@ -331,39 +378,36 @@ export class Player {
 
     if (money + this.#currentStageTotalAmount <= maxBetAmount) {
       if (process.env.PROJECT_ENV === 'prd') throw Error('必须加注更多的金额')
-      else this.call()
+      else await this.call()
     }
 
+    this.#pool.add(this, money, this.#controller.stage)
     this.#action = {
       type: 'raise',
       payload: {
         value: money
       }
     }
-    this.#balance -= money
-    this.#currentStageTotalAmount += money
-    this.#pool.add(this, money, this.#controller.stage)
-    this.#dealer.addAction(this)
 
+    this.#dealer.addAction(this)
     await this.#callbackOfAction?.(this)
     console.log(this.#userInfo.name, '加注', money)
 
     this.transferControl()
   }
+
   async call() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('call')) throw new Error('不可跟注')
 
     // 其他玩家的最大下注金额
-    const maxBetAmount = this.getMaxBetAmountOfOtherPlayers()
-    const moneyShouldPay = maxBetAmount - this.getCurrentStageTotalAmount()
+    const maxBetAmount = this.getOthersMaxBetAmountAtCurrentStage()
+    const moneyShouldPay = maxBetAmount - this.#currentStageTotalAmount
     if (moneyShouldPay <= 0)
       throw new Error(
-        `数据异常, 请手动下注, try to call: ${moneyShouldPay}, balance: ${
-          this.#balance
-        }, maxBet: ${maxBetAmount}`
+        `数据异常, 请手动下注, try to call: ${moneyShouldPay}, balance: ${this.balance}, maxBet: ${maxBetAmount}`
       )
-    if (moneyShouldPay > this.#balance) {
+    if (moneyShouldPay > this.balance) {
       throw new Error('跟注金额不可大于筹码总数')
     }
     this.#action = {
@@ -372,8 +416,7 @@ export class Player {
         value: moneyShouldPay
       }
     }
-    this.#balance -= moneyShouldPay
-    this.#currentStageTotalAmount += moneyShouldPay
+
     this.#pool.add(this, moneyShouldPay, this.#controller.stage)
     this.#dealer.addAction(this)
     await this.#callbackOfAction?.(this)
@@ -382,16 +425,6 @@ export class Player {
     this.transferControl()
   }
 
-  /**
-   * @description 小盲的补齐跟注行为
-   */
-  followCall() {
-    this.checkIfCanAct()
-  }
-
-  /**
-   * @description allIn跟上一个玩家的选择没有任何关系
-   */
   async allIn() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('allIn')) {
@@ -405,48 +438,72 @@ export class Player {
         maxAllInAmount - this.#currentStageTotalAmount,
         this.#lowestBetAmount
       ),
-      this.#balance
+      this.balance
     )
 
     if (moneyShouldPay <= 0)
       throw new Error(
-        `数据异常,请手动下注, try to allIn: ${moneyShouldPay}; balance: ${
-          this.#balance
-        }`
+        `数据异常,请手动下注, try to allIn: ${moneyShouldPay}; balance: ${this.balance}`
       )
 
+    this.#pool.add(this, moneyShouldPay, this.#controller.stage)
     this.#action = {
       type: 'allIn',
       payload: {
         value: moneyShouldPay
       }
     }
-    this.#currentStageTotalAmount += moneyShouldPay
-    this.#balance -= moneyShouldPay
-    this.#status = 'allIn'
 
+    this.#status = 'allIn'
     this.#dealer.addAction(this)
-    this.#pool.add(this, moneyShouldPay, this.#controller.stage)
     await this.#callbackOfAction?.(this)
     console.log(
       this.#userInfo.name,
       '全押:',
       moneyShouldPay,
       '剩余筹码: ',
-      this.#balance
+      this.balance
     )
     this.transferControl()
     return moneyShouldPay
   }
+
   /**
-   * 获取其他玩家的最大下注额
+   * 获取其他玩家在当前阶段的最大下注额
    */
-  getMaxBetAmountOfOtherPlayers() {
+  getOthersMaxBetAmountAtCurrentStage() {
     return Math.max(
-      ...this.#dealer
-        .filter((p) => p !== this)
-        .map((p) => p.getCurrentStageTotalAmount())
+      ...this.getOtherPlayers().map((p) => p.#currentStageTotalAmount)
     )
+  }
+
+  /**
+   *
+   * @description 获取当前阶段的最大下注额
+   */
+  getMaxBetAmountAtCurrentStage() {
+    return Math.max(
+      ...this.#dealer.map((player) => player.#currentStageTotalAmount)
+    )
+  }
+
+  /**
+   * @description 获取其他玩家的最大下注能力
+   * @returns
+   */
+  getMaxAllInAmount() {
+    return Math.max(
+      ...this.getOtherPlayers().map(
+        (player) => player.balance + player.#currentStageTotalAmount
+      )
+    )
+  }
+
+  /**
+   * @description 获取除自己外的其他玩家
+   */
+  getOtherPlayers() {
+    return this.#dealer.filter((player) => player !== this)
   }
 
   /**
@@ -458,87 +515,21 @@ export class Player {
     if (this.#status === 'allIn' || this.#status === 'out') return false
 
     // 当前的下注金额已经等于最大下注额
-    return this.#currentStageTotalAmount !== this.getMaxBetInCurrentStage()
+    return (
+      this.#currentStageTotalAmount !== this.getMaxBetAmountAtCurrentStage()
+    )
   }
 
   /**
-   *
-   * @description 获取当前阶段的最大下注额
+   * @description 重置action, 需要在每一个新的阶段
+   * 以及游戏结束后调用
    */
-  getMaxBetInCurrentStage() {
-    return Math.max(
-      ...this.#dealer.map((player) => player.getCurrentStageTotalAmount())
-    )
-  }
-  getMaxAllInAmount() {
-    return Math.max(
-      ...this.#dealer
-        .filter((p) => p !== this)
-        .map(
-          (player) => player.getBalance() + player.getCurrentStageTotalAmount()
-        )
-    )
-  }
-
   resetAction() {
     this.#action = undefined
   }
+
   getAllowedActions() {
     return this.#getAllowedActions()
-  }
-
-  /**
-   * @description 根据上一个玩家, 计算可以行动的行动列表
-   * @param lastPlayer
-   */
-  #getAllowedActions(): Array<ActionType> {
-    const helper = (lastPlayer?: Player | null): ActionType[] => {
-      if (this.#status === 'allIn' || this.#status === 'out') return []
-
-      // 当前阶段第一位非`fold`行动的玩家
-      if (!lastPlayer || !lastPlayer.#action)
-        return ['bet', 'allIn', 'fold', 'check']
-
-      // 上个玩家弃牌了, 需要知道最近采取行动的玩家
-      if (lastPlayer.#action?.type === 'fold') {
-        const player = [...this.#dealer.actionHistory]
-          .reverse()
-          .find((player) => player.getStatus() !== 'out')
-        return helper(player)
-      }
-
-      if (lastPlayer.#action.type === 'check')
-        return ['allIn', 'bet', 'check', 'fold']
-
-      // 前置all-in校验
-      // 其他玩家的最大下注额
-      const maxBetAmount = Math.max(
-        ...this.#dealer!.filter((p) => p !== this).map((player) =>
-          player.getCurrentStageTotalAmount()
-        )
-      )
-      if (this.#balance + this.#currentStageTotalAmount <= maxBetAmount) {
-        return ['allIn', 'fold']
-      }
-
-      if (lastPlayer.#action!.type === 'bet') {
-        return ['call', 'raise', 'allIn', 'fold']
-      }
-
-      if (lastPlayer.#action?.type === 'raise') {
-        return ['call', 'raise', 'allIn', 'fold']
-      }
-
-      if (lastPlayer.#action.type === 'allIn') {
-        return ['call', 'raise', 'allIn', 'fold']
-      }
-      // 上个玩家的行为是: call
-      return ['call', 'raise', 'fold', 'allIn']
-    }
-    const result = helper(
-      this.#dealer.actionHistory[this.#dealer.actionHistory.length - 1]
-    )
-    return result
   }
 
   // 根据条件找到上一个满足条件的玩家
@@ -565,9 +556,6 @@ export class Player {
     return this.#action
   }
 
-  getBalance() {
-    return this.#balance
-  }
   getRole() {
     return this.#role
   }
@@ -575,7 +563,7 @@ export class Player {
     return {
       ...this.#userInfo,
       // 余额需要用实时的, 而不是来自于数据库
-      balance: this.#balance
+      balance: this.balance
     }
   }
 
@@ -585,7 +573,7 @@ export class Player {
   toString() {
     return `id: ${this.#userInfo.id}, role: ${roleMap.get(this.#role!)};name: ${
       this.#userInfo.name || this.#userInfo.id
-    };balance: ${this.#balance}`
+    };balance: ${this.balance}`
   }
   log(prefix: string = '') {
     console.log(prefix + this.toString())
@@ -600,7 +588,7 @@ export class Player {
 
   // TODO: 需要先写到数据库
   async earn(money: number) {
-    this.#balance += money
+    this.balance += money
 
     console.log(this.#userInfo.name, '分得奖池金额:', money)
   }
@@ -642,12 +630,11 @@ export class Player {
     if (!nextPlayerToGetController)
       throw new Error('游戏发生异常, 将控制权移交给不存在的玩家')
 
-    this.#controller.transferControlToNext(nextPlayerToGetController)
+    this.#controller.transferControlTo(nextPlayerToGetController)
   }
 
   __testTakeAction() {
     const actions = this.#getAllowedActions()
-    // console.log('可以行动的列表', actions.toString())
     const index = getRandomInt(0, actions.length - 1)
 
     this[actions[index]](800)
@@ -705,16 +692,17 @@ export class Player {
     this.clearTimer()
   }
 
-  getControl(slience = false) {
+  getControl() {
     // 如果余额不够, 则只能下注剩余余额
     const max = Math.max(
       this.getMaxAllInAmount() - this.#currentStageTotalAmount,
-      this.#balance
+      this.balance
     )
     // 最低为大盲注
     const min = Math.max(
-      this.getMaxBetAmountOfOtherPlayers() - this.getCurrentStageTotalAmount(),
-      Math.min(this.#lowestBetAmount, this.#balance)
+      this.getOthersMaxBetAmountAtCurrentStage() -
+        this.#currentStageTotalAmount,
+      Math.min(this.#lowestBetAmount, this.balance)
     )
 
     // 最大值是好计算的
@@ -725,14 +713,12 @@ export class Player {
       '获得控制权, 允许的行动列表: ',
       allowedActions
     )
-    // 先出触发了
-    if (!slience)
-      this.#callback?.({
-        allowedActions,
-        userId: this.#userInfo.id,
-        restrict: { min, max }
-      })
-    // console.log('玩家', this.#userInfo.name, '获得控制权')
+    // 行动前校验
+    this.#callback?.({
+      allowedActions,
+      userId: this.#userInfo.id,
+      restrict: { min, max }
+    })
     this.#status = 'active'
 
     this.continue()

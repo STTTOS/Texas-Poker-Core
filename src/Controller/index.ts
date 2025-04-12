@@ -16,7 +16,27 @@ export type CallbackOnNextStage = (params: {
   stage: Stage
   lastStage: Stage
 }) => void
-export type ControllerStatus = 'on' | 'pause' | 'abort' | 'waiting'
+export type ControllerStatus =
+  /**
+   * 进行中
+   */
+  | 'on'
+  /**
+   * 暂停
+   */
+  | 'pause'
+  /**
+   * 进程出现异常
+   */
+  | 'abort'
+  /**
+   * 未开始
+   */
+  | 'waiting'
+  /**
+   * 游戏结束
+   */
+  | 'end'
 class Controller {
   #status: ControllerStatus = 'waiting'
   #stage: Stage = 'pre_flop'
@@ -27,7 +47,7 @@ class Controller {
   // 记录游戏的进行时间,单位 second
   #count = 0
   #dealer: Dealer
-  #callback?: CallbackOfGameEnd
+  #callbackOfEnd?: CallbackOfGameEnd
   #callbackOnNextStage?: CallbackOnNextStage
   #callbackOfGameStart?: () => Promise<void>
   #defaultBets: Array<{ userId: number; balance: number; amount: number }> = []
@@ -39,16 +59,13 @@ class Controller {
   get status() {
     return this.#status
   }
-  get stage() {
-    return this.#stage
-  }
-  setControl(player: Player | null) {
-    this.#activePlayer = player
+
+  get defaultBets() {
+    return this.#defaultBets
   }
 
-  transferControlToNext(player: Player | null) {
-    this.setControl(player)
-    player?.getControl()
+  get stage() {
+    return this.#stage
   }
 
   get endAt() {
@@ -59,9 +76,31 @@ class Controller {
     return this.#activePlayer
   }
 
-  // 每个玩家行动之后都要调用此方法
-  // 判断游戏是否该结束
-  tryToEndGame(end = false) {
+  #getPokeEndIndex(stage: Stage) {
+    if (stage === 'pre_flop') return 0
+    if (stage === 'flop') return 3
+    if (stage === 'turn') return 4
+    if (stage === 'river') return 5
+  }
+
+  /**
+   * @description 将控制器移交给指定玩家
+   * @param player
+   */
+  transferControlTo(player: Player | null) {
+    if (this.#activePlayer === player) throw new Error('重复获得控制权')
+
+    this.#activePlayer = player
+    player?.getControl()
+  }
+
+  /**
+   * @description 每个玩家行动之后都要调用此方法
+   * 判断游戏是否该结束
+   * @param end
+   * @returns
+   */
+  tryToEndGame() {
     const otherPlayersFold =
       this.#dealer.filter((player) => player.getStatus() === 'out').length ===
       this.#dealer.count - 1
@@ -70,7 +109,7 @@ class Controller {
     if (otherPlayersFold) {
       this.end()
       this.#endAt = this.#stage
-      this.#callback?.({
+      this.#callbackOfEnd?.({
         restCommonPokes: this.getCommonPokes(this.#stage, this.#endAt),
         currentStage: this.#stage,
         showHandPokes: false
@@ -86,14 +125,11 @@ class Controller {
       (playersCanAct.length === 1 && !playersCanAct[0].actionable()) ||
       (this.#dealer.every((player) => !player.actionable()) &&
         this.#stage === 'river')
-    // if (playersCanAct[0]) {
-    //   console.log(playersCanAct[0].actionable(), 'ss')
-    // }
-    // console.log(playersCanAct.length , playersCanAct[0].actionable())
-    if (shouldEndGame || end) {
+
+    if (shouldEndGame) {
       this.end()
       this.#endAt = this.stage
-      this.#callback?.({
+      this.#callbackOfEnd?.({
         restCommonPokes: this.getCommonPokes(this.#stage, 'river'),
         currentStage: this.#stage,
         showHandPokes: true
@@ -104,8 +140,10 @@ class Controller {
     return false
   }
 
-  // 每个玩家行动之后, 都要调用此方法
-  // 推进到新的阶段后, 将控制权交当前阶段第一位可以行动的玩家
+  /**
+   * @description 每个玩家行动之后, 都要调用此方法
+   * 推进到新的阶段后, 将控制权交当前阶段第一位可以行动的玩家
+   */
   tryToAdvanceGameToNextStage() {
     const canPushToNextStage = this.#dealer.every(
       (player) => !player.actionable()
@@ -120,10 +158,6 @@ class Controller {
       const lastStage = this.#stage
       const nextStage = stages[index + 1]
 
-      // if (!nextStage) {
-      //   this.tryToEndGame(true)
-      //   return true
-      // }
       this.#stage = nextStage
       this.#dealer.resetCurrentStageTotalAmount()
       this.#dealer.resetActionsOfPlayers()
@@ -136,47 +170,44 @@ class Controller {
       })
       console.log('游戏进入下一个阶段 => ', this.#stage)
 
-      this.transferControlToNext(this.#dealer.getTheFirstPlayerToAct())
+      this.transferControlTo(this.#dealer.getTheFirstPlayerToAct())
       return true
     }
     return false
   }
 
-  #getPokeEndIndex(stage: Stage) {
-    if (stage === 'pre_flop') return 0
-    if (stage === 'flop') return 3
-    if (stage === 'turn') return 4
-    if (stage === 'river') return 5
-  }
+  /**
+   * @description 根据起始阶段 & 最终阶段 获取需要翻的牌
+   * @param currentStage
+   * @param endStage
+   * @returns
+   */
   getCommonPokes(currentStage: Stage, endStage: Stage) {
     if (currentStage === endStage) return []
 
-    const commonPokes = this.#dealer.getDeck().getPokes().commonPokes
+    const commonPokes = this.#dealer.deck.getPokes().commonPokes
     return commonPokes.slice(
       this.#getPokeEndIndex(currentStage),
       this.#getPokeEndIndex(endStage)
     )
   }
 
+  /**
+   * @description 游戏stage变化时的回调监听函数
+   * @param callback
+   */
   onNextStage(callback: CallbackOnNextStage) {
     this.#callbackOnNextStage = callback
   }
 
+  /**
+   * @description 游戏结束时的回调监听函数
+   * @param callback
+   */
   onGameEnd(callback: CallbackOfGameEnd) {
-    this.#callback = callback
-  }
-  // 创建一个迭代器控制游戏进行
-  *gameIterator(): Generator<void> {
-    while (true) {
-      // this.transferControlToNext(this.#dealer.);
-      // 暂停，等待玩家行动
-      yield
-    }
+    this.#callbackOfEnd = callback
   }
 
-  get defaultBets() {
-    return this.#defaultBets
-  }
   // 大盲小盲的默认下注行为
   async takeActionInPreFlop() {
     console.log('takeActionInPreFlop')
@@ -185,23 +216,23 @@ class Controller {
     if (current) {
       const amount =
         this.#dealer.count === 2
-          ? this.#dealer.getLowestBetAmount()
-          : this.#dealer.getLowestBetAmount() / 2
+          ? this.#dealer.lowestBetAmount
+          : this.#dealer.lowestBetAmount / 2
       current.bet(amount, true)
       this.#defaultBets.push({
         userId: current.getUserInfo().id,
-        balance: current.getBalance(),
+        balance: current.balance,
         amount
       })
 
       if (this.#dealer.count > 2) {
         current = current.getNextPlayer()
         if (current) {
-          const amount = this.#dealer.getLowestBetAmount()
+          const amount = this.#dealer.lowestBetAmount
           current.bet(amount, true)
           this.#defaultBets.push({
             userId: current.getUserInfo().id,
-            balance: current.getBalance(),
+            balance: current.balance,
             amount
           })
         }
@@ -211,10 +242,11 @@ class Controller {
     if (activePlayer) {
       // 默认行为结束后, 游戏正式开始
       await this.#callbackOfGameStart?.()
-      this.transferControlToNext(activePlayer)
+      this.transferControlTo(activePlayer)
     } else throw new Error('游戏进程异常')
     // console.log('大盲小盲的默认下注行为', this.defaultBets)
   }
+
   /**
    * @description 开始计时器, 将控制权移交给第一个可以行动的玩家
    */
@@ -233,6 +265,7 @@ class Controller {
   onGameStart(callback: () => Promise<void>) {
     this.#callbackOfGameStart = callback
   }
+
   startTimer() {
     // 避免重复开启计时器
     if (this.#timer) return
@@ -246,6 +279,8 @@ class Controller {
    * @description 继续游戏
    */
   continue() {
+    if (this.#status !== 'pause') throw new Error('游戏不是暂停状态')
+
     this.#status = 'on'
     this.#activePlayer?.continue()
     this.startTimer()
@@ -261,22 +296,28 @@ class Controller {
    * @description 结束游戏, 回收玩家控制权
    */
   end() {
+    if (this.status !== 'on') throw new Error('游戏不在进行中, 无法结束')
+
     this.clearTimer()
-    this.#status = 'waiting'
+    this.#status = 'end'
 
     this.#activePlayer?.removeControl()
     this.#activePlayer = null
   }
 
+  /**
+   * @description 重置控制器, 在游戏结束之后调用
+   */
   reset() {
-    this.#status = 'waiting'
-    this.#activePlayer?.removeControl()
-    this.#activePlayer = null
-    this.#defaultBets = []
     this.clearTimer()
+
+    this.#activePlayer?.removeControl()
     this.#count = 0
+    this.#defaultBets = []
+    this.#status = 'waiting'
     this.#endAt = 'pre_flop'
     this.#stage = 'pre_flop'
+    this.#activePlayer = null
   }
 
   /**

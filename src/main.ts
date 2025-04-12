@@ -74,7 +74,7 @@ const initialGame = ({
         thinkingTime,
         user: userInfo,
         shouldTakeDefaultAction,
-        lowestBetAmount: dealer.getLowestBetAmount()
+        lowestBetAmount: dealer.lowestBetAmount
       })
     },
     // 设置各个玩家的初始角色
@@ -111,10 +111,6 @@ const initialGame = ({
     },
     onGameStart(callback: () => Promise<void>) {
       this.controller.onGameStart(callback)
-    },
-    takeAction(player: Player, action: ActionType, amount = 0) {
-      player[action](amount)
-      pool.add(player, amount, controller.stage)
     },
     /**
      * 监听玩家采取行动

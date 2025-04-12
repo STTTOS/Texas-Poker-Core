@@ -12,17 +12,20 @@ describe('class pool', () => {
     const controller = new Controller(dealer)
     const p1 = new Player({
       user: { id: 1, balance: 5000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
 
     const p2 = new Player({
       user: { id: 1, balance: 5000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
+    console.log(p1.balance, 'p1ba')
     pool.add(p1, 1000, 'pre_flop')
     pool.add(p2, 2000, 'pre_flop')
 
@@ -36,28 +39,32 @@ describe('class pool', () => {
     const controller = new Controller(dealer)
     const p1 = new Player({
       user: { id: 1, balance: 5000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
 
     const p2 = new Player({
       user: { id: 2, balance: 10000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const p3 = new Player({
       user: { id: 3, balance: 5000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const p4 = new Player({
       user: { id: 4, balance: 4000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     pool.add(p1, 1000, 'pre_flop')
     pool.add(p2, 2000, 'pre_flop')
@@ -73,33 +80,37 @@ describe('class pool', () => {
   })
 
   test('function settle & (getter)totalAmount', () => {
-    const pool = new Pool()
     const dealer = new Dealer(500)
     const controller = new Controller(dealer)
+    const pool = new Pool()
     const p1 = new Player({
       user: { id: 1, balance: 5000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const room = new Room(dealer, p1, controller)
     const p2 = new Player({
       user: { id: 2, balance: 10000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const p3 = new Player({
       user: { id: 3, balance: 5000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     const p4 = new Player({
       user: { id: 4, balance: 4000 },
-      lowestBetAmount: dealer.getLowestBetAmount(),
+      lowestBetAmount: dealer.lowestBetAmount,
       controller,
-      dealer
+      dealer,
+      pool
     })
     room.join(p2)
     room.join(p3)
@@ -114,13 +125,8 @@ describe('class pool', () => {
     pool.add(p3, 4000, 'pre_flop')
     pool.add(p4, 4000, 'pre_flop')
 
-    pool.add(p1, 1000, 'flop')
-    pool.add(p2, 2000, 'flop')
-    pool.add(p3, 2000, 'flop')
-    pool.add(p4, 2000, 'flop')
-
     const result = pool.settle()
-    expect(Array.from(result.values()).reduce(sum, 0)).toEqual(18_000)
-    expect(pool.totalAmount).toEqual(18_000)
+    expect(Array.from(result.values()).reduce(sum, 0)).toEqual(11_000)
+    expect(pool.totalAmount).toEqual(11_000)
   })
 })

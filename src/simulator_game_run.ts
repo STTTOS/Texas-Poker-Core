@@ -23,7 +23,7 @@ texas.room.joinMany(p2)
 texas.dealer.setButton(p2)
 texas.dealer.setOthers()
 
-texas.controller.transferControlToNext(p1)
+texas.controller.transferControlTo(p1)
 // ----
 // 模拟下注行为
 p1.bet(250)

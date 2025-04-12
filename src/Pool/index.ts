@@ -23,7 +23,11 @@ class Pool {
    * @param stage
    */
   add(player: Player, amount: number, stage: Stage) {
-    if (amount < 0) throw new Error('下注金额异常')
+    if (amount <= 0) throw new Error('下注金额不可小于零')
+    if (player.balance < amount) throw new Error('玩家余额不足')
+
+    player.balance -= amount
+    player.currentStageTotalAmount += amount
 
     this.#totalAmount += amount
     this.#players.add(player)

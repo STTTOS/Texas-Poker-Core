@@ -41,6 +41,11 @@ const replaceVersion = (callback: (version: string) => string) => {
   writeFileSync('./package.json', replaced)
   return newVersion
 }
+function rollback(appendText: string) {
+  replaceVersion((version) => updateVersion(version, 'down'))
+  const readme = readFileSync('./README.md').toString()
+  writeFileSync('./README.md', readme.replace(appendText, ''))
+}
 
 // 去掉前两个元素：node 和脚本名称
 const args = process.argv.slice(2)
@@ -51,7 +56,7 @@ if (args.length === 0) {
   process.exit(1)
 }
 // 先构建
-const build = spawn('npm', ['run', 'build'])
+const build = spawn('npm', ['run', 'build'], { stdio: 'pipe' })
 
 build.on('exit', (code) => {
   if (code === 0) {
@@ -63,7 +68,7 @@ build.on('exit', (code) => {
 
     const publish = spawn('npm', ['publish'], { stdio: 'pipe' })
     publish.on('error', (error) => {
-      replaceVersion((version) => updateVersion(version, 'down'))
+      rollback(appendText)
       console.error(`执行错误: ${error.message}`)
     })
 
@@ -71,9 +76,7 @@ build.on('exit', (code) => {
       if (code === 0) {
         console.log(`包成功发布，version: ${oldVersion} => ${newVersion}`)
       } else {
-        replaceVersion((version) => updateVersion(version, 'down'))
-        const readme = readFileSync('./README.md').toString()
-        writeFileSync('./README.md', readme.replace(appendText, ''))
+        rollback(appendText)
         console.error('发布失败, 清手动发布')
       }
     })
