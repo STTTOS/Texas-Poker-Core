@@ -1,5 +1,6 @@
 import Pool from '@/Pool'
 import Dealer from '@/Dealer'
+import TexasError from '@/error'
 import { PreAction } from '@/main'
 import { roleMap } from './constant'
 import Controller from '@/Controller'
@@ -155,7 +156,7 @@ export class Player {
     shouldTakeDefaultAction?: boolean
   }) {
     if (user.balance < lowestBetAmount) {
-      throw new Error('筹码小于大盲注, 不可参与游戏')
+      throw new TexasError(2003, '筹码小于大盲注, 不可参与游戏')
     }
     this.#pool = pool
     this.#dealer = dealer
@@ -300,7 +301,7 @@ export class Player {
   async check() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('check'))
-      throw new Error('不可过牌')
+      throw new TexasError(2003, '不可过牌')
 
     this.#action = {
       type: 'check'
@@ -313,7 +314,8 @@ export class Player {
 
   async fold() {
     this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes('fold')) throw new Error('不可弃牌')
+    if (!this.#getAllowedActions().includes('fold'))
+      throw new TexasError(2003, '不可弃牌')
 
     this.#action = {
       type: 'fold'
@@ -328,13 +330,13 @@ export class Player {
   async bet(money: number, preFlopDefaultAction = false) {
     if (preFlopDefaultAction === false) this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('bet') && !preFlopDefaultAction)
-      throw new Error('不可下注')
+      throw new TexasError(2003, '不可下注')
 
     if (money > this.balance) {
-      throw new Error('下注金额不可大于筹码总数')
+      throw new TexasError(2003, '下注金额不可大于筹码总数')
     }
     if (money < this.#lowestBetAmount && !preFlopDefaultAction) {
-      throw new Error('下注金额不可小于大盲注')
+      throw new TexasError(2003, '下注金额不可小于大盲注')
     }
     this.#action = {
       type: 'bet',
@@ -367,17 +369,18 @@ export class Player {
     )
 
     if (!this.#getAllowedActions().includes('raise'))
-      throw new Error('不可加注')
+      throw new TexasError(2003, '不可加注')
 
     if (money > this.balance) {
-      return
+      throw new TexasError(2003, '加注金额不可大于余额')
     }
     if (money < this.#lowestBetAmount) {
-      throw new Error('加注金额不可小于大盲注')
+      throw new TexasError(2003, '加注金额不可小于大盲注')
     }
 
     if (money + this.#currentStageTotalAmount <= maxBetAmount) {
-      if (process.env.PROJECT_ENV === 'prd') throw Error('必须加注更多的金额')
+      if (process.env.PROJECT_ENV === 'prd')
+        throw new TexasError(2003, '必须加注更多的金额')
       else await this.call()
     }
 
@@ -398,17 +401,19 @@ export class Player {
 
   async call() {
     this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes('call')) throw new Error('不可跟注')
+    if (!this.#getAllowedActions().includes('call'))
+      throw new TexasError(2003, '不可跟注')
 
     // 其他玩家的最大下注金额
     const maxBetAmount = this.getOthersMaxBetAmountAtCurrentStage()
     const moneyShouldPay = maxBetAmount - this.#currentStageTotalAmount
     if (moneyShouldPay <= 0)
-      throw new Error(
+      throw new TexasError(
+        2003,
         `数据异常, 请手动下注, try to call: ${moneyShouldPay}, balance: ${this.balance}, maxBet: ${maxBetAmount}`
       )
     if (moneyShouldPay > this.balance) {
-      throw new Error('跟注金额不可大于筹码总数')
+      throw new TexasError(2003, '跟注金额不可大于筹码总数')
     }
     this.#action = {
       type: 'call',
@@ -428,7 +433,7 @@ export class Player {
   async allIn() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('allIn')) {
-      throw new Error('不可全押')
+      throw new TexasError(2003, '不可全押')
     }
 
     // 其他玩家持有筹码的最大值, 全押金额不可超过该值
@@ -442,7 +447,8 @@ export class Player {
     )
 
     if (moneyShouldPay <= 0)
-      throw new Error(
+      throw new TexasError(
+        2003,
         `数据异常,请手动下注, try to allIn: ${moneyShouldPay}; balance: ${this.balance}`
       )
 
@@ -568,8 +574,9 @@ export class Player {
   }
 
   checkIfCanAct() {
-    if (this.#status !== 'active') throw new Error('不可行动')
+    if (this.#status !== 'active') throw new TexasError(2003, '不可行动')
   }
+
   toString() {
     return `id: ${this.#userInfo.id}, role: ${roleMap.get(this.#role!)};name: ${
       this.#userInfo.name || this.#userInfo.id
@@ -628,7 +635,7 @@ export class Player {
       (player) => player.getStatus() === 'waiting'
     )
     if (!nextPlayerToGetController)
-      throw new Error('游戏发生异常, 将控制权移交给不存在的玩家')
+      throw new TexasError(2000, '游戏发生异常, 将控制权移交给不存在的玩家')
 
     this.#controller.transferControlTo(nextPlayerToGetController)
   }
@@ -667,7 +674,7 @@ export class Player {
       this.takeDefaultAction()
       return
     }
-    if (this.#shouldTakeDefaultAction) {
+    if (!this.#timer)
       this.#timer = setInterval(() => {
         if (this.#countDownTime === 0 && this.#timer) {
           this.takeDefaultAction()
@@ -675,14 +682,13 @@ export class Player {
         }
         this.#countDownTime--
       }, 1000)
-    }
   }
   onAction(callback: CallbackOfAction) {
     this.#callbackOfAction = callback
   }
 
   pause() {
-    this.clearTimer()
+    this.removeControl()
   }
 
   removeControl() {

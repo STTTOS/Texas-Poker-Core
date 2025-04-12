@@ -3,6 +3,7 @@
 import Room from './Room'
 import Pool from './Pool'
 import Dealer from './Dealer'
+import TexasError from './error'
 import { ActionType } from './Player/index'
 import { User, Player, CallbackOfAction } from './Player'
 import Controller, {
@@ -83,13 +84,12 @@ const initialGame = ({
     },
     async start() {
       if (room.status === 'unReady')
-        throw new Error('玩家位置未确认, 无法进行游戏')
+        throw new TexasError(2100, '玩家位置未确认, 无法进行游戏')
 
       if (controller.status !== 'waiting')
-        throw new Error('游戏已经开始, 请勿重复操作')
+        throw new TexasError(2100, '游戏已经开始, 请勿重复操作')
 
       this.resetBeforeGameStart()
-
       dealer.dealCards()
       await controller.start()
     },
@@ -121,7 +121,7 @@ const initialGame = ({
     // 测试阶段方法, 手动结束游戏
     end() {
       if (controller.status === 'waiting')
-        throw new Error('游戏还未开始, 无法结束游戏')
+        throw new TexasError(2100, '游戏还未开始, 无法结束游戏')
 
       controller.end()
     },

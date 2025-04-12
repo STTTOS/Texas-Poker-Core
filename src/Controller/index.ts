@@ -1,5 +1,6 @@
 // 控制游戏的进程
 import Dealer from '../Dealer'
+import TexasError from '@/error'
 import { Player } from '../Player'
 import { Poke } from '@/Deck/constant'
 
@@ -88,7 +89,8 @@ class Controller {
    * @param player
    */
   transferControlTo(player: Player | null) {
-    if (this.#activePlayer === player) throw new Error('重复获得控制权')
+    if (this.#activePlayer === player)
+      throw new TexasError(2100, '无法重复获得控制权')
 
     this.#activePlayer = player
     player?.getControl()
@@ -243,8 +245,7 @@ class Controller {
       // 默认行为结束后, 游戏正式开始
       await this.#callbackOfGameStart?.()
       this.transferControlTo(activePlayer)
-    } else throw new Error('游戏进程异常')
-    // console.log('大盲小盲的默认下注行为', this.defaultBets)
+    } else throw new TexasError(2000, '游戏进程异常')
   }
 
   /**
@@ -279,7 +280,8 @@ class Controller {
    * @description 继续游戏
    */
   continue() {
-    if (this.#status !== 'pause') throw new Error('游戏不是暂停状态')
+    if (this.#status !== 'pause')
+      throw new TexasError(2100, '游戏不是暂停状态,无法继续')
 
     this.#status = 'on'
     this.#activePlayer?.continue()
@@ -296,7 +298,8 @@ class Controller {
    * @description 结束游戏, 回收玩家控制权
    */
   end() {
-    if (this.status !== 'on') throw new Error('游戏不在进行中, 无法结束')
+    if (this.status !== 'on')
+      throw new TexasError(2100, '游戏不在进行中, 无法结束')
 
     this.clearTimer()
     this.#status = 'end'

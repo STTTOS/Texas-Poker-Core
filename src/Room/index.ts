@@ -1,6 +1,7 @@
 import { omit } from 'ramda'
 
 import Dealer from '@/Dealer'
+import TexasError from '@/error'
 import { Player } from '@/Player'
 import Controller from '@/Controller'
 
@@ -53,9 +54,10 @@ class Room {
 
   ready() {
     if (this.playersCountOnSeat < 2)
-      throw new Error('玩家数量小于2, 无法进行游戏')
+      throw new TexasError(2000, '玩家数量小于2, 无法进行游戏')
 
-    if (this.#status === 'ready') throw new Error('玩家位置已确认,请勿重复设置')
+    if (this.#status === 'ready')
+      throw new TexasError(2100, '玩家位置已确认,请勿重复设置')
 
     this.#dealer.setRoles()
     this.#status = 'ready'
@@ -67,7 +69,7 @@ class Room {
     this.setOwner(player)
   }
   setOwner(player?: Player) {
-    if (!player) throw new Error('房主不可为Null')
+    if (!player) throw new TexasError(2000, '房主不可为空')
 
     this.#owner = player
   }
@@ -143,22 +145,23 @@ class Room {
    */
   join(player: Player, key?: string) {
     if (this.#idToPlayerMap.has(player.getUserInfo().id))
-      throw new Error('您已经在房间中,不可重复加入')
+      throw new TexasError(2003, '您已经在房间中,不可重复加入')
 
     if (this.#private && this.#privateKey !== key)
-      throw new Error('私密房间不可加入')
+      throw new TexasError(2003, '私密房间不可加入')
 
     if (
       !this.#allowPlayersToWatch &&
       this.playersCountOnSeat === this.#maximumCountOfPlayers
     )
-      throw new Error('房间设置了不可观战,并且玩家已满,不可加入')
+      throw new TexasError(2003, '房间设置了不可观战,并且玩家已满,不可加入')
 
     if (
       !this.#allowPlayersToWatch &&
       player.lowestBetAmount < this.#lowestBetAmount
     )
-      throw new Error(
+      throw new TexasError(
+        2003,
         '房间设置了不可观战, 并且您的余额小于房间的最底下注,无法加入'
       )
 
@@ -191,13 +194,13 @@ class Room {
    */
   seat(player?: Player) {
     if (!player || !this.#idToPlayerMap.has(player.getUserInfo().id))
-      throw new Error('您不在房间中,无法入座')
+      throw new TexasError(2003, '您不在房间中,无法入座')
 
     if (this.getPlayerSeatStatus(player) === 'on-set')
-      throw new Error('您已在坐席中,请勿重复操作')
+      throw new TexasError(2003, '您已在坐席中,请勿重复操作')
 
     if (this.playersCountOnSeat === this.#maximumCountOfPlayers)
-      throw new Error('位置已满,无法加入坐席')
+      throw new TexasError(2003, '位置已满,无法加入坐席')
 
     this.#playersOnSet.add(player)
     this.#dealer.join(player)
@@ -210,10 +213,10 @@ class Room {
 
   watch(player?: Player) {
     if (!player || !this.#idToPlayerMap.has(player.getUserInfo().id))
-      throw new Error('您不在房间中,无法观战')
+      throw new TexasError(2003, '您不在房间中,无法观战')
 
     if (this.getPlayerSeatStatus(player) === 'hang')
-      throw new Error('您已再观战席中,请勿重复操作')
+      throw new TexasError(2003, '您已再观战席中,请勿重复操作')
 
     this.#playersHang.add(player)
     this.#dealer.remove(player)
@@ -230,7 +233,7 @@ class Room {
    */
   remove(player?: Player): number | null {
     if (!player || !this.#players.has(player))
-      throw new Error('您不在房间中,无法退出')
+      throw new TexasError(2003, '您不在房间中,无法退出')
 
     // 在游戏没开始时离开
     if (this.#controller.status === 'waiting') {
@@ -248,7 +251,7 @@ class Room {
       this.setOwner(newOwner)
       return newOwner.getUserInfo().id
     }
-    throw new Error('游戏进行中, 不可退出')
+    throw new TexasError(2003, '游戏进行中, 不可退出')
   }
 
   removeById(userId: number) {

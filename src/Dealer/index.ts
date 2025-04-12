@@ -1,4 +1,5 @@
 import Deck from '@/Deck'
+import TexasError from '@/error'
 import { getRandomInt } from '@/utils'
 import { Role, Player } from '@/Player'
 import { handPokeType } from '@/Deck/constant'
@@ -60,7 +61,7 @@ class Dealer {
   }
 
   dealCards() {
-    if (!this.#button) throw new Error('庄家未指定, 无法发牌')
+    if (!this.#button) throw new TexasError(2000, '庄家未指定, 无法发牌')
 
     console.log('玩家信息:')
     console.log(
@@ -198,7 +199,7 @@ class Dealer {
 
     const roles = playerRoleSetMap.get(this.#count)
 
-    if (!roles) throw new Error('不支持的玩家人数对局')
+    if (!roles) throw new TexasError(2000, '不支持的玩家人数对局')
 
     this.loop((player, i) => {
       player.setRole(roles[i])
@@ -237,7 +238,7 @@ class Dealer {
 
   changeButtonToNextPlayer() {
     const next = this.#button?.getNextPlayer()
-    if (!next) throw new Error('将庄家移交给不存在的玩家')
+    if (!next) throw new TexasError(2000, '将庄家移交给不存在的玩家')
 
     this.setButton(next)
   }
@@ -274,12 +275,14 @@ class Dealer {
    * @returns
    */
   setOthers() {
-    if (!this.#button) throw new Error('未指定庄家, 无法设置其余玩家位置')
+    if (!this.#button)
+      throw new TexasError(2000, '未指定庄家, 无法设置其余玩家位置')
 
     let count = this.#count
     if (process.env.PROJECT_ENV === 'dev' && count === 1) return
 
-    if (count < 2 || count > 10) throw new Error(`暂不支持${count}人的对局`)
+    if (count < 2 || count > 10)
+      throw new TexasError(2000, `暂不支持${count}人的对局`)
 
     const roles = playerRoleSetMap.get(count)!.slice(1)
     let role: Role

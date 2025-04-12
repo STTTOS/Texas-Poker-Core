@@ -1,5 +1,6 @@
 import { equals } from 'ramda'
 
+import TexasError from '@/error'
 import { Player } from '@/Player'
 import { Stage } from '@/Controller'
 import { sum, filterMap } from '@/utils'
@@ -23,8 +24,8 @@ class Pool {
    * @param stage
    */
   add(player: Player, amount: number, stage: Stage) {
-    if (amount <= 0) throw new Error('下注金额不可小于零')
-    if (player.balance < amount) throw new Error('玩家余额不足')
+    if (amount <= 0) throw new TexasError(2001, '下注金额不可小于零')
+    if (player.balance < amount) throw new TexasError(2003, '玩家余额不足')
 
     player.balance -= amount
     player.currentStageTotalAmount += amount
@@ -91,8 +92,7 @@ class Pool {
 
     // 如果剩奖池不够支付所有玩家, 说明游戏的计算出现异常, 需要中止这场比赛,并作废
     if (Array.from(bills.values()).reduce(sum, 0) !== this.#totalAmount) {
-      // TODO: 需要给所有玩家提示游戏发生异常, 此局作废
-      throw new Error('支付发生错误,游戏中止')
+      throw new TexasError(2001, '支付发生错误, 数据异常')
     }
 
     for (const [player, amount] of bills) {
