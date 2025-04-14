@@ -26,5 +26,12 @@ texas.dealer.setOthers()
 texas.controller.transferControlTo(p1)
 // ----
 // 模拟下注行为
-p1.bet(250)
-p2.call()
+async function test() {
+  await p1.bet(250)
+  await p2.call()
+
+  await p1.bet(500)
+  await p2.raise(1500)
+  await p1.call()
+}
+test()

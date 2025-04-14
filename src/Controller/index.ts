@@ -172,6 +172,7 @@ class Controller {
       })
       console.log('游戏进入下一个阶段 => ', this.#stage)
 
+      this.resetActivePlayer()
       this.transferControlTo(this.#dealer.getTheFirstPlayerToAct())
       return true
     }
@@ -303,24 +304,25 @@ class Controller {
 
     this.clearTimer()
     this.#status = 'end'
+    this.resetActivePlayer()
+  }
 
+  resetActivePlayer() {
     this.#activePlayer?.removeControl()
     this.#activePlayer = null
   }
-
   /**
    * @description 重置控制器, 在游戏结束之后调用
    */
   reset() {
     this.clearTimer()
 
-    this.#activePlayer?.removeControl()
+    this.resetActivePlayer()
     this.#count = 0
     this.#defaultBets = []
     this.#status = 'waiting'
     this.#endAt = 'pre_flop'
     this.#stage = 'pre_flop'
-    this.#activePlayer = null
   }
 
   /**
