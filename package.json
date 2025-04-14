@@ -16,7 +16,7 @@
     "build:core": "babel src --out-dir dist --extensions \".ts\"",
     "build": "cross-env PROJECT_ENV=prd pnpm run build:types && pnpm run build:core",
     "push": "ts-node ./publish",
-    "push-local": "pnpm run build && pnpm run cp",
+    "push-local": "npm run test && pnpm run build && pnpm run cp",
     "cp:types": "cp -r ./dist /Users/yangchengrong/Desktop/projects/wish_server/node_modules/texas-poker-core",
     "cp:js": "cp -r ./types /Users/yangchengrong/Desktop/projects/wish_server/node_modules/texas-poker-core",
     "cp": "pnpm run cp:types && pnpm run cp:js",

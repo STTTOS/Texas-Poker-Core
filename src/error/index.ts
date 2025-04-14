@@ -1,8 +1,10 @@
 import { TexasErrorCode } from './constant'
 
 class TexasError extends Error {
-  constructor(public code: TexasErrorCode, public message: string) {
+  code: TexasErrorCode
+  constructor(code: TexasErrorCode, message: string) {
     super(message)
+    this.code = code
     this.name = 'Texas Error'
   }
 }
