@@ -2,9 +2,9 @@
 // 此文件为游戏进程的模拟
 // 循环运行, 尝试找出在实际运行中
 // 出现的边缘情况
-import { initialGame } from './main'
+import Texas from './Texas'
 
-const texas = initialGame({
+const texas = new Texas({
   lowestBetAmount: 500,
   maximumCountOfPlayers: 7,
   allowPlayersToWatch: true,

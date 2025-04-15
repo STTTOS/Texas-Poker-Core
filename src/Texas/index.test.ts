@@ -1,8 +1,8 @@
-import { initialGame } from './main'
+import Texas from '.'
 
 describe('entery', () => {
   test('game start and settle successfully', async () => {
-    const texas = initialGame({
+    const texas = new Texas({
       lowestBetAmount: 500,
       maximumCountOfPlayers: 7,
       allowPlayersToWatch: true,

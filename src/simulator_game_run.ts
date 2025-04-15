@@ -2,9 +2,9 @@
 // 此文件为模拟玩家行为
 // 通过日志复刻玩家的操作记录
 // 尝试找出问题根源
-import { initialGame } from './main'
+import Texas from './Texas'
 
-const texas = initialGame({
+const texas = new Texas({
   lowestBetAmount: 100,
   allowPlayersToWatch: true,
   maximumCountOfPlayers: 5,

@@ -1,7 +1,7 @@
 import Pool from '@/Pool'
 import Dealer from '@/Dealer'
 import TexasError from '@/error'
-import { PreAction } from '@/main'
+import { PreAction } from '@/Texas'
 import { roleMap } from './constant'
 import Controller from '@/Controller'
 import { getRandomInt } from '@/utils'
@@ -118,7 +118,6 @@ export class Player {
   #lastPlayer: Player | null = null
   #nextPlayer: Player | null = null
 
-  #shouldTakeDefaultAction?: boolean
   #timer: NodeJS.Timeout | null = null
   /**
    * 玩家的手牌
@@ -139,8 +138,7 @@ export class Player {
     controller,
     dealer,
     pool,
-    thinkingTime = defaultThinkingTime,
-    shouldTakeDefaultAction = true
+    thinkingTime = defaultThinkingTime
   }: {
     user: User
     role?: Role
@@ -153,7 +151,6 @@ export class Player {
     lowestBetAmount: number
     lastPlayer?: Player | null
     nextPlayer?: Player | null
-    shouldTakeDefaultAction?: boolean
   }) {
     if (user.balance < lowestBetAmount) {
       throw new TexasError(2003, '筹码小于大盲注, 不可参与游戏')
@@ -167,7 +164,6 @@ export class Player {
     this.#thinkingTime = thinkingTime
     this.#lowestBetAmount = lowestBetAmount
     this.#countDownTime = this.#thinkingTime
-    this.#shouldTakeDefaultAction = shouldTakeDefaultAction
   }
   get balance() {
     return this.#userInfo.balance
@@ -191,6 +187,9 @@ export class Player {
 
   get lowestBetAmount() {
     return this.#lowestBetAmount
+  }
+  get thinkingTime() {
+    return this.#thinkingTime
   }
   /**
    * @description 获取玩家允许的行动列表
