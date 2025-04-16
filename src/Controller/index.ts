@@ -158,7 +158,6 @@ class Controller implements GameComponent {
     const canPushToNextStage = this.#dealer.every(
       (player) => !player.actionable()
     )
-
     if (canPushToNextStage) {
       console.log(
         '推进到下个阶段, 触发人',
@@ -312,7 +311,7 @@ class Controller implements GameComponent {
       this.reportError(new TexasError(2100, '游戏不在进行中, 无法结束'))
 
     this.clearTimer()
-    this.#status = 'end'
+    this.#status = 'waiting'
     this.resetActivePlayer()
   }
 

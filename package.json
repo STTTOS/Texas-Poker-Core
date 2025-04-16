@@ -1,6 +1,6 @@
 {
   "name": "texas-poker-core",
-  "version": "1.1.46",
+  "version": "1.2.0",
   "description": "德州扑克核心功能",
   "main": "dist/index.js",
   "types": "types/index.d.ts",

@@ -8,7 +8,8 @@ const texas = new Texas({
   lowestBetAmount: 500,
   maximumCountOfPlayers: 7,
   allowPlayersToWatch: true,
-  user: { id: 1, balance: 5000, name: 'ycr' }
+  user: { id: 1, balance: 5000, name: 'ycr' },
+  thinkingTime: 5
 })
 // const p1 = texas.room.owner
 const p2 = texas.createPlayer({ id: 2, balance: 10_000, name: 'yt' })
@@ -39,7 +40,7 @@ async function test() {
   })
   while (count < 10) {
     try {
-      texas.start()
+      await texas.start()
       await delay(50)
     } catch (error: any) {
       errorCount++

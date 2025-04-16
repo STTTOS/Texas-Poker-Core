@@ -525,9 +525,9 @@ export class Player implements GameComponent {
    * @description 调用此方法, 知道该玩家是否需要继续行动
    */
   actionable() {
-    if (!this.#action) return true
-
     if (this.#status === 'allIn' || this.#status === 'out') return false
+
+    if (!this.#action) return true
 
     // 当前的下注金额已经等于最大下注额
     return (
