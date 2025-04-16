@@ -228,7 +228,7 @@ class Room implements GameComponent {
       this.reportError(new TexasError(2003, '您不在房间中,无法观战'))
 
     if (this.getPlayerSeatStatus(player) === 'hang')
-      this.reportError(new TexasError(2003, '您已再观战席中,请勿重复操作'))
+      this.reportError(new TexasError(2003, '您已在观战席中,请勿重复操作'))
 
     this.#playersHang.add(player)
     this.#dealer.remove(player)
@@ -277,7 +277,7 @@ class Room implements GameComponent {
 
   has(userId: number) {
     const player = this.#idToPlayerMap.get(userId)
-    return !!player && this.#players.has(player)
+    return !!player
   }
 
   setStatus(status: RoomStatus) {

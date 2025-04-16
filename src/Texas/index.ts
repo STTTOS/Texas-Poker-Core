@@ -117,11 +117,14 @@ class Texas extends GameEventEmitter {
   }
 
   async start() {
+    if (this.room.getPlayersBySeatStatus('on-set').length < 2)
+      this.handleError(new TexasError(2100, '玩家数量不足, 无法开始游戏'))
+
     if (this.room.status === 'unReady')
-      throw new TexasError(2100, '玩家位置未确认, 无法进行游戏')
+      this.handleError(new TexasError(2100, '玩家位置未确认, 无法进行游戏'))
 
     if (this.controller.status !== 'waiting')
-      throw new TexasError(2100, '游戏已经开始, 请勿重复操作')
+      this.handleError(new TexasError(2100, '游戏已经开始, 请勿重复操作'))
 
     this.resetBeforeGameStart()
     this.dealer.dealCards()
@@ -131,7 +134,7 @@ class Texas extends GameEventEmitter {
   // 测试阶段方法, 手动结束游戏
   end() {
     if (this.controller.status === 'waiting')
-      throw new TexasError(2100, '游戏还未开始, 无法结束游戏')
+      this.handleError(new TexasError(2100, '游戏还未开始, 无法结束游戏'))
 
     this.controller.end()
   }
