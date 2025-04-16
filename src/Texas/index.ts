@@ -28,11 +28,24 @@ export interface PreAction {
     max: number
   }
 }
-class Texas {
+export type TexasErrorCallback = (error: TexasError) => never
+// 组件基类
+export interface GameComponent {
+  reportError?(error: TexasError): void
+}
+
+class GameEventEmitter {
+  protected errorCallback?: (error: TexasError) => void
+  onError(callback: (error: TexasError) => void) {
+    this.errorCallback = callback
+  }
+}
+class Texas extends GameEventEmitter {
   pool: Pool
   room: Room
   dealer: Dealer
   controller: Controller
+  handleError: (error: TexasError) => never
 
   constructor({
     user,
@@ -41,29 +54,39 @@ class Texas {
     allowPlayersToWatch,
     maximumCountOfPlayers
   }: CreateRoomInputArgs) {
-    const dealer = new Dealer(lowestBetAmount)
-    const controller = new Controller(dealer)
-    const pool = new Pool()
+    super()
+
+    // 使用箭头函数, 防止this指向问题
+    this.handleError = (error: TexasError) => {
+      this.errorCallback?.(error)
+      throw error
+    }
+    const dealer = new Dealer(lowestBetAmount, this.handleError)
+    const controller = new Controller(dealer, this.handleError)
+    const pool = new Pool(this.handleError)
     const owner = new Player({
       user,
       pool,
       dealer,
       controller,
       thinkingTime,
-      lowestBetAmount
+      lowestBetAmount,
+      reportError: this.handleError
     })
     const room = new Room(
       dealer,
       owner,
       controller,
       allowPlayersToWatch,
-      maximumCountOfPlayers
+      maximumCountOfPlayers,
+      this.handleError
     )
     this.pool = pool
     this.room = room
     this.dealer = dealer
     this.controller = controller
   }
+
   onPreAction(callback: (params: PreAction) => void) {
     this.dealer.forEach((player) => {
       player.onPreAction(callback)
@@ -72,22 +95,27 @@ class Texas {
   onGameEnd(callback: CallbackOfGameEnd) {
     this.controller.onGameEnd(callback)
   }
+
   onNextStage(callback: CallbackOnNextStage) {
     this.controller.onNextStage(callback)
   }
+
   onGameStart(callback: () => Promise<void>) {
     this.controller.onGameStart(callback)
   }
+
   /**
    * 监听玩家采取行动
    */
   onAction(callback: CallbackOfAction) {
     this.dealer.forEach((player) => player.onAction(callback))
   }
+
   // 设置各个玩家的初始角色
   ready() {
     this.room.ready()
   }
+
   async start() {
     if (this.room.status === 'unReady')
       throw new TexasError(2100, '玩家位置未确认, 无法进行游戏')
@@ -119,6 +147,7 @@ class Texas {
     this.dealer.reset()
     this.controller.reset()
   }
+
   /**
    *@description 在游戏开始时重置所有状态
    *目前没有考虑游戏异常结束的情况
@@ -138,7 +167,8 @@ class Texas {
       ...this,
       user: userInfo,
       thinkingTime: this.room.owner.thinkingTime,
-      lowestBetAmount: this.dealer.lowestBetAmount
+      lowestBetAmount: this.dealer.lowestBetAmount,
+      reportError: this.handleError
     })
   }
 }

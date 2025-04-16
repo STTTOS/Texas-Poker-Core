@@ -1,5 +1,5 @@
+import Texas from './Texas'
 import TexasError from '@/error'
-import { initialGame } from './main'
 import { default as Deck } from './Deck'
 import { formatterPoke } from './Deck/core'
 import { default as Dealer } from './Dealer'
@@ -37,9 +37,9 @@ export {
   Room,
   RoomStatus,
   PlayerSeatStatus,
-  initialGame,
   formatterPoke,
   TexasError,
   TexasErrorCode,
-  texasErrorMap
+  texasErrorMap,
+  Texas
 }

@@ -3,6 +3,7 @@ import Dealer from '../Dealer'
 import TexasError from '@/error'
 import { Player } from '../Player'
 import { Poke } from '@/Deck/constant'
+import { GameComponent, TexasErrorCallback } from '@/Texas'
 
 export type Stage = 'pre_flop' | 'flop' | 'turn' | 'river'
 const stages: Stage[] = ['pre_flop', 'flop', 'turn', 'river']
@@ -38,7 +39,7 @@ export type ControllerStatus =
    * 游戏结束
    */
   | 'end'
-class Controller {
+class Controller implements GameComponent {
   #status: ControllerStatus = 'waiting'
   #stage: Stage = 'pre_flop'
   // 游戏在哪个极端结束的, 比如翻牌圈其他玩家都弃牌, 游戏在这个阶段就结束了
@@ -52,9 +53,16 @@ class Controller {
   #callbackOnNextStage?: CallbackOnNextStage
   #callbackOfGameStart?: () => Promise<void>
   #defaultBets: Array<{ userId: number; balance: number; amount: number }> = []
+  reportError: TexasErrorCallback
 
-  constructor(dealer: Dealer) {
+  constructor(
+    dealer: Dealer,
+    reportError: TexasErrorCallback = (error) => {
+      throw error
+    }
+  ) {
     this.#dealer = dealer
+    this.reportError = reportError
   }
 
   get status() {
@@ -90,7 +98,7 @@ class Controller {
    */
   transferControlTo(player: Player | null) {
     if (this.#activePlayer === player)
-      throw new TexasError(2100, '无法重复获得控制权')
+      this.reportError(new TexasError(2100, '无法重复获得控制权'))
 
     this.#activePlayer = player
     player?.getControl()
@@ -246,7 +254,7 @@ class Controller {
       // 默认行为结束后, 游戏正式开始
       await this.#callbackOfGameStart?.()
       this.transferControlTo(activePlayer)
-    } else throw new TexasError(2000, '游戏进程异常')
+    } else this.reportError(new TexasError(2000, '游戏进程异常'))
   }
 
   /**
@@ -282,7 +290,7 @@ class Controller {
    */
   continue() {
     if (this.#status !== 'pause')
-      throw new TexasError(2100, '游戏不是暂停状态,无法继续')
+      this.reportError(new TexasError(2100, '游戏不是暂停状态,无法继续'))
 
     this.#status = 'on'
     this.#activePlayer?.continue()
@@ -295,12 +303,13 @@ class Controller {
       this.#timer = null
     }
   }
+
   /**
    * @description 结束游戏, 回收玩家控制权
    */
   end() {
     if (this.status !== 'on')
-      throw new TexasError(2100, '游戏不在进行中, 无法结束')
+      this.reportError(new TexasError(2100, '游戏不在进行中, 无法结束'))
 
     this.clearTimer()
     this.#status = 'end'

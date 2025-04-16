@@ -5,9 +5,10 @@ import { Player } from '@/Player'
 import { Stage } from '@/Controller'
 import { sum, filterMap } from '@/utils'
 import { getWinners, formatterPoke } from '@/Deck/core'
+import { GameComponent, TexasErrorCallback } from '@/Texas'
 
 // 提供奖池结算的能力
-class Pool {
+class Pool implements GameComponent {
   // 这场游戏总下注额度
   #totalAmount = 0
   // 存储边池信息
@@ -17,6 +18,15 @@ class Pool {
   // 存储下注记录
   #betRecords: Map<Stage, Map<Player, number>> = new Map()
   #bills: Map<number, number> = new Map()
+  reportError: TexasErrorCallback
+
+  constructor(
+    reportError: TexasErrorCallback = (error) => {
+      throw error
+    }
+  ) {
+    this.reportError = reportError
+  }
   /**
    * @description 玩家在特定的阶段下注时, 记录下注信息
    * @param player
@@ -24,8 +34,10 @@ class Pool {
    * @param stage
    */
   add(player: Player, amount: number, stage: Stage) {
-    if (amount <= 0) throw new TexasError(2001, '下注金额不可小于零')
-    if (player.balance < amount) throw new TexasError(2003, '玩家余额不足')
+    if (amount <= 0)
+      this.reportError(new TexasError(2001, '下注金额不可小于零'))
+    if (player.balance < amount)
+      this.reportError(new TexasError(2003, '玩家余额不足'))
 
     player.balance -= amount
     player.currentStageTotalAmount += amount
@@ -92,7 +104,7 @@ class Pool {
 
     // 如果剩奖池不够支付所有玩家, 说明游戏的计算出现异常, 需要中止这场比赛,并作废
     if (Array.from(bills.values()).reduce(sum, 0) !== this.#totalAmount) {
-      throw new TexasError(2001, '支付发生错误, 数据异常')
+      this.reportError(new TexasError(2001, '支付发生错误, 数据异常'))
     }
 
     for (const [player, amount] of bills) {

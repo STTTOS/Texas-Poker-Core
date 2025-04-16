@@ -1,12 +1,12 @@
 import Pool from '@/Pool'
 import Dealer from '@/Dealer'
 import TexasError from '@/error'
-import { PreAction } from '@/Texas'
 import { roleMap } from './constant'
 import Controller from '@/Controller'
 import { getRandomInt } from '@/utils'
 import { Poke } from '../Deck/constant'
 import { defaultThinkingTime } from '@/config'
+import { PreAction, GameComponent, TexasErrorCallback } from '@/Texas'
 
 // 玩家的状态
 type PlayerStatus =
@@ -77,7 +77,7 @@ export type Role =
 /**
  * 玩家
  */
-export class Player {
+export class Player implements GameComponent {
   /**
    * 玩家当前所处的位置
    */
@@ -129,6 +129,7 @@ export class Player {
    * 用户采取行动
    */
   #callbackOfAction?: CallbackOfAction
+  reportError: TexasErrorCallback
 
   constructor({
     lowestBetAmount,
@@ -138,7 +139,10 @@ export class Player {
     controller,
     dealer,
     pool,
-    thinkingTime = defaultThinkingTime
+    thinkingTime = defaultThinkingTime,
+    reportError = (error) => {
+      throw error
+    }
   }: {
     user: User
     role?: Role
@@ -151,14 +155,16 @@ export class Player {
     lowestBetAmount: number
     lastPlayer?: Player | null
     nextPlayer?: Player | null
+    reportError?: TexasErrorCallback
   }) {
     if (user.balance < lowestBetAmount) {
-      throw new TexasError(2003, '筹码小于大盲注, 不可参与游戏')
+      reportError(new TexasError(2003, '筹码小于大盲注, 不可参与游戏'))
     }
     this.#pool = pool
     this.#dealer = dealer
     this.#userInfo = user
     this.#controller = controller
+    this.reportError = reportError
     this.#lastPlayer = lastPlayer
     this.#nextPlayer = nextPlayer
     this.#thinkingTime = thinkingTime
@@ -300,7 +306,7 @@ export class Player {
   async check() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('check'))
-      throw new TexasError(2003, '不可过牌')
+      this.reportError(new TexasError(2003, '不可过牌'))
 
     this.#action = {
       type: 'check'
@@ -314,7 +320,7 @@ export class Player {
   async fold() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('fold'))
-      throw new TexasError(2003, '不可弃牌')
+      this.reportError(new TexasError(2003, '不可弃牌'))
 
     this.#action = {
       type: 'fold'
@@ -329,13 +335,13 @@ export class Player {
   async bet(money: number, preFlopDefaultAction = false) {
     if (preFlopDefaultAction === false) this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('bet') && !preFlopDefaultAction)
-      throw new TexasError(2003, '不可下注')
+      this.reportError(new TexasError(2003, '不可下注'))
 
     if (money > this.balance) {
-      throw new TexasError(2003, '下注金额不可大于筹码总数')
+      this.reportError(new TexasError(2003, '下注金额不可大于筹码总数'))
     }
     if (money < this.#lowestBetAmount && !preFlopDefaultAction) {
-      throw new TexasError(2003, '下注金额不可小于大盲注')
+      this.reportError(new TexasError(2003, '下注金额不可小于大盲注'))
     }
     this.#action = {
       type: 'bet',
@@ -368,18 +374,18 @@ export class Player {
     )
 
     if (!this.#getAllowedActions().includes('raise'))
-      throw new TexasError(2003, '不可加注')
+      this.reportError(new TexasError(2003, '不可加注'))
 
     if (money > this.balance) {
-      throw new TexasError(2003, '加注金额不可大于余额')
+      this.reportError(new TexasError(2003, '加注金额不可大于余额'))
     }
     if (money < this.#lowestBetAmount) {
-      throw new TexasError(2003, '加注金额不可小于大盲注')
+      this.reportError(new TexasError(2003, '加注金额不可小于大盲注'))
     }
 
     if (money + this.#currentStageTotalAmount <= maxBetAmount) {
       if (process.env.PROJECT_ENV === 'prd')
-        throw new TexasError(2003, '必须加注更多的金额')
+        this.reportError(new TexasError(2003, '必须加注更多的金额'))
       else await this.call()
     }
 
@@ -401,18 +407,20 @@ export class Player {
   async call() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('call'))
-      throw new TexasError(2003, '不可跟注')
+      this.reportError(new TexasError(2003, '不可跟注'))
 
     // 其他玩家的最大下注金额
     const maxBetAmount = this.getOthersMaxBetAmountAtCurrentStage()
     const moneyShouldPay = maxBetAmount - this.#currentStageTotalAmount
     if (moneyShouldPay <= 0)
-      throw new TexasError(
-        2003,
-        `数据异常, 请手动下注, try to call: ${moneyShouldPay}, balance: ${this.balance}, maxBet: ${maxBetAmount}`
+      this.reportError(
+        new TexasError(
+          2003,
+          `数据异常, 请手动下注, try to call: ${moneyShouldPay}, balance: ${this.balance}, maxBet: ${maxBetAmount}`
+        )
       )
     if (moneyShouldPay > this.balance) {
-      throw new TexasError(2003, '跟注金额不可大于筹码总数')
+      this.reportError(new TexasError(2003, '跟注金额不可大于筹码总数'))
     }
     this.#action = {
       type: 'call',
@@ -432,7 +440,7 @@ export class Player {
   async allIn() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes('allIn')) {
-      throw new TexasError(2003, '不可全押')
+      this.reportError(new TexasError(2003, '不可全押'))
     }
 
     // 其他玩家持有筹码的最大值, 全押金额不可超过该值
@@ -446,9 +454,11 @@ export class Player {
     )
 
     if (moneyShouldPay <= 0)
-      throw new TexasError(
-        2003,
-        `数据异常,请手动下注, try to allIn: ${moneyShouldPay}; balance: ${this.balance}`
+      this.reportError(
+        new TexasError(
+          2003,
+          `数据异常,请手动下注, try to allIn: ${moneyShouldPay}; balance: ${this.balance}`
+        )
       )
 
     this.#pool.add(this, moneyShouldPay, this.#controller.stage)
@@ -573,7 +583,8 @@ export class Player {
   }
 
   checkIfCanAct() {
-    if (this.#status !== 'active') throw new TexasError(2003, '不可行动')
+    if (this.#status !== 'active')
+      this.reportError(new TexasError(2003, '不可行动'))
   }
 
   toString() {
@@ -634,7 +645,9 @@ export class Player {
       (player) => player.getStatus() === 'waiting'
     )
     if (!nextPlayerToGetController)
-      throw new TexasError(2000, '游戏发生异常, 将控制权移交给不存在的玩家')
+      this.reportError(
+        new TexasError(2000, '游戏发生异常, 将控制权移交给不存在的玩家')
+      )
 
     this.#controller.transferControlTo(nextPlayerToGetController)
   }
@@ -650,13 +663,6 @@ export class Player {
       this.__testTakeAction()
       return
     }
-    console.log(
-      'action history',
-      this.#dealer.actionHistory.map((player) => [
-        player.getUserInfo().name,
-        player.getAction()?.type
-      ])
-    )
     console.log(
       this.#userInfo.name,
       '超时默认行动(allowedActions):',

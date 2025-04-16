@@ -3,6 +3,7 @@
 // 通过日志复刻玩家的操作记录
 // 尝试找出问题根源
 import Texas from './Texas'
+import TexasError from './error'
 
 const texas = new Texas({
   lowestBetAmount: 100,
@@ -17,21 +18,24 @@ const p2 = texas.createPlayer({ id: 2, name: 'yt', balance: 10000 })
 const p3 = texas.createPlayer({ id: 3, name: 'wyz', balance: 10000 })
 const p4 = texas.createPlayer({ id: 4, name: 'sen', balance: 10000 })
 const p5 = texas.createPlayer({ id: 5, name: 'wxl', balance: 30000 })
-texas.room.joinMany(p2)
+texas.room.joinMany(p2, p3)
 
 // 手动设置庄家位置
 texas.dealer.setButton(p2)
 texas.dealer.setOthers()
+texas.dealer.log()
+texas.onError((error) => {
+  console.log('错误信息')
+  console.log(error)
+})
 
-texas.controller.transferControlTo(p1)
+// texas.controller.transferControlTo(p1)
 // ----
 // 模拟下注行为
 async function test() {
-  await p1.bet(250)
-  await p2.call()
+  await texas.controller.start()
 
-  await p1.bet(500)
-  await p2.raise(1500)
-  await p1.call()
+  await p3.call()
+  texas.controller.end()
 }
 test()

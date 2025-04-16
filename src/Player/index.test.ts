@@ -36,11 +36,13 @@ describe('class Player', () => {
     room.join(p3)
     room.getDealer().setButton(p2)
     room.ready()
+    // 庄家: p3
     await controller.start()
 
     await p3.call()
     await p1.allIn()
     await p2.allIn()
+    controller.end()
 
     expect(p1.balance).toEqual(8000)
     expect(p2.balance).toEqual(0)
