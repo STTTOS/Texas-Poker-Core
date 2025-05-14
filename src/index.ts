@@ -8,15 +8,7 @@ import { roleMap, actionMap } from './Player/constant'
 import { Stage, ControllerStatus } from './Controller'
 import { texasErrorMap, TexasErrorCode } from '@/error/constant'
 import { RoomStatus, default as Room, PlayerSeatStatus } from './Room'
-import {
-  User,
-  Role,
-  Action,
-  ActionType,
-  default as Player,
-  ActionWithPayload,
-  ActionWithOutPayload
-} from './Player'
+import { User, Role, Action, ActionType, default as Player } from './Player'
 
 export * from './Deck/constant'
 export {
@@ -25,8 +17,6 @@ export {
   ActionType,
   Role,
   Action,
-  ActionWithPayload,
-  ActionWithOutPayload,
   roleMap,
   actionMap,
   Stage,

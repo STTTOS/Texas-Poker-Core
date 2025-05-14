@@ -19,7 +19,7 @@ describe('entery', () => {
     await texas.start()
 
     expect(() => texas.ready()).toThrow('玩家位置已确认,请勿重复设置')
-    expect(texas.start()).rejects.toThrow('游戏已经开始, 请勿重复操作')
+    expect(texas.start()).rejects.toThrow('游戏已经开始, 请勿重复开始游戏')
 
     texas.controller.end()
     await texas.settle()

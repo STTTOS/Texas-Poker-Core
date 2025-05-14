@@ -311,7 +311,7 @@ class Controller implements GameComponent {
       this.reportError(new TexasError(2100, '游戏不在进行中, 无法结束'))
 
     this.clearTimer()
-    this.#status = 'waiting'
+    this.#status = 'end'
     this.resetActivePlayer()
   }
 

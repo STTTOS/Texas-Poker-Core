@@ -19,18 +19,14 @@ type PlayerStatus =
   // 弃牌出局
   | 'out'
 type OnlineStatus = 'online' | 'offline' | 'quit'
-export interface ActionWithOutPayload {
-  type: Extract<ActionType, 'check' | 'fold'>
-}
-export interface ActionWithPayload {
-  type: Exclude<ActionType, 'check' | 'fold'>
-  payload: {
+export type Action = {
+  type: ActionType
+  payload?: {
     value: number
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any
   }
 }
-export type Action = ActionWithOutPayload | ActionWithPayload
 // 玩家回合时采取的行动
 export type ActionType =
   // 过牌
@@ -249,6 +245,13 @@ export class Player implements GameComponent {
       this.#dealer.actionHistory[this.#dealer.actionHistory.length - 1]
     )
     return result
+  }
+
+  /**
+   * @description 获取剩余的行动思考时间
+   */
+  getRemainThinkTime() {
+    return this.#thinkingTime - this.#countDownTime
   }
 
   setNextPlayer(player: Player | null) {
@@ -575,16 +578,14 @@ export class Player implements GameComponent {
     return this.#role
   }
   getUserInfo() {
-    return {
-      ...this.#userInfo,
-      // 余额需要用实时的, 而不是来自于数据库
-      balance: this.balance
-    }
+    return this.#userInfo
   }
 
   checkIfCanAct() {
+    if (this.#controller.status !== 'on')
+      this.reportError(new TexasError(2003, '游戏不在进行中, 不可行动'))
     if (this.#status !== 'active')
-      this.reportError(new TexasError(2003, '不可行动'))
+      this.reportError(new TexasError(2003, '没有控制权, 无法行动'))
   }
 
   toString() {

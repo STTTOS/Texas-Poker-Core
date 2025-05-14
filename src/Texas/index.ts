@@ -124,7 +124,7 @@ class Texas extends GameEventEmitter {
       this.handleError(new TexasError(2100, '玩家位置未确认, 无法进行游戏'))
 
     if (this.controller.status !== 'waiting')
-      this.handleError(new TexasError(2100, '游戏已经开始, 请勿重复操作'))
+      this.handleError(new TexasError(2100, '游戏已经开始, 请勿重复开始游戏'))
 
     this.resetBeforeGameStart()
     this.dealer.dealCards()

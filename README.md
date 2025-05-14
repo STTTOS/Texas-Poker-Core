@@ -311,3 +311,15 @@ bufix
 ## 1.1.48
 
 修复 player.actionble 判断错误
+
+## 1.2.1
+
+完善 texas.start 逻辑
+
+## 1.2.2
+
+完善 player.checkIfCanAct 的逻辑
+
+## 1.2.3
+
+测试 ncu

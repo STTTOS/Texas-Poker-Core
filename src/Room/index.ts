@@ -177,8 +177,12 @@ class Room implements GameComponent {
         )
       )
 
+    // 人数已满 或者 游戏不在准备阶段, 都直接到观战席
+    // 要注意一点, 游戏也会在end阶段持续几秒, 这个时候也需要到观战席
+    // 防止在结算过程中,玩家加入坐席导致交互问题
     const seatStatus: PlayerSeatStatus =
-      this.playersCountOnSeat === this.#maximumCountOfPlayers
+      this.playersCountOnSeat === this.#maximumCountOfPlayers ||
+      this.#controller.status !== 'waiting'
         ? 'hang'
         : 'on-set'
 
@@ -205,6 +209,9 @@ class Room implements GameComponent {
    * @description 将观战席的玩家入座
    */
   seat(player?: Player) {
+    if (this.#controller.status !== 'waiting')
+      this.reportError(new TexasError(2003, '游戏还未结束, 无法入座'))
+
     if (!player || !this.#idToPlayerMap.has(player.getUserInfo().id))
       this.reportError(new TexasError(2003, '您不在房间中,无法入座'))
 
@@ -224,6 +231,9 @@ class Room implements GameComponent {
   }
 
   watch(player?: Player) {
+    if (this.#controller.status !== 'waiting')
+      this.reportError(new TexasError(2003, '游戏正在进行中, 无法加入观战席'))
+
     if (!player || !this.#idToPlayerMap.has(player.getUserInfo().id))
       this.reportError(new TexasError(2003, '您不在房间中,无法观战'))
 
