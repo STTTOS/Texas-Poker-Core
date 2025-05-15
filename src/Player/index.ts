@@ -18,7 +18,7 @@ type PlayerStatus =
   | 'waiting'
   // 弃牌出局
   | 'out'
-type OnlineStatus = 'online' | 'offline' | 'quit'
+export type OnlineStatus = 'online' | 'offline' | 'quit'
 export type Action = {
   type: ActionType
   payload?: {
