@@ -282,8 +282,11 @@ export class Player implements GameComponent {
   getStatus() {
     return this.#status
   }
-  getOnlineStatus() {
+  get onlineStatus() {
     return this.#onlineStatus
+  }
+  set onlineStatus(value: OnlineStatus) {
+    this.#onlineStatus = value
   }
 
   onPreAction(callback: (params: PreAction) => void) {
@@ -678,6 +681,13 @@ export class Player implements GameComponent {
   continue() {
     if (process.env.PROJECT_ENV === 'dev') {
       this.takeDefaultAction()
+      return
+    }
+    // 如果当前玩家是离线状态, 延时一秒后直接采取默认行为
+    if (this.#onlineStatus === 'offline') {
+      setTimeout(() => {
+        this.takeDefaultAction()
+      }, 1000)
       return
     }
     if (!this.#timer)
