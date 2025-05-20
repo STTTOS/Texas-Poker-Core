@@ -1,5 +1,5 @@
 import Deck from '@/Deck'
-import TexasError from '@/error'
+import TexasError from '@/TexasError'
 import { getRandomInt } from '@/utils'
 import { Role, Player } from '@/Player'
 import { handPokeType } from '@/Deck/constant'

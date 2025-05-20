@@ -3,7 +3,7 @@
 // 通过日志复刻玩家的操作记录
 // 尝试找出问题根源
 import Texas from './Texas'
-import TexasError from './error'
+import TexasError from './TexasError'
 
 const texas = new Texas({
   lowestBetAmount: 500,

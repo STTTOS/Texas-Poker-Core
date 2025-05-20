@@ -1,12 +1,12 @@
 import Texas from './Texas'
-import TexasError from '@/error'
+import TexasError from '@/TexasError'
 import { default as Deck } from './Deck'
 import { formatterPoke } from './Deck/core'
 import { default as Dealer } from './Dealer'
 import { stageMap } from './Controller/constants'
 import { roleMap, actionMap } from './Player/constant'
 import { Stage, ControllerStatus } from './Controller'
-import { texasErrorMap, TexasErrorCode } from '@/error/constant'
+import { texasErrorMap, TexasErrorCode } from '@/TexasError/constant'
 import { RoomStatus, default as Room, PlayerSeatStatus } from './Room'
 import {
   User,

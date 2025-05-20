@@ -1,7 +1,7 @@
 // 控制游戏的进程
 import Dealer from '../Dealer'
-import TexasError from '@/error'
 import { Player } from '../Player'
+import TexasError from '@/TexasError'
 import { Poke } from '@/Deck/constant'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 

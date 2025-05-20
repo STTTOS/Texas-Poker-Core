@@ -1,7 +1,7 @@
 import Pool from '@/Pool'
 import Dealer from '@/Dealer'
-import TexasError from '@/error'
 import { roleMap } from './constant'
+import TexasError from '@/TexasError'
 import Controller from '@/Controller'
 import { getRandomInt } from '@/utils'
 import { Poke } from '../Deck/constant'

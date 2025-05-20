@@ -1,7 +1,7 @@
 import Pool from '@/Pool'
 import Room from '@/Room'
 import Dealer from '@/Dealer'
-import TexasError from '@/error'
+import TexasError from '@/TexasError'
 import Player, { User, ActionType, CallbackOfAction } from '@/Player'
 import Controller, {
   CallbackOfGameEnd,

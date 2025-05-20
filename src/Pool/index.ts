@@ -1,8 +1,8 @@
 import { equals } from 'ramda'
 
-import TexasError from '@/error'
 import { Player } from '@/Player'
 import { Stage } from '@/Controller'
+import TexasError from '@/TexasError'
 import { sum, filterMap } from '@/utils'
 import { getWinners, formatterPoke } from '@/Deck/core'
 import { GameComponent, TexasErrorCallback } from '@/Texas'

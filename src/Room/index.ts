@@ -1,8 +1,8 @@
 import { omit } from 'ramda'
 
 import Dealer from '@/Dealer'
-import TexasError from '@/error'
 import { Player } from '@/Player'
+import TexasError from '@/TexasError'
 import Controller from '@/Controller'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 
