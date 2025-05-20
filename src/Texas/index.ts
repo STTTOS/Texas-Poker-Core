@@ -18,6 +18,7 @@ export interface CreateRoomInputArgs {
   allowPlayersToWatch: boolean
   // 需要传入用户信息, 在创建房间时同时指定房主
   user: User
+  // 玩家的思考时间, 单位: s
   thinkingTime?: number
 }
 export interface PreAction {

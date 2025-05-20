@@ -10,9 +10,59 @@
 npm i texas-poker-core@latest
 ```
 
-# API 文档
+# 使用手册 Usage
 
-[点击跳转](https://www.wishufree.com/moment/share/213)
+```ts
+import { Texas } from 'texas-poker-core'
+
+// 实例化Texas
+const texas = new Texas({
+  // 大盲注
+  lowestBetAmount: 500,
+  // 允许的最大玩家数量
+  maximumCountOfPlayers: 7,
+  // 是否允许观战, 如果房间玩家达到上限时, 此字段决定玩家是否还可以加入房间
+  allowPlayersToWatch: true,
+  // room owner info
+  user: { id: 1, balance: 5000, name: 'ycr' },
+  thinkingTime: 5
+})
+const p2 = texas.createPlayer({ id: 2, name: 'yt', balance: 10000 })
+const p3 = texas.createPlayer({ id: 3, name: 'wyz', balance: 10000 })
+const p4 = texas.createPlayer({ id: 4, name: 'sen', balance: 10000 })
+texas.room.joinMany(p2, p3, p4)
+
+// 玩家行动前触发的回调函数, 包括允许的行动列表, 行动玩家的id, 以及允许的下注范围
+texas.onPreAction((preAction) => {})
+// 玩家行动后触发的回调函数
+// 可在此函数中完成数据上报行为
+texas.onAction((action) => {})
+// 游戏阶段变化触发的回调函数
+texas.onNextStage((stageInfo) => {})
+// 游戏结束时触发的回调函数
+texas.onGameEnd((gameEndInfo) => {
+  // 游戏结束后轮换庄家
+  texas.dealer.changeButtonToNextPlayer()
+  // 庄家变化后, 重新设置其他玩家的角色
+  texas.dealer.setOthers()
+  // 这里可以进行数据上报, 分配奖池, 更新用户的余额到数据库...
+
+  // 操作完成后重置对局信息
+  // 包括奖池, 底牌, 玩家手牌, 收回玩家的控制权...
+  texas.reset()
+  // 如果开启下一轮游戏, 只需再次调用`texas.start`即可
+})
+// 游戏进程中遇到错误触发的函数
+texas.onError((texasError) => {})
+// 房间初次创建时需调用, 确定各个玩家的角色
+texas.ready()
+
+// 开始游戏
+// 大小盲默认下注, 可以通过texas.getDefaultBet获取默认下注信息
+// 随后将控制权移交给小盲的下一位, 由具有行动权的玩家选择行动
+// 会触发onPreAction回调, 可以在此方法中推送消息给客户端
+texas.start()
+```
 
 # 发布记录
 
