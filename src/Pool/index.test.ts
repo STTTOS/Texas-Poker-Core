@@ -1,9 +1,11 @@
 import Pool from '.'
 import Room from '@/Room'
+import Texas from '@/Texas'
 import Dealer from '@/Dealer'
 import { sum } from '@/utils'
 import { Player } from '@/Player'
 import Controller from '@/Controller'
+import allocatePoolByInt from './allocatePoolByInt'
 
 describe('class pool', () => {
   test('function add', () => {
@@ -26,14 +28,14 @@ describe('class pool', () => {
       pool
     })
     console.log(p1.balance, 'p1ba')
-    pool.add(p1, 1000, 'pre_flop')
-    pool.add(p2, 2000, 'pre_flop')
+    pool.add(p1, 1000)
+    pool.add(p2, 2000)
 
-    expect(pool.betRecords.get('pre_flop')?.get(p1)).toEqual(1000)
-    expect(pool.betRecords.get('pre_flop')?.get(p2)).toEqual(2000)
+    expect(pool.betRecords.get(p1)).toEqual(1000)
+    expect(pool.betRecords.get(p2)).toEqual(2000)
   })
 
-  test('function calculateStage', () => {
+  test('function calculate', () => {
     const pool = new Pool()
     const dealer = new Dealer(500)
     const controller = new Controller(dealer)
@@ -66,12 +68,12 @@ describe('class pool', () => {
       dealer,
       pool
     })
-    pool.add(p1, 1000, 'pre_flop')
-    pool.add(p2, 2000, 'pre_flop')
-    pool.add(p3, 4000, 'pre_flop')
-    pool.add(p4, 4000, 'pre_flop')
+    pool.add(p1, 1000)
+    pool.add(p2, 2000)
+    pool.add(p3, 4000)
+    pool.add(p4, 4000)
 
-    pool.calculateStage('pre_flop')
+    pool.calculate()
     expect(pool.pots.size).toEqual(3)
     expect(pool.getSpecificPot(new Set([p1, p2, p3, p4]))).toEqual(4000)
     expect(pool.getSpecificPot(new Set([p2, p3, p4]))).toEqual(3000)
@@ -120,13 +122,35 @@ describe('class pool', () => {
     dealer.dealCards()
     dealer.settle()
 
-    pool.add(p1, 1000, 'pre_flop')
-    pool.add(p2, 2000, 'pre_flop')
-    pool.add(p3, 4000, 'pre_flop')
-    pool.add(p4, 4000, 'pre_flop')
+    pool.add(p1, 1000)
+    pool.add(p2, 2000)
+    pool.add(p3, 4000)
+    pool.add(p4, 4000)
 
     const result = pool.settle()
     expect(Array.from(result.values()).reduce(sum, 0)).toEqual(11_000)
     expect(pool.totalAmount).toEqual(11_000)
+  })
+
+  test('function allocatePoolByInt', () => {
+    const texas = new Texas({
+      user: { balance: 1000, id: 1, name: 'ycr' },
+      lowestBetAmount: 200,
+      maximumCountOfPlayers: 8,
+      allowPlayersToWatch: true
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'yt', balance: 2000 })
+    const p3 = texas.createPlayer({ id: 3, name: 'ycr', balance: 2000 })
+
+    const result1 = allocatePoolByInt([p1, p2, p3], 2000)
+    expect(result1.map((item) => item.amount).sort((a, b) => a - b)).toEqual([
+      666, 667, 667
+    ])
+
+    const result2 = allocatePoolByInt([p1, p2, p3], 1300)
+    expect(result2.map((item) => item.amount).sort((a, b) => a - b)).toEqual([
+      433, 433, 434
+    ])
   })
 })

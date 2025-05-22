@@ -356,7 +356,7 @@ export class Player implements GameComponent {
       }
     }
 
-    this.#pool.add(this, money, this.#controller.stage)
+    this.#pool.add(this, money)
     console.log(
       this.#userInfo.name,
       '下注金额:',
@@ -395,7 +395,7 @@ export class Player implements GameComponent {
       else await this.call()
     }
 
-    this.#pool.add(this, money, this.#controller.stage)
+    this.#pool.add(this, money)
     this.#action = {
       type: 'raise',
       payload: {
@@ -435,7 +435,7 @@ export class Player implements GameComponent {
       }
     }
 
-    this.#pool.add(this, moneyShouldPay, this.#controller.stage)
+    this.#pool.add(this, moneyShouldPay)
     this.#dealer.addAction(this)
     await this.#callbackOfAction?.(this)
 
@@ -467,7 +467,7 @@ export class Player implements GameComponent {
         )
       )
 
-    this.#pool.add(this, moneyShouldPay, this.#controller.stage)
+    this.#pool.add(this, moneyShouldPay)
     this.#action = {
       type: 'allIn',
       payload: {
@@ -607,8 +607,7 @@ export class Player implements GameComponent {
     return this.#handPokes
   }
 
-  // TODO: 需要先写到数据库
-  async earn(money: number) {
+  earn(money: number) {
     this.balance += money
 
     console.log(this.#userInfo.name, '分得奖池金额:', money)

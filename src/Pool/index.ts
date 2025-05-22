@@ -1,22 +1,30 @@
 import { equals } from 'ramda'
 
 import { Player } from '@/Player'
-import { Stage } from '@/Controller'
 import TexasError from '@/TexasError'
 import { sum, filterMap } from '@/utils'
+import allocatePoolByInt from './allocatePoolByInt'
 import { getWinners, formatterPoke } from '@/Deck/core'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 
 // 提供奖池结算的能力
 class Pool implements GameComponent {
-  // 这场游戏总下注额度
+  // 本轮游戏总下注额度
   #totalAmount = 0
-  // 存储边池信息
+  /**
+   * 存储各个边池的玩家以及奖池大小
+   * Set(player1, player2) => 1000, Set(player1, player2, player3) => 2000
+   */
   #pots: Map<Set<Player>, number> = new Map()
   // 参与下注的玩家
   #players: Set<Player> = new Set()
-  // 存储下注记录
-  #betRecords: Map<Stage, Map<Player, number>> = new Map()
+  /**
+   * 存储玩家的下注记录
+   */
+  #betRecords: Map<Player, number> = new Map()
+  /**
+   * 记录玩家分配的奖池金额
+   */
   #bills: Map<number, number> = new Map()
   reportError: TexasErrorCallback
 
@@ -33,7 +41,7 @@ class Pool implements GameComponent {
    * @param amount
    * @param stage
    */
-  add(player: Player, amount: number, stage: Stage) {
+  add(player: Player, amount: number) {
     if (amount <= 0)
       this.reportError(new TexasError(2001, '下注金额不可小于零'))
     if (player.balance < amount)
@@ -41,13 +49,10 @@ class Pool implements GameComponent {
 
     player.balance -= amount
     player.currentStageTotalAmount += amount
-
     this.#totalAmount += amount
+
     this.#players.add(player)
-    const target = this.#betRecords.get(stage)
-    if (!target) {
-      this.#betRecords.set(stage, new Map([[player, amount]]))
-    } else target.set(player, (target.get(player) || 0) + amount)
+    this.#betRecords.set(player, (this.#betRecords.get(player) || 0) + amount)
   }
   /**
    * @description 重置下注信息
@@ -86,21 +91,18 @@ class Pool implements GameComponent {
     totalAmount: number,
     callback: (player: Player, amount: number) => void
   ) {
-    getWinners(
-      Array.from(players).filter((p) => p.getStatus() !== 'out')
-    ).forEach((player, _, arr) => {
-      callback(player, totalAmount / arr.length)
+    const winners = getWinners(Array.from(players))
+    const pools = allocatePoolByInt(winners, totalAmount)
+    pools.forEach(({ player, amount }) => {
+      callback(player, amount)
     })
   }
 
   /**
    * @description 根据计算结果进行支付
    */
-  async pay() {
+  pay() {
     const bills = this.settle()
-    bills.forEach((amount, player) => {
-      this.#bills.set(player.getUserInfo().id, amount)
-    })
 
     // 如果剩奖池不够支付所有玩家, 说明游戏的计算出现异常, 需要中止这场比赛,并作废
     if (Array.from(bills.values()).reduce(sum, 0) !== this.#totalAmount) {
@@ -108,7 +110,7 @@ class Pool implements GameComponent {
     }
 
     for (const [player, amount] of bills) {
-      await player.earn(amount)
+      player.earn(amount)
     }
   }
 
@@ -149,26 +151,17 @@ class Pool implements GameComponent {
     })
 
     const filtered = filterMap((value) => value !== 0, result)
+    filtered.forEach((amount, player) => {
+      this.#bills.set(player.id, amount)
+    })
     return filtered
   }
 
   /**
-   * @description 根据各个阶段的下注情况, 计算主池 + 边池
+   * @description 根据各个阶段的下注情况, 计算奖池
    */
   calculate() {
-    this.#betRecords.forEach((_, stage) => {
-      this.calculateStage(stage)
-    })
-  }
-
-  /**
-   * @description 计算单个阶段的奖池分配情况
-   */
-  calculateStage(stage: Stage) {
-    const records = this.#betRecords.get(stage)
-
-    if (!records || records.size === 0) return
-    this.calculateSidePot(filterMap((value) => value !== 0, records))
+    this.calculateSidePot(filterMap((value) => value !== 0, this.#betRecords))
   }
 
   /**
@@ -184,16 +177,7 @@ class Pool implements GameComponent {
     const minBetAmount = Math.min(...bets.values())
 
     const totalAmount = minBetAmount * bets.size
-    let findTarget = false
-    this.#pots.forEach((amount = 0, players) => {
-      if (equals(players, new Set(bets.keys()))) {
-        findTarget = true
-        this.#pots.set(players, amount + totalAmount)
-      }
-    })
-    if (!findTarget) {
-      this.#pots.set(new Set(bets.keys()), totalAmount)
-    }
+    this.#pots.set(new Set(bets.keys()), totalAmount)
 
     bets.forEach((value, key) => {
       bets.set(key, value - minBetAmount)
