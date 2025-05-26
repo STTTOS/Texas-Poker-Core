@@ -713,19 +713,31 @@ export class Player implements GameComponent {
     this.clearTimer()
   }
 
-  getControl() {
-    // 如果余额不够, 则只能下注剩余余额
-    const max = Math.max(
+  /**
+   * @description 获取行动前的min~max 下注金额范围
+   */
+  getRestrict() {
+    const max = Math.min(
       this.getMaxAllInAmount() - this.#currentStageTotalAmount,
       this.balance
     )
-    // 最低为大盲注
-    const min = Math.max(
-      this.getOthersMaxBetAmountAtCurrentStage() -
-        this.#currentStageTotalAmount,
-      Math.min(this.#lowestBetAmount, this.balance)
-    )
 
+    // 计算出跟注的金额
+    const moneyShouldCall =
+      this.getOthersMaxBetAmountAtCurrentStage() - this.#currentStageTotalAmount
+    // 如果跟注金额小于0, 则使用盲注金额
+    const min =
+      moneyShouldCall <= 0
+        ? Math.min(this.#lowestBetAmount, this.balance)
+        : moneyShouldCall
+    return {
+      min,
+      max
+    }
+  }
+
+  getControl() {
+    // 如果余额不够, 则只能下注剩余余额(all-in)
     // 最大值是好计算的
     // 最小值就是跟注的金额
     const allowedActions = this.#getAllowedActions()
@@ -738,7 +750,7 @@ export class Player implements GameComponent {
     this.#callback?.({
       allowedActions,
       userId: this.#userInfo.id,
-      restrict: { min, max }
+      restrict: this.getRestrict()
     })
     this.#status = 'active'
 
