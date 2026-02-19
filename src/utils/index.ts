@@ -25,14 +25,10 @@ export const everyMap = <T, K>(
   callback: (value: K, key: T) => boolean,
   map: Map<T, K>
 ) => {
-  let result: boolean | undefined = undefined
+  let result: boolean = true
 
   map.forEach((value, key) => {
-    if (result === undefined) {
-      result = callback(value, key)
-    } else {
-      result &&= callback(value, key)
-    }
+    result &&= callback(value, key)
   })
   return result
 }
