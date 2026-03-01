@@ -164,7 +164,7 @@ class Controller implements GameComponent {
         this.#activePlayer?.getUserInfo().name
       )
       const index = stages.findIndex((stage) => stage === this.#stage)
-      const lastStage = this.#stage
+      const currentStage = this.#stage
       const nextStage = stages[index + 1]
 
       this.#stage = nextStage
@@ -174,8 +174,8 @@ class Controller implements GameComponent {
 
       this.#callbackOnNextStage?.({
         stage: nextStage,
-        lastStage,
-        commonPokes: this.getCommonPokes(lastStage, nextStage)
+        lastStage: currentStage,
+        commonPokes: this.getCommonPokes(currentStage, nextStage)
       })
       console.log('游戏进入下一个阶段 => ', this.#stage)
 
@@ -219,43 +219,47 @@ class Controller implements GameComponent {
   }
 
   // 大盲小盲的默认下注行为
+  // 在双人竞技中, 庄家需要下小盲注, 同时率先开始行动
   async takeActionInPreFlop() {
-    console.log('takeActionInPreFlop')
-    let current = this.#dealer.button?.getNextPlayer()
+    const takeDefaultActionPlayers = this.#getSmallBindAndBigBind()
+    takeDefaultActionPlayers.forEach(async (player, index) => {
+      if (player) {
+        const amount =
+          index === 0
+            ? this.#dealer.lowestBetAmount / 2
+            : this.#dealer.lowestBetAmount
 
-    if (current) {
-      const amount =
-        this.#dealer.count === 2
-          ? this.#dealer.lowestBetAmount
-          : this.#dealer.lowestBetAmount / 2
-      current.bet(amount, true)
-      this.#defaultBets.push({
-        userId: current.getUserInfo().id,
-        balance: current.balance,
-        amount
-      })
-
-      if (this.#dealer.count > 2) {
-        current = current.getNextPlayer()
-        if (current) {
-          const amount = this.#dealer.lowestBetAmount
-          current.bet(amount, true)
-          this.#defaultBets.push({
-            userId: current.getUserInfo().id,
-            balance: current.balance,
-            amount
-          })
-        }
+        player.bet(amount, true)
+        this.#defaultBets.push({
+          userId: player.getUserInfo().id,
+          balance: player.balance,
+          amount
+        })
       }
-    }
-    const activePlayer = current?.getNextPlayer()
+    })
+    const [, bigBlind] = takeDefaultActionPlayers
+    const activePlayer = bigBlind?.getNextPlayer()
     if (activePlayer) {
       // 默认行为结束后, 游戏正式开始
       await this.#callbackOfGameStart?.()
       this.transferControlTo(activePlayer)
     } else this.reportError(new TexasError(2000, '游戏进程异常'))
   }
+  // 获取小盲,大盲玩家
+  #getSmallBindAndBigBind() {
+    const smallBind =
+      // 在双人游戏中, 庄家同时支付小盲注
+      this.#dealer.count === 2
+        ? this.#dealer.button
+        : this.#dealer.button?.getNextPlayer()
 
+    const result = [smallBind, smallBind?.getNextPlayer()]
+    if (result.some((player) => !player))
+      this.reportError(
+        new TexasError(2000, '游戏进程异常: 小盲或大盲玩家不存在')
+      )
+    return result
+  }
   /**
    * @description 开始计时器, 将控制权移交给第一个可以行动的玩家
    */
