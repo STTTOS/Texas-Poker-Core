@@ -194,6 +194,17 @@ export class Player implements GameComponent {
     return this.#thinkingTime
   }
   /**
+   * 翻牌前大盲的「选项」: 已下大盲且无人加注, 轮到大盲选择过牌/加注/弃牌(无需再跟注)
+   */
+  #isBigBlindOptionInPreFlop(): boolean {
+    return (
+      this.#controller.stage === 'pre_flop' &&
+      this.#role === 'big-blind' &&
+      this.#currentStageTotalAmount >= this.getMaxBetAmountAtCurrentStage()
+    )
+  }
+
+  /**
    * @description 获取玩家允许的行动列表
    * 防止预期外的行为
    */
@@ -244,6 +255,8 @@ export class Player implements GameComponent {
     const result = helper(
       this.#dealer.actionHistory[this.#dealer.actionHistory.length - 1]
     )
+    if (this.#isBigBlindOptionInPreFlop() && result.includes('call'))
+      return ['check', 'raise', 'fold', 'allIn']
     return result
   }
 
@@ -340,6 +353,7 @@ export class Player implements GameComponent {
 
   async bet(money: number, preFlopDefaultAction = false) {
     if (preFlopDefaultAction === false) this.checkIfCanAct()
+
     if (!this.#getAllowedActions().includes('bet') && !preFlopDefaultAction)
       this.reportError(new TexasError(2003, '不可下注'))
 
@@ -534,6 +548,10 @@ export class Player implements GameComponent {
     if (this.#status === 'allIn' || this.#status === 'out') return false
 
     if (!this.#action) return true
+
+    // 翻牌前大盲具有最后行动权: 仅下过盲注视为未行动, 须给一次选择机会
+    if (this.#isBigBlindOptionInPreFlop() && this.#action.type === 'bet')
+      return true
 
     // 当前的下注金额已经等于最大下注额
     return (
