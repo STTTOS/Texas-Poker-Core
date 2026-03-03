@@ -80,7 +80,7 @@ class Dealer implements GameComponent {
     const { handPokes } = this.#deck.dealCards(this.#count)
     this.loop((player, i) => {
       player.setHandPokes(handPokes[i])
-    }, this.#button)
+    }, this.#button.getNextPlayer())
   }
 
   addAction(player: Player) {
