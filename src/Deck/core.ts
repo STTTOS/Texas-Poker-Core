@@ -202,6 +202,24 @@ export function getBestHand(pokes: Poke[], commonPokes: Poke[]): Poke[] {
 }
 
 /**
+ * @description 获取多个手牌组合中的所有牌型组合, 按照降序排列
+ * @param handPokes
+ * @param commonPokes
+ * @returns
+ */
+export function getSortedAllHandPokesCombinations(
+  handPokes: Poke[][],
+  commonPokes: Poke[]
+) {
+  const allCombinations = handPokes
+    .map((pokes) =>
+      getCombinations([...(pokes as unknown as Poke[]), ...commonPokes])
+    )
+    .flat(1)
+    .sort(compareFn)
+  return allCombinations
+}
+/**
  * @description 获取多个手牌组合中的最大牌力值
  * @param handPokes
  * @param commonPokes
@@ -211,15 +229,36 @@ export function getBestPokesPresentation(
   handPokes: Poke[][],
   commonPokes: Poke[]
 ) {
-  const [maxOne] = handPokes
-    .map((pokes) =>
-      getCombinations([...(pokes as unknown as Poke[]), ...commonPokes])
-    )
-    .flat(1)
-    .sort(compareFn)
+  const [maxOne] = getSortedAllHandPokesCombinations(handPokes, commonPokes)
   return getHandPresentation(maxOne)
 }
 
+// 获取最大牌型与牌力值
+export function getMaxPresentationAndPokes(
+  handPokes: Poke[][],
+  commonPokes: Poke[]
+) {
+  const allCombinations = getSortedAllHandPokesCombinations(
+    handPokes,
+    commonPokes
+  )
+  const maxPresentation = getHandPresentation(allCombinations[0])
+
+  // 以下方法可以使用reduce实现, 在目前不影响性能的情况下, 先这样实现
+  const maxPokes = allCombinations
+    .map((combination) => {
+      return {
+        presentation: getHandPresentation(combination),
+        pokes: combination
+      }
+    })
+    .filter((item) => item.presentation === maxPresentation)
+    .map((item) => item.pokes)
+  return {
+    presentation: maxPresentation,
+    pokes: maxPokes
+  }
+}
 /**
  * @description 格式化展示牌信息
  * @param input

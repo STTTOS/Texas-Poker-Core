@@ -2,7 +2,7 @@
 import Dealer from '../Dealer'
 import { Player } from '../Player'
 import TexasError from '@/TexasError'
-import { Poke } from '@/Deck/constant'
+import { Poke, handPokeType } from '@/Deck/constant'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 
 export type Stage = 'pre_flop' | 'flop' | 'turn' | 'river'
@@ -12,6 +12,10 @@ export type CallbackOfGameEnd = (params: {
   restCommonPokes: Poke[]
   currentStage: Stage
   showHandPokes: boolean
+  // 游戏到shutdown阶段时, 需要展示场上最大牌型组合
+  // 此字段可能为空, 比如其他玩家都弃牌时, 并不需要展示
+  maxPokes?: Poke[][]
+  maxPresentation?: handPokeType
 }) => void
 export type CallbackOnNextStage = (params: {
   commonPokes: Poke[]
@@ -139,10 +143,14 @@ class Controller implements GameComponent {
     if (shouldEndGame) {
       this.end()
       this.#endAt = this.stage
+      const { presentation, pokes } =
+        this.#dealer.deck.getMaxPresentationAndPokes()
       this.#callbackOfEnd?.({
-        restCommonPokes: this.getCommonPokes(this.#stage, 'river'),
+        showHandPokes: true,
         currentStage: this.#stage,
-        showHandPokes: true
+        restCommonPokes: this.getCommonPokes(this.#stage, 'river'),
+        maxPokes: pokes,
+        maxPresentation: presentation[0] as handPokeType
       })
       console.log('游戏结束(shouldEndGame):', this.#endAt)
       return true

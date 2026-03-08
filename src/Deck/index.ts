@@ -1,5 +1,5 @@
-import { getBestPokesPresentation } from './core'
 import { ranks, suits, type Poke, handPokeType } from './constant'
+import { getBestPokesPresentation, getMaxPresentationAndPokes } from './core'
 
 /**
  * 洗牌, 发牌
@@ -116,6 +116,15 @@ class Deck {
       this.#commonPokes
     )
     return presentation[0] as handPokeType
+  }
+
+  getMaxPokeCombinations() {
+    return getMaxPresentationAndPokes(this.#handPokes, this.#commonPokes).pokes
+  }
+
+  // 该方法是getMaxPokeCombinations&getMaxPresentation的组合
+  getMaxPresentationAndPokes() {
+    return getMaxPresentationAndPokes(this.#handPokes, this.#commonPokes)
   }
 }
 export default Deck
