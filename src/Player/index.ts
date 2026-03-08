@@ -387,6 +387,7 @@ export class Player implements GameComponent {
 
   async raise(money: number) {
     this.checkIfCanAct()
+    // 当前轮的最多下注额
     const maxBetAmount = Math.max(
       ...this.#dealer
         .filter((p) => p !== this)
@@ -442,6 +443,12 @@ export class Player implements GameComponent {
     if (moneyShouldPay > this.balance) {
       this.reportError(new TexasError(2003, '跟注金额不可大于筹码总数'))
     }
+    if (moneyShouldPay === this.balance) {
+      this.reportError(
+        new TexasError(2003, '跟注金额等于筹码总数, 应该全押, 不该调用call方法')
+      )
+    }
+
     this.#action = {
       type: 'call',
       payload: {
