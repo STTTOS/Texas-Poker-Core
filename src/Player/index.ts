@@ -109,6 +109,14 @@ export class Player implements GameComponent {
    */
   #currentStageTotalAmount = 0
   /**
+   * 对局总下注额度
+   */
+  #totalBetAmount = 0
+  /**
+   * 输赢情况
+   */
+  #wager = 0
+  /**
    * 指针指向上一个玩家, 庄家位的`lastPlayer`为`null`
    */
   #lastPlayer: Player | null = null
@@ -182,7 +190,18 @@ export class Player implements GameComponent {
   set currentStageTotalAmount(value: number) {
     this.#currentStageTotalAmount = value
   }
-
+  get totalBetAmount() {
+    return this.#totalBetAmount
+  }
+  set totalBetAmount(value: number) {
+    this.#totalBetAmount = value
+  }
+  get wager() {
+    return this.#wager
+  }
+  set wager(value: number) {
+    this.#wager = value
+  }
   get id() {
     return this.#userInfo.id
   }
@@ -309,6 +328,8 @@ export class Player implements GameComponent {
   reset() {
     this.resetAction()
     this.resetCurrentStageTotalAmount()
+
+    this.#totalBetAmount = 0
     this.#handPokes = []
     this.#presentation = undefined
     this.#status = 'waiting'
@@ -634,6 +655,7 @@ export class Player implements GameComponent {
 
   earn(money: number) {
     this.balance += money
+    this.#wager = money - this.totalBetAmount
 
     console.log(this.#userInfo.name, '分得奖池金额:', money)
   }

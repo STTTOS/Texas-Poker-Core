@@ -48,7 +48,9 @@ class Pool implements GameComponent {
       this.reportError(new TexasError(2003, '玩家余额不足'))
 
     player.balance -= amount
+    player.wager -= amount
     player.currentStageTotalAmount += amount
+    player.totalBetAmount += amount
     this.#totalAmount += amount
 
     this.#players.add(player)
