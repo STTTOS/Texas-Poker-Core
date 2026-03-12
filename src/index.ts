@@ -18,6 +18,7 @@ import {
 } from './Player'
 
 export * from './Deck/constant'
+export { getBestPokesPresentation, comparePresentation } from './Deck/core'
 export {
   Player,
   User,
