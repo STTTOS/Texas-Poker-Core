@@ -143,42 +143,45 @@ export function getHandPresentation(input: Poke[]) {
 
   // 一种只有两种面值
   if (new Set(ranks).size === 2) {
-    const [poke1, poke2] = Array.from(new Set(ranks))
-    const [count1, count2] = [
-      countSameRanks(ranks, poke1),
-      countSameRanks(ranks, poke2)
+    // 用A, B代表两种rank
+    const [rankA, rankB] = Array.from(new Set(ranks))
+    const [countA, countB] = [
+      countSameRanks(ranks, rankA),
+      countSameRanks(ranks, rankB)
     ]
     const [greaterOne, lessOne] =
-      count1 > count2 ? [poke1, poke2] : [poke2, poke1]
+      countA > countB ? [rankA, rankB] : [rankB, rankA]
     // 四条
-    if ([count1, count2].includes(4)) {
+    if ([countA, countB].includes(4)) {
       return `x${rankMap(greaterOne)}`
     }
     // 葫芦
     return `w${rankMap(greaterOne)}+r${rankMap(lessOne)}`
   }
 
-  // 只有三种类型
+  // 只有三种数值
   if (new Set(ranks).size === 3) {
-    const [poke1, poke2, poke3] = Array.from(new Set(ranks)).sort((a, b) =>
+    // 用A, B, C代表三种rank
+    // 按照出现的次数倒序排序, 最大的值在前面
+    const [pokeA, pokeB, pokeC] = Array.from(new Set(ranks)).sort((a, b) =>
       countSameRanks(ranks, a) > countSameRanks(ranks, b) ? -1 : 1
     )
-    const [count1, count2, count3] = [poke1, poke2, poke3].map((item) =>
+    const [countA, countB, countC] = [pokeA, pokeB, pokeC].map((item) =>
       countSameRanks(ranks, item)
     )
-    if ([count1, count2, count3].includes(3))
+    if ([countA, countB, countC].includes(3))
       // 三条
-      return `t${rankMap(poke1)}+${combineTypeAndRank('q', [poke2, poke3])}`
+      return `t${rankMap(pokeA)}+${combineTypeAndRank('q', [pokeB, pokeC])}`
     // 两对
-    return `${combineTypeAndRank('s', [poke1, poke2])}+r${rankMap(poke3)}`
+    return `${combineTypeAndRank('s', [pokeA, pokeB])}+r${rankMap(pokeC)}`
   }
 
   // 一对
   if (new Set(ranks).size === 4) {
-    const [poke1, ...pokes] = Array.from(new Set(ranks)).sort((a, b) =>
+    const [PokeA, ...pokes] = Array.from(new Set(ranks)).sort((a, b) =>
       countSameRanks(ranks, a) > countSameRanks(ranks, b) ? -1 : 1
     )
-    return `r${rankMap(poke1)}+${combineTypeAndRank('q', pokes)}`
+    return `r${rankMap(PokeA)}+${combineTypeAndRank('q', pokes)}`
   }
 
   const { result, max } = isStraight(ranks)
