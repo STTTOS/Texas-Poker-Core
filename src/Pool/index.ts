@@ -160,7 +160,7 @@ class Pool implements GameComponent {
   }
 
   /**
-   * @description 根据各个阶段的下注情况, 计算奖池
+   * @description 根据下注记录, 计算奖池
    */
   calculate() {
     this.calculateSidePot(filterMap((value) => value !== 0, this.#betRecords))
