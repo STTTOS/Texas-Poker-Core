@@ -278,28 +278,32 @@ export function getBestPokesRankSignature(
   const [maxOne] = getSortedAllHandPokesCombinations(handPokes, commonPokes)
   return getFiveCardsRankSignature(maxOne)
 }
+export function getBestRankCategory(handPokes: Poke[][], commonPokes: Poke[]) {
+  const [bestRankSignature] = getBestPokesRankSignature(handPokes, commonPokes)
+  return bestRankSignature[0] as RankCategory
+}
 
-/** 获取多组手牌与公共牌组合中的最大牌型签名及其对应的五张牌 */
-export function getMaxRankSignatureAndPokes(
-  handPokes: Poke[][],
-  commonPokes: Poke[]
-) {
+/** 获取多组手牌与公共牌组合中的最佳牌型信息（签名 + 类别）及其对应的五张牌 */
+export function getBestRankInfo(handPokes: Poke[][], commonPokes: Poke[]) {
   const allCombinations = getSortedAllHandPokesCombinations(
     handPokes,
     commonPokes
   )
-  const maxRankSignature = getFiveCardsRankSignature(allCombinations[0])
+  const rankSignature = getFiveCardsRankSignature(allCombinations[0])
+  const rankCategory = rankSignature[0] as RankCategory
 
-  const maxPokes = allCombinations
+  const pokes = allCombinations
     .map((combination) => ({
       rankSignature: getFiveCardsRankSignature(combination),
       pokes: combination
     }))
-    .filter((item) => item.rankSignature === maxRankSignature)
+    .filter((item) => item.rankSignature === rankSignature)
     .map((item) => item.pokes)
+
   return {
-    rankSignature: maxRankSignature,
-    pokes: maxPokes
+    rankSignature,
+    rankCategory,
+    pokes
   }
 }
 /**

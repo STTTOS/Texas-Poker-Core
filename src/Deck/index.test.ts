@@ -71,7 +71,7 @@ describe('deck', () => {
       )
       dealer.setRoles()
       dealer.dealCards()
-      const type = dealer.deck.getMaxRankCategory()
+      const type = dealer.deck.getBestRankCategory()
       if (hitCountsMap.has(type))
         hitCountsMap.set(type, hitCountsMap.get(type)! + 1)
       else hitCountsMap.set(type, 1)

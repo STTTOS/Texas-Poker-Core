@@ -1,7 +1,6 @@
 import Deck from '@/Deck'
 import TexasError from '@/TexasError'
 import { getRandomInt } from '@/utils'
-import { RankCategory } from '@/Deck/constant'
 import { Role, Player, RoleEnum } from '@/Player'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
@@ -9,7 +8,6 @@ import {
   getWinners,
   formatterPoke,
   getBestFiveCards,
-  compareRankSignature,
   getFiveCardsRankSignature,
   getStrengthFromRankSignature
 } from '@/Deck/core'
@@ -94,19 +92,14 @@ class Dealer implements GameComponent {
   /**
    * @description 获取场上最大的牌力签名（用于比较/展示）
    */
-  getMaxRankSignature() {
-    const [max] = this.filter((player) => player.getStatus() !== 'out')
-      .map((player) => player.rankSignature)
-      .filter(Boolean)
-      .sort((a, b) => compareRankSignature(a!, b!))
-    return max!
+  getBestRankSignature() {
+    return this.#deck.getBestRankSignature()
   }
   /**
    * @description 获取最大牌型 category（首字符）
    */
-  getMaxRankCategory() {
-    const maxRankSig = this.getMaxRankSignature()
-    return maxRankSig[0] as RankCategory
+  getBestRankCategory() {
+    return this.#deck.getBestRankCategory()
   }
 
   /** 获取场上最大的牌型组合（可能多玩家并列） */

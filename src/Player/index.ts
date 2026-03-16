@@ -4,7 +4,7 @@ import TexasError from '@/TexasError'
 import { getRandomInt } from '@/utils'
 import { defaultThinkingTime } from '@/config'
 import Controller, { StageEnum } from '@/Controller'
-import { Poke, RankSignature } from '../Deck/constant'
+import { Poke, RankCategory, RankSignature } from '../Deck/constant'
 import { PreAction, GameComponent, TexasErrorCallback } from '@/Texas'
 import { roleMap, RoleEnum, type Role, ActionTypeEnum } from './constant'
 
@@ -114,9 +114,10 @@ export class Player implements GameComponent {
   /**
    * 与公共牌组合后的最佳五张牌（best 5-card combination）
    */
-  #bestFiveCards: Poke[] | undefined = undefined
-  #rankSignature: RankSignature | undefined
+  #bestFiveCards?: Poke[]
+  #rankSignature?: RankSignature
   #rankStrength = 0
+  #rankCategory?: RankCategory
   #callback?: (params: PreAction) => void
   /**
    * 用户采取行动
@@ -329,6 +330,7 @@ export class Player implements GameComponent {
   }
   set rankSignature(value: RankSignature) {
     this.#rankSignature = value
+    this.#rankCategory = value[0] as RankCategory
   }
 
   getNextPlayer() {
