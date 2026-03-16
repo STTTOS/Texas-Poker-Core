@@ -4,8 +4,8 @@ import { default as Deck } from './Deck'
 import { formatterPoke } from './Deck/core'
 import { default as Dealer } from './Dealer'
 import { stageMap } from './Controller/constants'
-import { roleMap, actionMap } from './Player/constant'
-import { Stage, ControllerStatus } from './Controller'
+import { roleMap, ActionTypeMap } from './Player/constant'
+import { Stage, StageEnum, ControllerStatus } from './Controller'
 import { texasErrorMap, TexasErrorCode } from '@/TexasError/constant'
 import { RoomStatus, default as Room, PlayerSeatStatus } from './Room'
 import {
@@ -14,6 +14,7 @@ import {
   Action,
   ActionType,
   OnlineStatus,
+  ActionTypeEnum,
   default as Player
 } from './Player'
 
@@ -28,11 +29,13 @@ export {
   Player,
   User,
   ActionType,
+  ActionTypeEnum,
   Role,
   Action,
   roleMap,
-  actionMap,
+  ActionTypeMap,
   Stage,
+  StageEnum,
   ControllerStatus,
   stageMap,
   Dealer,

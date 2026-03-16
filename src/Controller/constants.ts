@@ -1,8 +1,8 @@
-import { Stage } from '.'
+import { StageEnum } from '.'
 
-export const stageMap = new Map<Stage, string>([
-  ['pre_flop', '翻牌前'],
-  ['flop', '翻牌圈'],
-  ['turn', '转牌圈'],
-  ['river', '河牌']
+export const stageMap = new Map<StageEnum, string>([
+  [StageEnum.PRE_FLOP, '翻牌前'],
+  [StageEnum.FLOP, '翻牌圈'],
+  [StageEnum.TURN, '转牌圈'],
+  [StageEnum.RIVER, '河牌']
 ])

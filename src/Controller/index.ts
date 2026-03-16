@@ -5,8 +5,21 @@ import TexasError from '@/TexasError'
 import { Poke, handTypeCategory } from '@/Deck/constant'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 
-export type Stage = 'pre_flop' | 'flop' | 'turn' | 'river'
-const stages: Stage[] = ['pre_flop', 'flop', 'turn', 'river']
+export enum StageEnum {
+  PRE_FLOP = 'pre_flop',
+  FLOP = 'flop',
+  TURN = 'turn',
+  RIVER = 'river'
+}
+
+export type Stage = StageEnum
+
+const stages: Stage[] = [
+  StageEnum.PRE_FLOP,
+  StageEnum.FLOP,
+  StageEnum.TURN,
+  StageEnum.RIVER
+]
 
 export type CallbackOfGameEnd = (params: {
   restCommonPokes: Poke[]
@@ -45,9 +58,9 @@ export type ControllerStatus =
   | 'end'
 class Controller implements GameComponent {
   #status: ControllerStatus = 'waiting'
-  #stage: Stage = 'pre_flop'
+  #stage: Stage = StageEnum.PRE_FLOP
   // 游戏在哪个极端结束的, 比如翻牌圈其他玩家都弃牌, 游戏在这个阶段就结束了
-  #endAt: Stage = 'pre_flop'
+  #endAt: Stage = StageEnum.PRE_FLOP
   #activePlayer: Player | null = null
   #timer: NodeJS.Timeout | null = null
   // 记录游戏的进行时间,单位 second
@@ -90,10 +103,10 @@ class Controller implements GameComponent {
   }
 
   #getPokeEndIndex(stage: Stage) {
-    if (stage === 'pre_flop') return 0
-    if (stage === 'flop') return 3
-    if (stage === 'turn') return 4
-    if (stage === 'river') return 5
+    if (stage === StageEnum.PRE_FLOP) return 0
+    if (stage === StageEnum.FLOP) return 3
+    if (stage === StageEnum.TURN) return 4
+    if (stage === StageEnum.RIVER) return 5
   }
 
   /**
@@ -138,7 +151,7 @@ class Controller implements GameComponent {
       playersCanAct.length === 0 ||
       (playersCanAct.length === 1 && !playersCanAct[0].actionable()) ||
       (this.#dealer.every((player) => !player.actionable()) &&
-        this.#stage === 'river')
+        this.#stage === StageEnum.RIVER)
 
     if (shouldEndGame) {
       this.end()
@@ -148,7 +161,7 @@ class Controller implements GameComponent {
       this.#callbackOfEnd?.({
         showHandPokes: true,
         currentStage: this.#stage,
-        restCommonPokes: this.getCommonPokes(this.#stage, 'river'),
+        restCommonPokes: this.getCommonPokes(this.#stage, StageEnum.RIVER),
         maxPokes: pokes,
         maxPresentation: presentation[0] as handTypeCategory
       })
@@ -273,8 +286,8 @@ class Controller implements GameComponent {
    */
   async start() {
     this.#status = 'on'
-    this.#stage = 'pre_flop'
-    this.#endAt = 'pre_flop'
+    this.#stage = StageEnum.PRE_FLOP
+    this.#endAt = StageEnum.PRE_FLOP
 
     // 测试环境保持玩家balance起始不变
     if (process.env.PROJECT_ENV === 'dev') this.#dealer.reset()
@@ -341,8 +354,8 @@ class Controller implements GameComponent {
     this.#count = 0
     this.#defaultBets = []
     this.#status = 'waiting'
-    this.#endAt = 'pre_flop'
-    this.#stage = 'pre_flop'
+    this.#endAt = StageEnum.PRE_FLOP
+    this.#stage = StageEnum.PRE_FLOP
   }
 
   /**

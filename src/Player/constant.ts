@@ -1,4 +1,4 @@
-import { Role, ActionType } from './index'
+import { Role } from './index'
 
 const twoPlayer: Role[] = ['button', 'big-blind']
 const threePlayer: Role[] = ['button', 'small-blind', 'big-blind']
@@ -28,13 +28,22 @@ const tenPlayer: Role[] = [
   ...ninePlayer.slice(5)
 ]
 
-export const actionMap = new Map<ActionType, string>([
-  ['call', '跟注'],
-  ['check', '过牌'],
-  ['fold', '弃牌'],
-  ['raise', '加注'],
-  ['allIn', '全押'],
-  ['bet', '下注']
+export enum ActionTypeEnum {
+  CALL = 'call',
+  CHECK = 'check',
+  FOLD = 'fold',
+  RAISE = 'raise',
+  ALL_IN = 'allIn',
+  BET = 'bet'
+}
+
+export const ActionTypeMap = new Map<ActionTypeEnum, string>([
+  [ActionTypeEnum.CALL, '跟注'],
+  [ActionTypeEnum.CHECK, '过牌'],
+  [ActionTypeEnum.FOLD, '弃牌'],
+  [ActionTypeEnum.RAISE, '加注'],
+  [ActionTypeEnum.ALL_IN, 'All In'],
+  [ActionTypeEnum.BET, '下注']
 ])
 export const roleMap = new Map<Role, string>([
   ['button', '庄家'],

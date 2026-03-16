@@ -1,12 +1,14 @@
 import Pool from '@/Pool'
 import Dealer from '@/Dealer'
-import { roleMap } from './constant'
 import TexasError from '@/TexasError'
-import Controller from '@/Controller'
 import { getRandomInt } from '@/utils'
 import { Poke } from '../Deck/constant'
 import { defaultThinkingTime } from '@/config'
+import { roleMap, ActionTypeEnum } from './constant'
+import Controller, { StageEnum } from '@/Controller'
 import { PreAction, GameComponent, TexasErrorCallback } from '@/Texas'
+
+export { ActionTypeEnum }
 
 // 玩家的状态
 type PlayerStatus =
@@ -18,7 +20,7 @@ type PlayerStatus =
   | 'waiting'
   // 弃牌出局
   | 'out'
-export type OnlineStatus = 'online' | 'offline' | 'quit'
+export type OnlineStatus = 'online' | 'offline'
 export type Action = {
   type: ActionType
   payload?: {
@@ -27,20 +29,8 @@ export type Action = {
     [key: string]: any
   }
 }
-// 玩家回合时采取的行动
-export type ActionType =
-  // 过牌
-  | 'check'
-  // 弃牌
-  | 'fold'
-  // 加注
-  | 'raise'
-  // 下注
-  | 'bet'
-  // 跟注
-  | 'call'
-  // 全押
-  | 'allIn'
+// 玩家回合时采取的行动（使用枚举值作为类型）
+export type ActionType = ActionTypeEnum
 
 export interface User {
   id: number
@@ -217,7 +207,7 @@ export class Player implements GameComponent {
    */
   #isBigBlindOptionInPreFlop(): boolean {
     return (
-      this.#controller.stage === 'pre_flop' &&
+      this.#controller.stage === StageEnum.PRE_FLOP &&
       this.#role === 'big-blind' &&
       this.#currentStageTotalAmount >= this.getMaxBetAmountAtCurrentStage()
     )
@@ -233,18 +223,28 @@ export class Player implements GameComponent {
 
       // 当前阶段第一位非`fold`行动的玩家
       if (!lastPlayer || !lastPlayer.#action)
-        return ['bet', 'allIn', 'fold', 'check']
+        return [
+          ActionTypeEnum.BET,
+          ActionTypeEnum.ALL_IN,
+          ActionTypeEnum.FOLD,
+          ActionTypeEnum.CHECK
+        ]
 
       // 上个玩家弃牌了, 需要知道最近采取行动的玩家
-      if (lastPlayer.#action?.type === 'fold') {
+      if (lastPlayer.#action?.type === ActionTypeEnum.FOLD) {
         const player = [...this.#dealer.actionHistory]
           .reverse()
           .find((player) => player.getStatus() !== 'out')
         return helper(player)
       }
 
-      if (lastPlayer.#action.type === 'check')
-        return ['allIn', 'bet', 'check', 'fold']
+      if (lastPlayer.#action.type === ActionTypeEnum.CHECK)
+        return [
+          ActionTypeEnum.ALL_IN,
+          ActionTypeEnum.BET,
+          ActionTypeEnum.CHECK,
+          ActionTypeEnum.FOLD
+        ]
 
       // 前置all-in校验
       // 其他玩家的最大下注额
@@ -254,28 +254,56 @@ export class Player implements GameComponent {
         )
       )
       if (this.balance + this.#currentStageTotalAmount <= maxBetAmount) {
-        return ['allIn', 'fold']
+        return [ActionTypeEnum.ALL_IN, ActionTypeEnum.FOLD]
       }
 
-      if (lastPlayer.#action!.type === 'bet') {
-        return ['call', 'raise', 'allIn', 'fold']
+      if (lastPlayer.#action!.type === ActionTypeEnum.BET) {
+        return [
+          ActionTypeEnum.CALL,
+          ActionTypeEnum.RAISE,
+          ActionTypeEnum.ALL_IN,
+          ActionTypeEnum.FOLD
+        ]
       }
 
-      if (lastPlayer.#action?.type === 'raise') {
-        return ['call', 'raise', 'allIn', 'fold']
+      if (lastPlayer.#action?.type === ActionTypeEnum.RAISE) {
+        return [
+          ActionTypeEnum.CALL,
+          ActionTypeEnum.RAISE,
+          ActionTypeEnum.ALL_IN,
+          ActionTypeEnum.FOLD
+        ]
       }
 
-      if (lastPlayer.#action.type === 'allIn') {
-        return ['call', 'raise', 'allIn', 'fold']
+      if (lastPlayer.#action.type === ActionTypeEnum.ALL_IN) {
+        return [
+          ActionTypeEnum.CALL,
+          ActionTypeEnum.RAISE,
+          ActionTypeEnum.ALL_IN,
+          ActionTypeEnum.FOLD
+        ]
       }
       // 上个玩家的行为是: call
-      return ['call', 'raise', 'fold', 'allIn']
+      return [
+        ActionTypeEnum.CALL,
+        ActionTypeEnum.RAISE,
+        ActionTypeEnum.FOLD,
+        ActionTypeEnum.ALL_IN
+      ]
     }
     const result = helper(
       this.#dealer.actionHistory[this.#dealer.actionHistory.length - 1]
     )
-    if (this.#isBigBlindOptionInPreFlop() && result.includes('call'))
-      return ['check', 'raise', 'fold', 'allIn']
+    if (
+      this.#isBigBlindOptionInPreFlop() &&
+      result.includes(ActionTypeEnum.CALL)
+    )
+      return [
+        ActionTypeEnum.CHECK,
+        ActionTypeEnum.RAISE,
+        ActionTypeEnum.FOLD,
+        ActionTypeEnum.ALL_IN
+      ]
     return result
   }
 
@@ -345,11 +373,11 @@ export class Player implements GameComponent {
 
   async check() {
     this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes('check'))
+    if (!this.#getAllowedActions().includes(ActionTypeEnum.CHECK))
       this.reportError(new TexasError(2003, '不可过牌'))
 
     this.#action = {
-      type: 'check'
+      type: ActionTypeEnum.CHECK
     }
     this.#dealer.addAction(this)
     await this.#callbackOfAction?.(this)
@@ -359,11 +387,11 @@ export class Player implements GameComponent {
 
   async fold() {
     this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes('fold'))
+    if (!this.#getAllowedActions().includes(ActionTypeEnum.FOLD))
       this.reportError(new TexasError(2003, '不可弃牌'))
 
     this.#action = {
-      type: 'fold'
+      type: ActionTypeEnum.FOLD
     }
     this.#status = 'out'
     this.#dealer.addAction(this)
@@ -375,7 +403,10 @@ export class Player implements GameComponent {
   async bet(money: number, preFlopDefaultAction = false) {
     if (preFlopDefaultAction === false) this.checkIfCanAct()
 
-    if (!this.#getAllowedActions().includes('bet') && !preFlopDefaultAction)
+    if (
+      !this.#getAllowedActions().includes(ActionTypeEnum.BET) &&
+      !preFlopDefaultAction
+    )
       this.reportError(new TexasError(2003, '不可下注'))
 
     if (money > this.balance) {
@@ -385,7 +416,7 @@ export class Player implements GameComponent {
       this.reportError(new TexasError(2003, '下注金额不可小于大盲注'))
     }
     this.#action = {
-      type: 'bet',
+      type: ActionTypeEnum.BET,
       payload: {
         value: money
       }
@@ -415,7 +446,7 @@ export class Player implements GameComponent {
         .map((p) => p.#currentStageTotalAmount)
     )
 
-    if (!this.#getAllowedActions().includes('raise'))
+    if (!this.#getAllowedActions().includes(ActionTypeEnum.RAISE))
       this.reportError(new TexasError(2003, '不可加注'))
 
     if (money > this.balance) {
@@ -433,7 +464,7 @@ export class Player implements GameComponent {
 
     this.#pool.add(this, money)
     this.#action = {
-      type: 'raise',
+      type: ActionTypeEnum.RAISE,
       payload: {
         value: money
       }
@@ -448,7 +479,7 @@ export class Player implements GameComponent {
 
   async call() {
     this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes('call'))
+    if (!this.#getAllowedActions().includes(ActionTypeEnum.CALL))
       this.reportError(new TexasError(2003, '不可跟注'))
 
     // 其他玩家的最大下注金额
@@ -471,7 +502,7 @@ export class Player implements GameComponent {
     }
 
     this.#action = {
-      type: 'call',
+      type: ActionTypeEnum.CALL,
       payload: {
         value: moneyShouldPay
       }
@@ -487,7 +518,7 @@ export class Player implements GameComponent {
 
   async allIn() {
     this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes('allIn')) {
+    if (!this.#getAllowedActions().includes(ActionTypeEnum.ALL_IN)) {
       this.reportError(new TexasError(2003, '不可全押'))
     }
 
@@ -511,7 +542,7 @@ export class Player implements GameComponent {
 
     this.#pool.add(this, moneyShouldPay)
     this.#action = {
-      type: 'allIn',
+      type: ActionTypeEnum.ALL_IN,
       payload: {
         value: moneyShouldPay
       }
@@ -578,7 +609,10 @@ export class Player implements GameComponent {
     if (!this.#action) return true
 
     // 翻牌前大盲具有最后行动权: 仅下过盲注视为未行动, 须给一次选择机会
-    if (this.#isBigBlindOptionInPreFlop() && this.#action.type === 'bet')
+    if (
+      this.#isBigBlindOptionInPreFlop() &&
+      this.#action.type === ActionTypeEnum.BET
+    )
       return true
 
     // 当前的下注金额已经等于最大下注额
@@ -718,7 +752,7 @@ export class Player implements GameComponent {
       '超时默认行动(allowedActions):',
       this.#getAllowedActions()
     )
-    if (this.#getAllowedActions().includes('check')) {
+    if (this.#getAllowedActions().includes(ActionTypeEnum.CHECK)) {
       this.check()
     } else {
       this.fold()
