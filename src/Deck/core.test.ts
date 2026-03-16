@@ -2,8 +2,10 @@ import { Rank } from './constant'
 import {
   compareFn,
   isStraight,
+  getHandStrengthInt,
   getHandPresentation,
-  getBestPokesPresentation
+  getBestPokesPresentation,
+  getHandStrengthIntFromPresentation
 } from './core'
 
 describe('core logic', () => {
@@ -27,6 +29,10 @@ describe('core logic', () => {
   })
 
   test('function getHandPresentation', () => {
+    // 高牌：rank 从高到低可读，如 A-K-Q-J-9
+    expect(getHandPresentation(['ca', 'ck', 'cq', 'cj', 'h9'])).toBe(
+      'q14+13+12+11+9'
+    )
     expect(getHandPresentation(['c2', 'c3', 'c4', 'c5', 'h7'])[0]).toEqual('q')
     expect(getHandPresentation(['c2', 'c3', 'c4', 'c5', 'h2'])[0]).toEqual('r')
     expect(getHandPresentation(['c2', 'c3', 'c3', 'c5', 'h2'])[0]).toEqual('s')
@@ -94,5 +100,28 @@ describe('core logic', () => {
     expect(
       compareFn(['ct', 'cj', 'cq', 'ck', 'ca'], ['ca', 'c4', 'c5', 'c2', 'c4'])
     ).toBeLessThan(0)
+  })
+
+  test('getHandStrengthInt 与 compareFn 顺序一致，牌力越大数值越大', () => {
+    const weaker = ['c2', 'c3', 'c4', 'ht', 'ha'] as const
+    const stronger = ['c2', 'c3', 'c5', 'ht', 'ha'] as const
+    expect(compareFn([...weaker], [...stronger])).toBeGreaterThan(0)
+    expect(getHandStrengthInt([...stronger])).toBeGreaterThan(
+      getHandStrengthInt([...weaker])
+    )
+
+    const royal = ['ct', 'cj', 'cq', 'ck', 'ca'] as const
+    const highCard = ['ca', 'c4', 'c5', 'c2', 'c3'] as const
+    expect(getHandStrengthInt([...royal])).toBeGreaterThan(
+      getHandStrengthInt([...highCard])
+    )
+  })
+
+  test('getHandStrengthIntFromPresentation 与 getHandPresentation 结果一致', () => {
+    const hand = ['c2', 'c3', 'c4', 'c5', 'h7'] as const
+    const presentation = getHandPresentation([...hand])
+    expect(getHandStrengthInt([...hand])).toBe(
+      getHandStrengthIntFromPresentation(presentation)
+    )
   })
 })
