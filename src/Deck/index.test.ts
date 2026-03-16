@@ -5,7 +5,7 @@ import Deck from './index'
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
 import Controller from '@/Controller'
-import { handTypeCategory, handTypeCategoryMap } from './constant'
+import { RankCategory, rankCategoryMap } from './constant'
 
 describe('deck', () => {
   test('init deck successfully', () => {
@@ -37,7 +37,7 @@ describe('deck', () => {
   // 耗时 10min, 平时不开启此测试
   test.skip('bias in deal probabilities', () => {
     // 牌型参考概率
-    const standardProbability = new Map<handTypeCategory, number>([
+    const standardProbability = new Map<RankCategory, number>([
       ['q', 0.174],
       ['r', 0.438],
       ['s', 0.235],
@@ -53,7 +53,7 @@ describe('deck', () => {
     // 测试发牌的误差率
     const times = count
     // 记录对应牌型的命中次数
-    const hitCountsMap = new Map<handTypeCategory, number>([])
+    const hitCountsMap = new Map<RankCategory, number>([])
     while (count > 0) {
       count--
       const dealer = new Dealer(200)
@@ -71,7 +71,7 @@ describe('deck', () => {
       )
       dealer.setRoles()
       dealer.dealCards()
-      const type = dealer.deck.getMaxPresentation()
+      const type = dealer.deck.getMaxRankCategory()
       if (hitCountsMap.has(type))
         hitCountsMap.set(type, hitCountsMap.get(type)! + 1)
       else hitCountsMap.set(type, 1)
@@ -93,7 +93,7 @@ describe('deck', () => {
           // 牌型概率
           const probability = (catchTimes / times) * 100
           console.log(
-            `${handTypeCategoryMap.get(
+            `${rankCategoryMap.get(
               type
             )} bias: ${offsetRate}%; probability: ${probability}%`
           )

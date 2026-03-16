@@ -2,11 +2,11 @@ import Pool from '@/Pool'
 import Dealer from '@/Dealer'
 import TexasError from '@/TexasError'
 import { getRandomInt } from '@/utils'
-import { Poke } from '../Deck/constant'
 import { defaultThinkingTime } from '@/config'
-import { roleMap, ActionTypeEnum } from './constant'
 import Controller, { StageEnum } from '@/Controller'
+import { Poke, RankSignature } from '../Deck/constant'
 import { PreAction, GameComponent, TexasErrorCallback } from '@/Texas'
+import { roleMap, RoleEnum, type Role, ActionTypeEnum } from './constant'
 
 export { ActionTypeEnum }
 
@@ -51,14 +51,8 @@ export type CallbackOfAction = (
   player: Player,
   isPreFlop?: boolean
 ) => Promise<void>
-export type Role =
-  | 'button'
-  | 'small-blind'
-  | 'big-blind'
-  | `under-the-gun${number | ''}`
-  | `middle-position${number | ''}`
-  | 'hi-jack'
-  | 'cut-off'
+export type { Role } from './constant'
+export { RoleEnum } from './constant'
 
 /**
  * 玩家
@@ -114,10 +108,15 @@ export class Player implements GameComponent {
 
   #timer: NodeJS.Timeout | null = null
   /**
-   * 玩家的手牌
+   * 玩家的手牌（2 张）
    */
   #handPokes: Poke[] = []
-  #presentation: string | undefined
+  /**
+   * 与公共牌组合后的最佳五张牌（best 5-card combination）
+   */
+  #bestFiveCards: Poke[] | undefined = undefined
+  #rankSignature: RankSignature | undefined
+  #rankStrength = 0
   #callback?: (params: PreAction) => void
   /**
    * 用户采取行动
@@ -208,7 +207,7 @@ export class Player implements GameComponent {
   #isBigBlindOptionInPreFlop(): boolean {
     return (
       this.#controller.stage === StageEnum.PRE_FLOP &&
-      this.#role === 'big-blind' &&
+      this.#role === RoleEnum.BB &&
       this.#currentStageTotalAmount >= this.getMaxBetAmountAtCurrentStage()
     )
   }
@@ -314,14 +313,22 @@ export class Player implements GameComponent {
     return this.#thinkingTime - this.#countDownTime
   }
 
+  get bestFiveCards(): Poke[] | undefined {
+    return this.#bestFiveCards
+  }
+
+  set bestFiveCards(value: Poke[] | undefined) {
+    this.#bestFiveCards = value
+  }
+
   setNextPlayer(player: Player | null) {
     this.#nextPlayer = player
   }
-  setPresentation(presentation: string) {
-    this.#presentation = presentation
+  get rankSignature(): RankSignature | undefined {
+    return this.#rankSignature
   }
-  getPresentation() {
-    return this.#presentation
+  set rankSignature(value: RankSignature) {
+    this.#rankSignature = value
   }
 
   getNextPlayer() {
@@ -349,6 +356,12 @@ export class Player implements GameComponent {
     this.#onlineStatus = value
   }
 
+  set rankStrength(value: number) {
+    this.#rankStrength = value
+  }
+  get rankStrength() {
+    return this.#rankStrength
+  }
   onPreAction(callback: (params: PreAction) => void) {
     this.#callback = callback
   }
@@ -359,7 +372,8 @@ export class Player implements GameComponent {
 
     this.#totalBetAmount = 0
     this.#handPokes = []
-    this.#presentation = undefined
+    this.#rankStrength = 0
+    this.#rankSignature = undefined
     this.#status = 'waiting'
 
     if (process.env.PROJECT_ENV === 'dev') this.balance = this.#userInfo.balance

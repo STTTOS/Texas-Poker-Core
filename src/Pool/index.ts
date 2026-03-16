@@ -130,7 +130,7 @@ class Pool implements GameComponent {
     this.#players.forEach((player) => {
       console.log(
         player.getUserInfo().name,
-        player.getPresentation(),
+        player.rankSignature,
         formatterPoke(player.getHandPokes())
       )
     })

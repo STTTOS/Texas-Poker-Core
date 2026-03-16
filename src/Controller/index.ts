@@ -2,7 +2,7 @@
 import Dealer from '../Dealer'
 import { Player } from '../Player'
 import TexasError from '@/TexasError'
-import { Poke, handTypeCategory } from '@/Deck/constant'
+import { Poke, RankCategory } from '@/Deck/constant'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 
 export enum StageEnum {
@@ -28,7 +28,7 @@ export type CallbackOfGameEnd = (params: {
   // 游戏到shutdown阶段时, 需要展示场上最大牌型组合
   // 此字段可能为空, 比如其他玩家都弃牌时, 并不需要展示
   maxPokes?: Poke[][]
-  maxPresentation?: handTypeCategory
+  maxRankCategory?: RankCategory
 }) => void
 export type CallbackOnNextStage = (params: {
   commonPokes: Poke[]
@@ -156,14 +156,14 @@ class Controller implements GameComponent {
     if (shouldEndGame) {
       this.end()
       this.#endAt = this.stage
-      const { presentation, pokes } =
-        this.#dealer.deck.getMaxPresentationAndPokes()
+      const { rankSignature, pokes } =
+        this.#dealer.deck.getMaxRankSignatureAndPokes()
       this.#callbackOfEnd?.({
         showHandPokes: true,
         currentStage: this.#stage,
         restCommonPokes: this.getCommonPokes(this.#stage, StageEnum.RIVER),
         maxPokes: pokes,
-        maxPresentation: presentation[0] as handTypeCategory
+        maxRankCategory: rankSignature[0] as RankCategory
       })
       console.log('游戏结束(shouldEndGame):', this.#endAt)
       return true

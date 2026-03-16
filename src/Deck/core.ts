@@ -8,8 +8,8 @@ import {
   rankMap,
   suitsMap,
   comboIndices,
-  Presentation,
-  handTypeCategory
+  RankCategory,
+  RankSignature
 } from './constant'
 
 /**
@@ -53,9 +53,9 @@ function formatRanksDesc(ranks: Rank[]): string {
     .join('+')
 }
 
-/** 从 presentation 中解析出 rank 数字数组（首段去掉类型字母，其余段为纯数字或 "r"+数字） */
-function parseRankNumbersFromPresentation(presentation: string): number[] {
-  const rest = presentation.slice(1)
+/** 从 rankSignature 中解析出 rank 数字数组（首段去掉类型字母，其余段为纯数字或 "r"+数字） */
+function parseRankNumbersFromRankSignature(rankSignature: string): number[] {
+  const rest = rankSignature.slice(1)
   if (!rest) return []
   return rest.split('+').map((segment) => {
     const numPart = /^[a-z]\d*$/i.test(segment) ? segment.slice(1) : segment
@@ -73,8 +73,8 @@ function getCombinations(pokes: Poke[]) {
 }
 
 const compareFnOfSameType = (a: string, b: string) => {
-  const ranks1 = parseRankNumbersFromPresentation(a)
-  const ranks2 = parseRankNumbersFromPresentation(b)
+  const ranks1 = parseRankNumbersFromRankSignature(a)
+  const ranks2 = parseRankNumbersFromRankSignature(b)
   const len = Math.max(ranks1.length, ranks2.length)
   for (let i = 0; i < len; i++) {
     const v1 = ranks1[i] ?? 0
@@ -91,14 +91,13 @@ const compareFnOfSameType = (a: string, b: string) => {
  * @returns
  */
 export const compareFn = (a: Poke[], b: Poke[]) => {
-  // 'q13' 'w3+r2'
-  const [presentationA, presentationB] = [
-    getHandPresentation(a),
-    getHandPresentation(b)
+  const [rankSigA, rankSigB] = [
+    getFiveCardsRankSignature(a),
+    getFiveCardsRankSignature(b)
   ]
-  return comparePresentation(presentationA, presentationB)
+  return compareRankSignature(rankSigA, rankSigB)
 }
-export const comparePresentation = (p1: string, p2: string) => {
+export const compareRankSignature = (p1: string, p2: string) => {
   const [typeA, typeB] = [p1[0], p2[0]]
 
   // 最高牌型相同
@@ -110,8 +109,8 @@ export const comparePresentation = (p1: string, p2: string) => {
   return typeA > typeB ? -1 : 1
 }
 
-/** 牌型字符到可排序整数的映射，与 comparePresentation 顺序一致：大即强 */
-const HAND_TYPE_ORDER: Record<handTypeCategory, number> = {
+/** 牌型字符到可排序整数的映射，与 compareRankSignature 顺序一致：大即强 */
+const RANK_CATEGORY_ORDER: Record<RankCategory, number> = {
   q: 0,
   r: 1,
   s: 2,
@@ -130,15 +129,15 @@ const RANK_BASE = 16
 const TYPE_MULTIPLIER = 1_000_000
 
 /**
- * 将 getHandPresentation 的字符串解析为可排序的整数
- * 保证：comparePresentation(a, b) === -1 => getHandStrengthIntFromPresentation(a) < getHandStrengthIntFromPresentation(b)
+ * 将五张组合牌的 rankSignature 解析为可排序的整数
+ * 保证：compareRankSignature(a, b) === -1 => getStrengthFromRankSignature(a) < getStrengthFromRankSignature(b)
  */
-export function getHandStrengthIntFromPresentation(
-  presentation: Presentation
+export function getStrengthFromRankSignature(
+  rankSignature: RankSignature
 ): number {
-  const typeChar = presentation[0] as handTypeCategory
-  const typeIndex = HAND_TYPE_ORDER[typeChar] ?? 0
-  const rankNumbers = parseRankNumbersFromPresentation(presentation)
+  const typeChar = rankSignature[0] as RankCategory
+  const typeIndex = RANK_CATEGORY_ORDER[typeChar] ?? 0
+  const rankNumbers = parseRankNumbersFromRankSignature(rankSignature)
   const payload = rankNumbers.reduce(
     (sum, r, i) => sum + r * Math.pow(RANK_BASE, rankNumbers.length - 1 - i),
     0
@@ -147,19 +146,19 @@ export function getHandStrengthIntFromPresentation(
 }
 
 /**
- * 将 5 张牌编码为可排序的整数，便于数据库存储与 ORDER BY 比较
- * 牌力越大数值越大，可直接用于 ORDER BY hand_strength DESC 取最强牌
+ * 获取五张组合牌型的强度（可排序整数），便于数据库存储与 ORDER BY 比较
+ * 牌力越大数值越大，可直接用于 ORDER BY 取最强牌
  */
-export function getHandStrengthInt(input: Poke[]): number {
-  return getHandStrengthIntFromPresentation(getHandPresentation(input))
+export function getFiveCardsStrength(input: Poke[]): number {
+  return getStrengthFromRankSignature(getFiveCardsRankSignature(input))
 }
 
 /**
- * @description 计算牌力大小
- * @param input
- * @returns
+ * 获取五张组合牌的唯一标识（牌力签名：类型 + 牌面细节）
+ * @param input 五张组合牌（5 张 Poke）
+ * @returns rankSignature
  */
-export function getHandPresentation(input: Poke[]): Presentation {
+export function getFiveCardsRankSignature(input: Poke[]): RankSignature {
   // return
   const suits = input.map((poke) => poke[0] as Suit)
   const ranks = input.map((poke) => poke[1] as Rank)
@@ -232,22 +231,28 @@ export function getHandPresentation(input: Poke[]): Presentation {
 }
 
 /**
- * @description 根据底牌和手牌, 计算出最大的牌力组合
- * @param handPokes
- * @param commonPokes
- * @returns
+ * 从 2 张手牌与 5 张底牌中，选出牌力最大的 5 张牌型；。
+ * @param handPokes 手牌（如 2 张）
+ * @param commonPokes 底牌/公共牌（如 5 张）
  */
-export function getBestHand(pokes: Poke[], commonPokes: Poke[]): Poke[] {
-  const [maxOne] = getCombinations(pokes.concat(commonPokes)).sort(compareFn)
+export function getBestFiveCards(
+  handPokes: Poke[],
+  commonPokes: Poke[]
+): Poke[] {
+  if (commonPokes.length === 0)
+    throw new Error('底牌数量不足, 无法组合出最大5张牌型')
+
+  const [maxOne] = getCombinations(handPokes.concat(commonPokes)).sort(
+    compareFn
+  )
 
   return maxOne
 }
 
 /**
- * @description 获取多个手牌组合中的所有牌型组合, 按照降序排列
- * @param handPokes
- * @param commonPokes
- * @returns
+ * 获取多组手牌与公共牌组合后的所有五张牌型，按牌力降序排列
+ * @param handPokes 各玩家手牌（每组 2 张）
+ * @param commonPokes 公共牌
  */
 export function getSortedAllHandPokesCombinations(
   handPokes: Poke[][],
@@ -262,21 +267,20 @@ export function getSortedAllHandPokesCombinations(
   return allCombinations
 }
 /**
- * @description 获取多个手牌组合中的最大牌力值
- * @param handPokes
- * @param commonPokes
- * @returns
+ * 获取多组手牌与公共牌组合中的最大牌型签名
+ * @param handPokes 各玩家手牌
+ * @param commonPokes 公共牌
  */
-export function getBestPokesPresentation(
+export function getBestPokesRankSignature(
   handPokes: Poke[][],
   commonPokes: Poke[]
 ) {
   const [maxOne] = getSortedAllHandPokesCombinations(handPokes, commonPokes)
-  return getHandPresentation(maxOne)
+  return getFiveCardsRankSignature(maxOne)
 }
 
-// 获取最大牌型与牌力值
-export function getMaxPresentationAndPokes(
+/** 获取多组手牌与公共牌组合中的最大牌型签名及其对应的五张牌 */
+export function getMaxRankSignatureAndPokes(
   handPokes: Poke[][],
   commonPokes: Poke[]
 ) {
@@ -284,20 +288,17 @@ export function getMaxPresentationAndPokes(
     handPokes,
     commonPokes
   )
-  const maxPresentation = getHandPresentation(allCombinations[0])
+  const maxRankSignature = getFiveCardsRankSignature(allCombinations[0])
 
-  // 以下方法可以使用reduce实现, 在目前不影响性能的情况下, 先这样实现
   const maxPokes = allCombinations
-    .map((combination) => {
-      return {
-        presentation: getHandPresentation(combination),
-        pokes: combination
-      }
-    })
-    .filter((item) => item.presentation === maxPresentation)
+    .map((combination) => ({
+      rankSignature: getFiveCardsRankSignature(combination),
+      pokes: combination
+    }))
+    .filter((item) => item.rankSignature === maxRankSignature)
     .map((item) => item.pokes)
   return {
-    presentation: maxPresentation,
+    rankSignature: maxRankSignature,
     pokes: maxPokes
   }
 }
@@ -313,16 +314,16 @@ export const formatterPoke = (input: Poke[]) => {
 }
 
 /**
- * @description 根据玩家presentation, 计算出赢家
+ * @description 根据玩家 rankStrength 计算出赢家
  */
 export const getWinners = (players: Player[]) => {
-  if (players.some((p) => !p.getPresentation()))
+  if (players.some((p) => !p.rankSignature))
     throw new Error('未计算玩家手牌大小,无法比较')
 
-  const [max] = [...players]
-    .filter((player) => player.getStatus() !== 'out')
-    .sort((a, b) =>
-      comparePresentation(a.getPresentation()!, b.getPresentation()!)
-    )
-  return players.filter((p) => p.getPresentation() === max.getPresentation())
+  const maxRankStrength = Math.max(
+    ...players
+      .filter((player) => player.getStatus() !== 'out')
+      .map((player) => player.rankStrength)
+  )
+  return players.filter((p) => p.rankStrength === maxRankStrength)
 }

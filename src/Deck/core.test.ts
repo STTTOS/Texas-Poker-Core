@@ -2,10 +2,10 @@ import { Rank } from './constant'
 import {
   compareFn,
   isStraight,
-  getHandStrengthInt,
-  getHandPresentation,
-  getBestPokesPresentation,
-  getHandStrengthIntFromPresentation
+  getFiveCardsStrength,
+  getFiveCardsRankSignature,
+  getBestPokesRankSignature,
+  getStrengthFromRankSignature
 } from './core'
 
 describe('core logic', () => {
@@ -28,25 +28,45 @@ describe('core logic', () => {
     expect(isStraight(ranks4).result).toBe(false)
   })
 
-  test('function getHandPresentation', () => {
+  test('function getFiveCardsRankSignature', () => {
     // 高牌：rank 从高到低可读，如 A-K-Q-J-9
-    expect(getHandPresentation(['ca', 'ck', 'cq', 'cj', 'h9'])).toBe(
+    expect(getFiveCardsRankSignature(['ca', 'ck', 'cq', 'cj', 'h9'])).toBe(
       'q14+13+12+11+9'
     )
-    expect(getHandPresentation(['c2', 'c3', 'c4', 'c5', 'h7'])[0]).toEqual('q')
-    expect(getHandPresentation(['c2', 'c3', 'c4', 'c5', 'h2'])[0]).toEqual('r')
-    expect(getHandPresentation(['c2', 'c3', 'c3', 'c5', 'h2'])[0]).toEqual('s')
-    expect(getHandPresentation(['c2', 'c3', 's3', 'c5', 'h3'])[0]).toEqual('t')
-    expect(getHandPresentation(['c2', 'c3', 's4', 'c5', 'ha'])[0]).toEqual('u')
-    expect(getHandPresentation(['c2', 'c3', 'c4', 'c5', 'c7'])[0]).toEqual('v')
-    expect(getHandPresentation(['c2', 'c3', 's3', 's2', 'h3'])[0]).toEqual('w')
-    expect(getHandPresentation(['c2', 'h2', 's2', 'd2', 'h3'])[0]).toEqual('x')
-    expect(getHandPresentation(['c2', 'c3', 'c4', 'c5', 'ca'])[0]).toEqual('y')
-    expect(getHandPresentation(['ct', 'cj', 'cq', 'ck', 'ca'])[0]).toEqual('z')
+    expect(
+      getFiveCardsRankSignature(['c2', 'c3', 'c4', 'c5', 'h7'])[0]
+    ).toEqual('q')
+    expect(
+      getFiveCardsRankSignature(['c2', 'c3', 'c4', 'c5', 'h2'])[0]
+    ).toEqual('r')
+    expect(
+      getFiveCardsRankSignature(['c2', 'c3', 'c3', 'c5', 'h2'])[0]
+    ).toEqual('s')
+    expect(
+      getFiveCardsRankSignature(['c2', 'c3', 's3', 'c5', 'h3'])[0]
+    ).toEqual('t')
+    expect(
+      getFiveCardsRankSignature(['c2', 'c3', 's4', 'c5', 'ha'])[0]
+    ).toEqual('u')
+    expect(
+      getFiveCardsRankSignature(['c2', 'c3', 'c4', 'c5', 'c7'])[0]
+    ).toEqual('v')
+    expect(
+      getFiveCardsRankSignature(['c2', 'c3', 's3', 's2', 'h3'])[0]
+    ).toEqual('w')
+    expect(
+      getFiveCardsRankSignature(['c2', 'h2', 's2', 'd2', 'h3'])[0]
+    ).toEqual('x')
+    expect(
+      getFiveCardsRankSignature(['c2', 'c3', 'c4', 'c5', 'ca'])[0]
+    ).toEqual('y')
+    expect(
+      getFiveCardsRankSignature(['ct', 'cj', 'cq', 'ck', 'ca'])[0]
+    ).toEqual('z')
   })
 
-  test('function getBestPokesPresentation', () => {
-    const max = getBestPokesPresentation(
+  test('function getBestPokesRankSignature', () => {
+    const max = getBestPokesRankSignature(
       [
         ['c2', 's2'],
         ['d3', 'ha']
@@ -102,26 +122,26 @@ describe('core logic', () => {
     ).toBeLessThan(0)
   })
 
-  test('getHandStrengthInt 与 compareFn 顺序一致，牌力越大数值越大', () => {
+  test('getFiveCardsStrength 与 compareFn 顺序一致，牌力越大数值越大', () => {
     const weaker = ['c2', 'c3', 'c4', 'ht', 'ha'] as const
     const stronger = ['c2', 'c3', 'c5', 'ht', 'ha'] as const
     expect(compareFn([...weaker], [...stronger])).toBeGreaterThan(0)
-    expect(getHandStrengthInt([...stronger])).toBeGreaterThan(
-      getHandStrengthInt([...weaker])
+    expect(getFiveCardsStrength([...stronger])).toBeGreaterThan(
+      getFiveCardsStrength([...weaker])
     )
 
     const royal = ['ct', 'cj', 'cq', 'ck', 'ca'] as const
     const highCard = ['ca', 'c4', 'c5', 'c2', 'c3'] as const
-    expect(getHandStrengthInt([...royal])).toBeGreaterThan(
-      getHandStrengthInt([...highCard])
+    expect(getFiveCardsStrength([...royal])).toBeGreaterThan(
+      getFiveCardsStrength([...highCard])
     )
   })
 
-  test('getHandStrengthIntFromPresentation 与 getHandPresentation 结果一致', () => {
+  test('getStrengthFromRankSignature 与 getFiveCardsRankSignature 结果一致', () => {
     const hand = ['c2', 'c3', 'c4', 'c5', 'h7'] as const
-    const presentation = getHandPresentation([...hand])
-    expect(getHandStrengthInt([...hand])).toBe(
-      getHandStrengthIntFromPresentation(presentation)
+    const rankSignature = getFiveCardsRankSignature([...hand])
+    expect(getFiveCardsStrength([...hand])).toBe(
+      getStrengthFromRankSignature(rankSignature)
     )
   })
 })

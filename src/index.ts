@@ -12,6 +12,7 @@ import {
   User,
   Role,
   Action,
+  RoleEnum,
   ActionType,
   OnlineStatus,
   ActionTypeEnum,
@@ -20,10 +21,10 @@ import {
 
 export * from './Deck/constant'
 export {
-  getBestPokesPresentation,
-  comparePresentation,
-  getHandStrengthInt,
-  getHandStrengthIntFromPresentation
+  getBestPokesRankSignature,
+  compareRankSignature,
+  getFiveCardsStrength,
+  getStrengthFromRankSignature
 } from './Deck/core'
 export {
   Player,
@@ -31,6 +32,7 @@ export {
   ActionType,
   ActionTypeEnum,
   Role,
+  RoleEnum,
   Action,
   roleMap,
   ActionTypeMap,

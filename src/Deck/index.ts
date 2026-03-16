@@ -1,5 +1,5 @@
-import { ranks, suits, type Poke, handTypeCategory } from './constant'
-import { getBestPokesPresentation, getMaxPresentationAndPokes } from './core'
+import { ranks, suits, type Poke, RankCategory } from './constant'
+import { getBestPokesRankSignature, getMaxRankSignatureAndPokes } from './core'
 
 /**
  * 洗牌, 发牌
@@ -7,7 +7,7 @@ import { getBestPokesPresentation, getMaxPresentationAndPokes } from './core'
 class Deck {
   #deck: Poke[] = []
   /**
-   * 玩家的手牌
+   * 各玩家的手牌（每人 2 张）
    */
   #handPokes: Array<Poke[]> = []
   /**
@@ -110,21 +110,20 @@ class Deck {
     return this.#deck
   }
 
-  getMaxPresentation() {
-    const presentation = getBestPokesPresentation(
+  getMaxRankCategory() {
+    const rankSignature = getBestPokesRankSignature(
       this.#handPokes,
       this.#commonPokes
     )
-    return presentation[0] as handTypeCategory
+    return rankSignature[0] as RankCategory
   }
 
   getMaxPokeCombinations() {
-    return getMaxPresentationAndPokes(this.#handPokes, this.#commonPokes).pokes
+    return getMaxRankSignatureAndPokes(this.#handPokes, this.#commonPokes).pokes
   }
 
-  // 该方法是getMaxPokeCombinations&getMaxPresentation的组合
-  getMaxPresentationAndPokes() {
-    return getMaxPresentationAndPokes(this.#handPokes, this.#commonPokes)
+  getMaxRankSignatureAndPokes() {
+    return getMaxRankSignatureAndPokes(this.#handPokes, this.#commonPokes)
   }
 }
 export default Deck

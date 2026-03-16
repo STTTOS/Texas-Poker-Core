@@ -1,16 +1,17 @@
 import Deck from '@/Deck'
 import TexasError from '@/TexasError'
 import { getRandomInt } from '@/utils'
-import { Role, Player } from '@/Player'
-import { handTypeCategory } from '@/Deck/constant'
+import { RankCategory } from '@/Deck/constant'
+import { Role, Player, RoleEnum } from '@/Player'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
 import {
   getWinners,
-  getBestHand,
   formatterPoke,
-  comparePresentation,
-  getHandPresentation
+  getBestFiveCards,
+  compareRankSignature,
+  getFiveCardsRankSignature,
+  getStrengthFromRankSignature
 } from '@/Deck/core'
 
 /**
@@ -90,35 +91,40 @@ class Dealer implements GameComponent {
     }
     this.#actionsHistory.push(player)
   }
-  getMaxHandTypeCategory() {
+  /**
+   * @description 获取场上最大的牌力签名（用于比较/展示）
+   */
+  getMaxRankSignature() {
     const [max] = this.filter((player) => player.getStatus() !== 'out')
-      .map((player) => player.getPresentation()!)
-      .sort(comparePresentation)
-
-    return max[0] as handTypeCategory
+      .map((player) => player.rankSignature)
+      .filter(Boolean)
+      .sort((a, b) => compareRankSignature(a!, b!))
+    return max!
+  }
+  /**
+   * @description 获取最大牌型 category（首字符）
+   */
+  getMaxRankCategory() {
+    const maxRankSig = this.getMaxRankSignature()
+    return maxRankSig[0] as RankCategory
   }
 
-  // 获取所有的最大牌型
-  getMaxPokes() {
-    // getBestHand()
-    const result = this.filter((player) => player.getStatus() !== 'out').map(
-      (player) => {
-        const pokes = getBestHand(
-          player.getHandPokes(),
-          this.#deck.getPokes().commonPokes
-        )
-        return {
-          presentation: getHandPresentation(pokes),
-          pokes
-        }
-      }
+  /** 获取场上最大的牌型组合（可能多玩家并列） */
+  getTableBestFiveCards() {
+    const maxRankStrength = Math.max(
+      ...this.map((player) => player.rankStrength)
     )
-    const [max] = result.sort((a, b) =>
-      comparePresentation(a.presentation, b.presentation)
-    )
-    return result
-      .filter((item) => item.presentation === max.presentation)
-      .map((item) => item.pokes)
+
+    return this.filter((player) => player.getStatus() !== 'out')
+      .map(({ rankStrength, bestFiveCards }) => ({
+        rankStrength,
+        bestFiveCards
+      }))
+      .filter(
+        ({ rankStrength, bestFiveCards }) =>
+          rankStrength === maxRankStrength && !!bestFiveCards
+      )
+      .map((item) => item.bestFiveCards)
   }
 
   logPlayers() {
@@ -138,11 +144,17 @@ class Dealer implements GameComponent {
    */
   settle() {
     this.forEach((player) => {
-      player.setPresentation(
-        getHandPresentation(
-          getBestHand(player.getHandPokes(), this.#deck.getPokes().commonPokes)
-        )
+      if (this.#deck.getPokes().commonPokes.length === 0) return
+
+      const bestFiveCards = getBestFiveCards(
+        player.getHandPokes(),
+        this.#deck.getPokes().commonPokes
       )
+
+      // 存储最大五张牌, 防止后续重复计算
+      player.bestFiveCards = bestFiveCards
+      player.rankSignature = getFiveCardsRankSignature(bestFiveCards)
+      player.rankStrength = getStrengthFromRankSignature(player.rankSignature)
     })
     console.log('底牌:', formatterPoke(this.#deck.getPokes().commonPokes))
   }
@@ -259,7 +271,7 @@ class Dealer implements GameComponent {
    */
   setButton(player?: Player) {
     if (player) {
-      player.setRole('button')
+      player.setRole(RoleEnum.BTN)
       this.#button = player
       return
     }
@@ -273,7 +285,7 @@ class Dealer implements GameComponent {
 
     this.forEach((p, i) => {
       if (i === random) {
-        p.setRole('button')
+        p.setRole(RoleEnum.BTN)
         this.#button = p
       }
     })
