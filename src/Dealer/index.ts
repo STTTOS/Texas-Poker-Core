@@ -2,7 +2,7 @@ import Deck from '@/Deck'
 import TexasError from '@/TexasError'
 import { getRandomInt } from '@/utils'
 import { Role, Player } from '@/Player'
-import { handPokeType } from '@/Deck/constant'
+import { handTypeCategory } from '@/Deck/constant'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
 import {
@@ -90,12 +90,12 @@ class Dealer implements GameComponent {
     }
     this.#actionsHistory.push(player)
   }
-  getMaxPresentation() {
+  getMaxHandTypeCategory() {
     const [max] = this.filter((player) => player.getStatus() !== 'out')
       .map((player) => player.getPresentation()!)
       .sort(comparePresentation)
 
-    return max[0] as handPokeType
+    return max[0] as handTypeCategory
   }
 
   // 获取所有的最大牌型

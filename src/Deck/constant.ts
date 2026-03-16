@@ -30,11 +30,11 @@ export type Rank = (typeof ranks)[number]
 export type Poke = `${Suit}${Rank}`
 
 /**
- * 2 + 5 一共7张牌的组合
+ * 2 + 3 一共5张牌的组合
  */
 export type HandPoke = Poke[]
-/**牌型枚举 */
-export type handPokeType =
+/** 牌型枚举 */
+export type handTypeCategory =
   /*
    * 皇家同花顺
    */
@@ -77,6 +77,11 @@ export type handPokeType =
   | 'q'
 
 /**
+ * 牌力展示：首字符为牌型 (handTypeCategory)，后接可选数字段，如 "z" | "q14+13+12+11+9" | "w13+r7"
+ */
+export type Presentation = `${handTypeCategory}${string}`
+
+/**
  * 花色format map
  */
 export const suitsMap = new Map<Suit, string>([
@@ -89,7 +94,7 @@ export const suitsMap = new Map<Suit, string>([
   ['c', '♣']
 ])
 // 牌型枚举中文映射
-export const handPokeMap = new Map<handPokeType, string>([
+export const handTypeCategoryMap = new Map<handTypeCategory, string>([
   ['z', '皇家同花顺'],
   ['y', '同花顺'],
   ['x', '四条'],

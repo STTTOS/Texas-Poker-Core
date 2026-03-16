@@ -7,8 +7,9 @@ import {
   Suit,
   rankMap,
   suitsMap,
-  handPokeType,
-  comboIndices
+  comboIndices,
+  Presentation,
+  handTypeCategory
 } from './constant'
 
 /**
@@ -110,7 +111,7 @@ export const comparePresentation = (p1: string, p2: string) => {
 }
 
 /** 牌型字符到可排序整数的映射，与 comparePresentation 顺序一致：大即强 */
-const HAND_TYPE_ORDER: Record<handPokeType, number> = {
+const HAND_TYPE_ORDER: Record<handTypeCategory, number> = {
   q: 0,
   r: 1,
   s: 2,
@@ -133,9 +134,9 @@ const TYPE_MULTIPLIER = 1_000_000
  * 保证：comparePresentation(a, b) === -1 => getHandStrengthIntFromPresentation(a) < getHandStrengthIntFromPresentation(b)
  */
 export function getHandStrengthIntFromPresentation(
-  presentation: string
+  presentation: Presentation
 ): number {
-  const typeChar = presentation[0] as handPokeType
+  const typeChar = presentation[0] as handTypeCategory
   const typeIndex = HAND_TYPE_ORDER[typeChar] ?? 0
   const rankNumbers = parseRankNumbersFromPresentation(presentation)
   const payload = rankNumbers.reduce(
@@ -158,7 +159,7 @@ export function getHandStrengthInt(input: Poke[]): number {
  * @param input
  * @returns
  */
-export function getHandPresentation(input: Poke[]) {
+export function getHandPresentation(input: Poke[]): Presentation {
   // return
   const suits = input.map((poke) => poke[0] as Suit)
   const ranks = input.map((poke) => poke[1] as Rank)

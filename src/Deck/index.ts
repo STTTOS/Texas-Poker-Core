@@ -1,4 +1,4 @@
-import { ranks, suits, type Poke, handPokeType } from './constant'
+import { ranks, suits, type Poke, handTypeCategory } from './constant'
 import { getBestPokesPresentation, getMaxPresentationAndPokes } from './core'
 
 /**
@@ -115,7 +115,7 @@ class Deck {
       this.#handPokes,
       this.#commonPokes
     )
-    return presentation[0] as handPokeType
+    return presentation[0] as handTypeCategory
   }
 
   getMaxPokeCombinations() {
