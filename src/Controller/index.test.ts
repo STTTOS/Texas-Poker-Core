@@ -10,24 +10,32 @@ describe('class Controller', () => {
     const controller = new Controller(dealer)
     const pool = new Pool()
     const p1 = new Player({
-      user: { id: 1, balance: 5000, name: 'yt' },
+      user: { id: 1, name: 'yt' },
+      initialChips: 5000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
-    const room = new Room(dealer, p1, controller)
+    const room = new Room({
+      dealer,
+      owner: p1,
+      controller,
+      initialChips: 5000
+    })
 
     const p2 = new Player({
       lowestBetAmount: 1000,
-      user: { id: 2, balance: 30000, name: 'ycr' },
+      user: { id: 2, name: 'ycr' },
+      initialChips: 30000,
       controller,
       dealer,
       pool
     })
     const p3 = new Player({
       lowestBetAmount: 1000,
-      user: { id: 3, balance: 10000, name: 'wzy' },
+      user: { id: 3, name: 'wzy' },
+      initialChips: 10000,
       controller,
       dealer,
       pool
@@ -35,7 +43,8 @@ describe('class Controller', () => {
 
     const p4 = new Player({
       lowestBetAmount: 1000,
-      user: { id: 4, balance: 20000, name: 'zhong' },
+      user: { id: 4, name: 'zhong' },
+      initialChips: 20000,
       controller,
       dealer,
       pool

@@ -7,7 +7,12 @@ import { stageMap } from './Controller/constants'
 import { roleMap, ActionTypeMap } from './Player/constant'
 import { Stage, StageEnum, ControllerStatus } from './Controller'
 import { texasErrorMap, TexasErrorCode } from '@/TexasError/constant'
-import { RoomStatus, default as Room, PlayerSeatStatus } from './Room'
+import {
+  RoomStatus,
+  default as Room,
+  PlayerSeatStatus,
+  type RoomCreateOptions
+} from './Room'
 import {
   User,
   Role,
@@ -45,6 +50,7 @@ export {
   Room,
   RoomStatus,
   PlayerSeatStatus,
+  type RoomCreateOptions,
   formatterPoke,
   TexasError,
   TexasErrorCode,

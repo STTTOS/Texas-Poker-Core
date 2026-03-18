@@ -11,7 +11,8 @@ describe('dealer', () => {
     const pool = new Pool()
     dealer.join(
       new Player({
-        user: { id: 2, balance: 40000 },
+        user: { id: 2, name: '2' },
+        initialChips: 40000,
         lowestBetAmount,
         controller,
         dealer,
@@ -20,7 +21,8 @@ describe('dealer', () => {
     )
     dealer.join(
       new Player({
-        user: { id: 3, balance: 40000 },
+        user: { id: 3, name: '3' },
+        initialChips: 40000,
         lowestBetAmount,
         controller,
         dealer,

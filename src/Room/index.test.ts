@@ -4,44 +4,60 @@ import Dealer from '@/Dealer'
 import { Player } from '../Player'
 import Controller from '@/Controller'
 
+const roomOpts = (
+  dealer: Dealer,
+  owner: Player,
+  controller: Controller,
+  extra?: Partial<{ initialChips: number; maximumCountOfPlayers: number }>
+) => ({
+  dealer,
+  owner,
+  controller,
+  initialChips: extra?.initialChips ?? 500,
+  maximumCountOfPlayers: extra?.maximumCountOfPlayers
+})
+
 describe('Room', () => {
   test('init room successfully', () => {
     const dealer = new Dealer(200)
     const controller = new Controller(dealer)
     const pool = new Pool()
     const player = new Player({
-      user: { id: 1, balance: 500 },
+      user: { id: 1, name: '1' },
+      initialChips: 500,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
-    const room = new Room(dealer, player, controller)
+    const room = new Room(roomOpts(dealer, player, controller))
     expect(room.lowestBetAmount).toEqual(200)
   })
   test('test function join', () => {
-    // 创建房间
     const dealer = new Dealer(200)
     const controller = new Controller(dealer)
     const pool = new Pool()
     const player = new Player({
-      user: { id: 1, balance: 500 },
+      user: { id: 1, name: '1' },
+      initialChips: 500,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
-    const room = new Room(dealer, player, controller)
+    const room = new Room(roomOpts(dealer, player, controller))
     const lowestBetAmount = room.lowestBetAmount
     const p2 = new Player({
-      user: { id: 2, balance: 20000 },
+      user: { id: 2, name: '2' },
+      initialChips: 20000,
       lowestBetAmount,
       controller,
       dealer,
       pool
     })
     const p3 = new Player({
-      user: { id: 3, balance: 20000 },
+      user: { id: 3, name: '3' },
+      initialChips: 20000,
       lowestBetAmount,
       controller,
       dealer,
@@ -54,29 +70,31 @@ describe('Room', () => {
     expect(() => room.join(p3)).toThrow('您已经在房间中,不可重复加入')
   })
   test('test function removePlayer', () => {
-    // 创建房间
     const dealer = new Dealer(200)
     const controller = new Controller(dealer)
     const pool = new Pool()
     const player = new Player({
-      user: { id: 1, balance: 500 },
+      user: { id: 1, name: '1' },
+      initialChips: 500,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
-    const room = new Room(dealer, player, controller)
+    const room = new Room(roomOpts(dealer, player, controller))
 
     const lowestBetAmount = room.lowestBetAmount
     const p2 = new Player({
-      user: { id: 2, balance: 20000 },
+      user: { id: 2, name: '2' },
+      initialChips: 20000,
       lowestBetAmount,
       controller,
       dealer,
       pool
     })
     const p3 = new Player({
-      user: { id: 3, balance: 20000 },
+      user: { id: 3, name: '3' },
+      initialChips: 20000,
       lowestBetAmount,
       controller,
       dealer,
@@ -92,17 +110,26 @@ describe('Room', () => {
     const controller = new Controller(dealer)
     const pool = new Pool()
     const player = new Player({
-      user: { id: 1, balance: 500 },
+      user: { id: 1, name: '1' },
+      initialChips: 500,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
-    const room = new Room(dealer, player, controller, true, 1)
+    const room = new Room({
+      dealer,
+      owner: player,
+      controller,
+      initialChips: 500,
+      allowPlayersToWatch: true,
+      maximumCountOfPlayers: 1
+    })
 
     const lowestBetAmount = room.lowestBetAmount
     const p2 = new Player({
-      user: { id: 2, balance: 20000 },
+      user: { id: 2, name: '2' },
+      initialChips: 20000,
       lowestBetAmount,
       controller,
       dealer,
@@ -120,13 +147,14 @@ describe('Room', () => {
     const controller = new Controller(dealer)
     const pool = new Pool()
     const player = new Player({
-      user: { id: 1, balance: 500 },
+      user: { id: 1, name: '1' },
+      initialChips: 500,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
-    const room = new Room(dealer, player, controller)
+    const room = new Room(roomOpts(dealer, player, controller))
 
     expect(room.has(player.getUserInfo().id)).toEqual(true)
   })

@@ -1,5 +1,3 @@
-import { omit } from 'ramda'
-
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
 import TexasError from '@/TexasError'
@@ -8,6 +6,18 @@ import { GameComponent, TexasErrorCallback } from '@/Texas'
 
 export type RoomStatus = 'ready' | 'unReady'
 export type PlayerSeatStatus = 'hang' | 'on-set'
+
+export type RoomCreateOptions = {
+  dealer: Dealer
+  owner: Player
+  controller: Controller
+  /** 入座玩家默认起始筹码 */
+  initialChips: number
+  allowPlayersToWatch?: boolean
+  maximumCountOfPlayers?: number
+  reportError?: TexasErrorCallback
+}
+
 // 房间
 class Room implements GameComponent {
   /**
@@ -28,6 +38,8 @@ class Room implements GameComponent {
   // 是否允许观战
   #allowPlayersToWatch: boolean
   #maximumCountOfPlayers: number
+  /** 入座玩家默认起始筹码 */
+  #initialChips: number
   // #players: Map<Player, PlayerSeatStatus> = new Map()
   #playersOnSet: Set<Player> = new Set()
   #playersHang: Set<Player> = new Set()
@@ -38,26 +50,35 @@ class Room implements GameComponent {
     throw error
   }
 
-  constructor(
-    dealer: Dealer,
-    player: Player,
-    controller: Controller,
+  constructor({
+    dealer,
+    owner,
+    controller,
+    initialChips,
     allowPlayersToWatch = true,
     maximumCountOfPlayers = 10,
-    reportError: TexasErrorCallback = (error) => {
+    reportError = (error) => {
       throw error
     }
-  ) {
-    this.#owner = player
+  }: RoomCreateOptions) {
+    this.#owner = owner
     this.#dealer = dealer
     this.#controller = controller
+    this.#initialChips = initialChips
     this.#allowPlayersToWatch = allowPlayersToWatch
     this.#maximumCountOfPlayers = maximumCountOfPlayers
     this.reportError = reportError
 
     const lowestBetAmount = dealer.lowestBetAmount
     this.#lowestBetAmount = lowestBetAmount
-    this.join(player)
+    this.join(owner)
+  }
+
+  get initialChips() {
+    return this.#initialChips
+  }
+  set initialChips(value: number) {
+    this.#initialChips = value
   }
 
   ready() {
@@ -99,7 +120,8 @@ class Room implements GameComponent {
       onSeatCount: this.playersCountOnSeat,
       allowPlayersToWatch: this.#allowPlayersToWatch,
       maximumCountOfPlayers: this.#maximumCountOfPlayers,
-      owner: omit(['balance'], this.#owner.getUserInfo())
+      owner: { ...this.#owner.getUserInfo(), balance: this.#owner.balance },
+      initialChips: this.#initialChips
     }
   }
 

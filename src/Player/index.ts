@@ -35,17 +35,9 @@ export type ActionType = ActionTypeEnum
 export interface User {
   id: number
   /**
-   * 账户余额
-   */
-  balance: number
-  /**
    * 昵称
    */
-  name?: string
-  /**
-   * 用户头像
-   */
-  avatar?: string
+  name: string
 }
 export type CallbackOfAction = (
   player: Player,
@@ -65,7 +57,7 @@ export class Player implements GameComponent {
   /**
    * 用户信息
    */
-  #userInfo: User
+  #userInfo: Pick<User, 'id' | 'name'>
   #pool: Pool
   #dealer: Dealer
   #controller: Controller
@@ -73,7 +65,7 @@ export class Player implements GameComponent {
   /**
    * 积分
    */
-  // balance: number
+  #balance = 0
   #status: PlayerStatus = 'waiting'
   /**
    * 默认的思考时间为30s
@@ -133,12 +125,15 @@ export class Player implements GameComponent {
     controller,
     dealer,
     pool,
+    initialChips = 100,
     thinkingTime = defaultThinkingTime,
     reportError = (error) => {
       throw error
     }
   }: {
-    user: User
+    user: Pick<User, 'id' | 'name'>
+    /** 起始筹码，写入 #balance */
+    initialChips?: number
     role?: Role
     pool: Pool
     dealer: Dealer
@@ -151,8 +146,10 @@ export class Player implements GameComponent {
     nextPlayer?: Player | null
     reportError?: TexasErrorCallback
   }) {
-    if (user.balance < lowestBetAmount) {
-      reportError(new TexasError(2003, '筹码小于大盲注, 不可参与游戏'))
+    this.#balance = initialChips
+
+    if (initialChips < lowestBetAmount) {
+      reportError(new TexasError(2003, '初始筹码小于大盲注, 初始化用户错误'))
     }
     this.#pool = pool
     this.#dealer = dealer
@@ -166,12 +163,12 @@ export class Player implements GameComponent {
     this.#countDownTime = this.#thinkingTime
   }
   get balance() {
-    return this.#userInfo.balance
+    return this.#balance
   }
   set balance(value: number) {
     // 测试环境不改变真是余额
     if (process.env.PROJECT_ENV === 'dev') return
-    this.#userInfo.balance = value
+    this.#balance = value
   }
 
   get currentStageTotalAmount() {
@@ -378,7 +375,7 @@ export class Player implements GameComponent {
     this.#rankSignature = undefined
     this.#status = 'waiting'
 
-    if (process.env.PROJECT_ENV === 'dev') this.balance = this.#userInfo.balance
+    if (process.env.PROJECT_ENV === 'dev') this.balance = this.#balance
 
     this.clearTimer()
   }
@@ -704,7 +701,7 @@ export class Player implements GameComponent {
   }
 
   earn(money: number) {
-    this.balance += money
+    this.#balance += money
     this.#wager = money - this.totalBetAmount
 
     console.log(this.#userInfo.name, '分得奖池金额:', money)

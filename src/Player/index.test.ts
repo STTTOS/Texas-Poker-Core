@@ -10,27 +10,35 @@ describe('class Player', () => {
     const controller = new Controller(dealer)
     const pool = new Pool()
     const p1 = new Player({
-      user: { id: 1, balance: 18000, name: 'ycr' },
+      user: { id: 1, name: 'ycr' },
+      initialChips: 18000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
     const p2 = new Player({
-      user: { id: 2, balance: 5000, name: 'yt' },
+      user: { id: 2, name: 'yt' },
+      initialChips: 5000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
     const p3 = new Player({
-      user: { id: 3, balance: 10_000, name: 'wyz' },
+      user: { id: 3, name: 'wyz' },
+      initialChips: 10_000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
-    const room = new Room(dealer, p1, controller)
+    const room = new Room({
+      dealer,
+      owner: p1,
+      controller,
+      initialChips: 18000
+    })
 
     room.join(p2)
     room.join(p3)

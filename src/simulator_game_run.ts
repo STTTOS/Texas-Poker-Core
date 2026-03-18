@@ -9,15 +9,16 @@ const texas = new Texas({
   lowestBetAmount: 500,
   allowPlayersToWatch: true,
   maximumCountOfPlayers: 5,
-  user: { id: 1, name: 'ycr', balance: 5000 },
+  initialChips: 10000,
+  user: { id: 1, name: 'ycr' },
   thinkingTime: 1
 })
 const p1 = texas.room.owner
 
-const p2 = texas.createPlayer({ id: 2, name: 'yt', balance: 10000 })
-const p3 = texas.createPlayer({ id: 3, name: 'wyz', balance: 10000 })
-const p4 = texas.createPlayer({ id: 4, name: 'sen', balance: 10000 })
-const p5 = texas.createPlayer({ id: 5, name: 'wxl', balance: 30000 })
+const p2 = texas.createPlayer({ id: 2, name: 'yt' })
+const p3 = texas.createPlayer({ id: 3, name: 'wyz' })
+const p4 = texas.createPlayer({ id: 4, name: 'sen' })
+const p5 = texas.createPlayer({ id: 5, name: 'wxl' })
 texas.room.joinMany(p2, p3, p4, p5)
 
 // 手动设置庄家位置

@@ -62,7 +62,8 @@ describe('deck', () => {
 
       dealer.join(
         new Player({
-          user: { id: 1, balance: 500 },
+          user: { id: 1, name: '1' },
+          initialChips: 500,
           lowestBetAmount: dealer.lowestBetAmount,
           controller,
           dealer,

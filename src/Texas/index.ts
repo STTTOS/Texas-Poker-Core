@@ -16,6 +16,8 @@ export interface CreateRoomInputArgs {
   lowestBetAmount: number
   maximumCountOfPlayers: number
   allowPlayersToWatch: boolean
+  /** 入座玩家起始筹码 */
+  initialChips: number
   // 需要传入用户信息, 在创建房间时同时指定房主
   user: User
   // 玩家的思考时间, 单位: s
@@ -53,7 +55,8 @@ class Texas extends GameEventEmitter {
     thinkingTime,
     lowestBetAmount,
     allowPlayersToWatch,
-    maximumCountOfPlayers
+    maximumCountOfPlayers,
+    initialChips
   }: CreateRoomInputArgs) {
     super()
 
@@ -62,11 +65,15 @@ class Texas extends GameEventEmitter {
       this.errorCallback?.(error)
       throw error
     }
+    if (initialChips < lowestBetAmount) {
+      throw new TexasError(2003, '初始盲注小于大盲注, 初始化游戏错误')
+    }
     const dealer = new Dealer(lowestBetAmount, this.handleError)
     const controller = new Controller(dealer, this.handleError)
     const pool = new Pool(this.handleError)
     const owner = new Player({
       user,
+      initialChips,
       pool,
       dealer,
       controller,
@@ -74,14 +81,15 @@ class Texas extends GameEventEmitter {
       lowestBetAmount,
       reportError: this.handleError
     })
-    const room = new Room(
+    const room = new Room({
       dealer,
       owner,
       controller,
+      initialChips,
       allowPlayersToWatch,
       maximumCountOfPlayers,
-      this.handleError
-    )
+      reportError: this.handleError
+    })
     this.pool = pool
     this.room = room
     this.dealer = dealer
@@ -168,8 +176,11 @@ class Texas extends GameEventEmitter {
 
   createPlayer(userInfo: User) {
     return new Player({
-      ...this,
       user: userInfo,
+      initialChips: this.room.initialChips,
+      pool: this.pool,
+      dealer: this.dealer,
+      controller: this.controller,
       thinkingTime: this.room.owner.thinkingTime,
       lowestBetAmount: this.dealer.lowestBetAmount,
       reportError: this.handleError

@@ -8,14 +8,15 @@ const texas = new Texas({
   lowestBetAmount: 500,
   maximumCountOfPlayers: 7,
   allowPlayersToWatch: true,
-  user: { id: 1, balance: 5000, name: 'ycr' },
+  initialChips: 10000,
+  user: { id: 1, name: 'ycr' },
   thinkingTime: 5
 })
 // const p1 = texas.room.owner
-const p2 = texas.createPlayer({ id: 2, balance: 10_000, name: 'yt' })
-const p3 = texas.createPlayer({ id: 3, balance: 10_000, name: 'wyz' })
-const p4 = texas.createPlayer({ id: 4, balance: 10_000, name: 'the Sen' })
-const p5 = texas.createPlayer({ id: 5, balance: 30_000, name: 'wxl' })
+const p2 = texas.createPlayer({ id: 2, name: 'yt' })
+const p3 = texas.createPlayer({ id: 3, name: 'wyz' })
+const p4 = texas.createPlayer({ id: 4, name: 'the Sen' })
+const p5 = texas.createPlayer({ id: 5, name: 'wxl' })
 texas.room.join(p2)
 texas.room.join(p3)
 texas.room.join(p4)

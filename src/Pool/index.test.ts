@@ -13,7 +13,8 @@ describe('class pool', () => {
     const dealer = new Dealer(500)
     const controller = new Controller(dealer)
     const p1 = new Player({
-      user: { id: 1, balance: 5000 },
+      user: { id: 1, name: '1' },
+      initialChips: 5000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
@@ -21,7 +22,8 @@ describe('class pool', () => {
     })
 
     const p2 = new Player({
-      user: { id: 1, balance: 5000 },
+      user: { id: 1, name: '1' },
+      initialChips: 5000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
@@ -40,7 +42,8 @@ describe('class pool', () => {
     const dealer = new Dealer(500)
     const controller = new Controller(dealer)
     const p1 = new Player({
-      user: { id: 1, balance: 5000 },
+      user: { id: 1, name: '1' },
+      initialChips: 5000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
@@ -48,21 +51,24 @@ describe('class pool', () => {
     })
 
     const p2 = new Player({
-      user: { id: 2, balance: 10000 },
+      user: { id: 2, name: '2' },
+      initialChips: 10000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
     const p3 = new Player({
-      user: { id: 3, balance: 5000 },
+      user: { id: 3, name: '3' },
+      initialChips: 5000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
     const p4 = new Player({
-      user: { id: 4, balance: 4000 },
+      user: { id: 4, name: '4' },
+      initialChips: 4000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
@@ -86,29 +92,38 @@ describe('class pool', () => {
     const controller = new Controller(dealer)
     const pool = new Pool()
     const p1 = new Player({
-      user: { id: 1, balance: 5000 },
+      user: { id: 1, name: '1' },
+      initialChips: 5000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
-    const room = new Room(dealer, p1, controller)
+    const room = new Room({
+      dealer,
+      owner: p1,
+      controller,
+      initialChips: 5000
+    })
     const p2 = new Player({
-      user: { id: 2, balance: 10000 },
+      user: { id: 2, name: '2' },
+      initialChips: 10000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
     const p3 = new Player({
-      user: { id: 3, balance: 5000 },
+      user: { id: 3, name: '3' },
+      initialChips: 5000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
       pool
     })
     const p4 = new Player({
-      user: { id: 4, balance: 4000 },
+      user: { id: 4, name: '4' },
+      initialChips: 4000,
       lowestBetAmount: dealer.lowestBetAmount,
       controller,
       dealer,
@@ -134,14 +149,15 @@ describe('class pool', () => {
 
   test('function allocatePoolByInt', () => {
     const texas = new Texas({
-      user: { balance: 1000, id: 1, name: 'ycr' },
+      user: { id: 1, name: 'ycr' },
+      initialChips: 2000,
       lowestBetAmount: 200,
       maximumCountOfPlayers: 8,
       allowPlayersToWatch: true
     })
     const p1 = texas.room.owner
-    const p2 = texas.createPlayer({ id: 2, name: 'yt', balance: 2000 })
-    const p3 = texas.createPlayer({ id: 3, name: 'ycr', balance: 2000 })
+    const p2 = texas.createPlayer({ id: 2, name: 'yt' })
+    const p3 = texas.createPlayer({ id: 3, name: 'ycr' })
 
     const result1 = allocatePoolByInt([p1, p2, p3], 2000)
     expect(result1.map((item) => item.amount).sort((a, b) => a - b)).toEqual([
