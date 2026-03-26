@@ -1,0 +1,50 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+context: |
+  Project: Texas-Poker-Core (TypeScript)
+
+  Goal:
+    Provide a self-contained Texas Hold'em game engine: room management, seat roles, round control,
+    hand evaluation (RankSignature/RankStrength), and pot settlement.
+
+  Key modules (src/):
+    - Texas: facade/orchestrator; event wiring (onError/onPreAction/onAction/onGameEnd/onNextStage/onGameStart)
+    - Room: lobby + seating/watching; holds initialChips; owner; privacy; max players
+    - Dealer: player ring list; role assignment; dealing cards; computing bestFiveCards + rankSignature + rankStrength
+    - Controller: stage state machine; turn control; game end conditions
+    - Pool: bet records, side pots, payout
+    - Deck: card generation + dealing common/hand cards; best rank signature across players
+    - Deck/core: 5-card evaluation, RankCategory/RankSignature, compareRankSignature, getFiveCardsStrength
+
+  Domain vocabulary:
+    - handPokes: each player's 2 private cards
+    - commonPokes: 5 community cards
+    - bestFiveCards: best 5-card combination picked from 7 cards
+    - RankCategory: 1-char category (q..z)
+    - RankSignature: category + ranks payload (human-readable, comparable)
+    - rankStrength: integer strength for DB ordering (higher is stronger)
+    - StageEnum: PRE_FLOP/FLOP/TURN/RIVER
+    - RoleEnum: btn/sb/bb/utg/utg1/utg2/mp/lj/hj/co
+
+  Naming conventions:
+    - Types use PascalCase (e.g. RankCategory, RankSignature)
+    - Enums use PascalCase, constants use UPPER_SNAKE_CASE
+    - Avoid mixing "hand" (hole cards) with 5-card combination naming.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
