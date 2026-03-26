@@ -1,9 +1,10 @@
 import Pool from '@/Pool'
 import Dealer from '@/Dealer'
-import TexasError from '@/TexasError'
 import { getRandomInt } from '@/utils'
 import { defaultThinkingTime } from '@/config'
 import Controller, { StageEnum } from '@/Controller'
+import { TexasEngineContext } from '@/TexasEngineContext'
+import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { Poke, RankCategory, RankSignature } from '../Deck/constant'
 import { PreAction, GameComponent, TexasErrorCallback } from '@/Texas'
 import { roleMap, RoleEnum, type Role, ActionTypeEnum } from './constant'
@@ -100,6 +101,14 @@ export class Player implements GameComponent {
 
   #timer: NodeJS.Timeout | null = null
   /**
+   * 思考倒计时归零时的策略（缺省：引擎 `takeDefaultAction`）
+   */
+  #onThinkingDeadline: (player: Player) => void
+  /**
+   * 轮到离线玩家行动时的策略（缺省：1s 后 `takeDefaultAction`）
+   */
+  #onOfflineTurnStart: (player: Player) => void
+  /**
    * 玩家的手牌（2 张）
    */
   #handPokes: Poke[] = []
@@ -115,22 +124,11 @@ export class Player implements GameComponent {
    * 用户采取行动
    */
   #callbackOfAction?: CallbackOfAction
-  reportError: TexasErrorCallback
+  fail: TexasErrorCallback = (error) => {
+    throw error
+  }
 
-  constructor({
-    lowestBetAmount,
-    user,
-    lastPlayer = null,
-    nextPlayer = null,
-    controller,
-    dealer,
-    pool,
-    initialChips = 100,
-    thinkingTime = defaultThinkingTime,
-    reportError = (error) => {
-      throw error
-    }
-  }: {
+  constructor(options: {
     user: Pick<User, 'id' | 'name'>
     /** 起始筹码，写入 #balance */
     initialChips?: number
@@ -144,30 +142,54 @@ export class Player implements GameComponent {
     lowestBetAmount: number
     lastPlayer?: Player | null
     nextPlayer?: Player | null
-    reportError?: TexasErrorCallback
+    fail?: TexasErrorCallback
+    /** 超时/离线时的默认行动策略；不传则保持原有引擎默认行为 */
+    actionPolicy?: {
+      onThinkingDeadline?: (player: Player) => void
+      onOfflineTurnStart?: (player: Player) => void
+    }
   }) {
+    const {
+      lowestBetAmount,
+      user,
+      lastPlayer = null,
+      nextPlayer = null,
+      controller,
+      dealer,
+      pool,
+      initialChips = 100,
+      thinkingTime = defaultThinkingTime,
+      fail,
+      actionPolicy
+    } = options
     this.#balance = initialChips
 
-    if (initialChips < lowestBetAmount) {
-      reportError(new TexasError(2003, '初始筹码小于大盲注, 初始化用户错误'))
-    }
     this.#pool = pool
     this.#dealer = dealer
     this.#userInfo = user
     this.#controller = controller
-    this.reportError = reportError
+    if (fail) this.fail = fail
     this.#lastPlayer = lastPlayer
     this.#nextPlayer = nextPlayer
     this.#thinkingTime = thinkingTime
     this.#lowestBetAmount = lowestBetAmount
     this.#countDownTime = this.#thinkingTime
+    this.#onThinkingDeadline =
+      actionPolicy?.onThinkingDeadline ??
+      ((player) => {
+        player.takeDefaultAction()
+      })
+    this.#onOfflineTurnStart =
+      actionPolicy?.onOfflineTurnStart ??
+      ((player) => {
+        setTimeout(() => player.takeDefaultAction(), this.#thinkingTime)
+      })
   }
   get balance() {
     return this.#balance
   }
   set balance(value: number) {
-    // 测试环境不改变真是余额
-    if (process.env.PROJECT_ENV === 'dev') return
+    if (TexasEngineContext.simulation().ignoreBalanceSetter) return
     this.#balance = value
   }
 
@@ -375,7 +397,9 @@ export class Player implements GameComponent {
     this.#rankSignature = undefined
     this.#status = 'waiting'
 
-    if (process.env.PROJECT_ENV === 'dev') this.balance = this.#balance
+    if (TexasEngineContext.simulation().restoreBalanceOnPlayerReset) {
+      this.balance = this.#balance
+    }
 
     this.clearTimer()
   }
@@ -387,21 +411,25 @@ export class Player implements GameComponent {
   async check() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes(ActionTypeEnum.CHECK))
-      this.reportError(new TexasError(2003, '不可过牌'))
+      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CHECK))
 
     this.#action = {
       type: ActionTypeEnum.CHECK
     }
     this.#dealer.addAction(this)
     await this.#callbackOfAction?.(this)
-    console.log(this.#userInfo.name, '过牌')
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'check',
+      data: { userId: this.#userInfo.id, name: this.#userInfo.name }
+    })
     this.transferControl()
   }
 
   async fold() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes(ActionTypeEnum.FOLD))
-      this.reportError(new TexasError(2003, '不可弃牌'))
+      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_FOLD))
 
     this.#action = {
       type: ActionTypeEnum.FOLD
@@ -409,7 +437,11 @@ export class Player implements GameComponent {
     this.#status = 'out'
     this.#dealer.addAction(this)
     await this.#callbackOfAction?.(this)
-    console.log(this.#userInfo.name, '弃牌')
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'fold',
+      data: { userId: this.#userInfo.id, name: this.#userInfo.name }
+    })
     this.transferControl()
   }
 
@@ -420,13 +452,23 @@ export class Player implements GameComponent {
       !this.#getAllowedActions().includes(ActionTypeEnum.BET) &&
       !preFlopDefaultAction
     )
-      this.reportError(new TexasError(2003, '不可下注'))
+      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_BET))
 
     if (money > this.balance) {
-      this.reportError(new TexasError(2003, '下注金额不可大于筹码总数'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_BET_EXCEEDS_BALANCE, {
+          money,
+          balance: this.balance
+        })
+      )
     }
     if (money < this.#lowestBetAmount && !preFlopDefaultAction) {
-      this.reportError(new TexasError(2003, '下注金额不可小于大盲注'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_BET_BELOW_BB, {
+          money,
+          lowestBetAmount: this.#lowestBetAmount
+        })
+      )
     }
     this.#action = {
       type: ActionTypeEnum.BET,
@@ -436,13 +478,16 @@ export class Player implements GameComponent {
     }
 
     this.#pool.add(this, money)
-    console.log(
-      this.#userInfo.name,
-      '下注金额:',
-      money,
-      '剩余筹码:',
-      this.balance
-    )
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'bet',
+      data: {
+        userId: this.#userInfo.id,
+        name: this.#userInfo.name,
+        money,
+        balance: this.balance
+      }
+    })
     this.#dealer.addAction(this)
 
     await this.#callbackOfAction?.(this, preFlopDefaultAction)
@@ -460,19 +505,32 @@ export class Player implements GameComponent {
     )
 
     if (!this.#getAllowedActions().includes(ActionTypeEnum.RAISE))
-      this.reportError(new TexasError(2003, '不可加注'))
+      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_RAISE))
 
     if (money > this.balance) {
-      this.reportError(new TexasError(2003, '加注金额不可大于余额'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_RAISE_EXCEEDS_BALANCE, {
+          money,
+          balance: this.balance
+        })
+      )
     }
     if (money < this.#lowestBetAmount) {
-      this.reportError(new TexasError(2003, '加注金额不可小于大盲注'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_RAISE_BELOW_BB, {
+          money,
+          lowestBetAmount: this.#lowestBetAmount
+        })
+      )
     }
 
     if (money + this.#currentStageTotalAmount <= maxBetAmount) {
-      if (process.env.PROJECT_ENV === 'prd')
-        this.reportError(new TexasError(2003, '必须加注更多的金额'))
-      else await this.call()
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_RAISE_NOT_INCREASE, {
+          maxBetAmount,
+          attemptedTotal: money + this.#currentStageTotalAmount
+        })
+      )
     }
 
     this.#pool.add(this, money)
@@ -485,7 +543,11 @@ export class Player implements GameComponent {
 
     this.#dealer.addAction(this)
     await this.#callbackOfAction?.(this)
-    console.log(this.#userInfo.name, '加注', money)
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'raise',
+      data: { userId: this.#userInfo.id, name: this.#userInfo.name, money }
+    })
 
     this.transferControl()
   }
@@ -493,24 +555,30 @@ export class Player implements GameComponent {
   async call() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes(ActionTypeEnum.CALL))
-      this.reportError(new TexasError(2003, '不可跟注'))
+      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CALL))
 
     // 其他玩家的最大下注金额
     const maxBetAmount = this.getOthersMaxBetAmountAtCurrentStage()
     const moneyShouldPay = maxBetAmount - this.#currentStageTotalAmount
     if (moneyShouldPay <= 0)
-      this.reportError(
-        new TexasError(
-          2003,
-          `数据异常, 请手动下注, try to call: ${moneyShouldPay}, balance: ${this.balance}, maxBet: ${maxBetAmount}`
-        )
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_CALL_INVALID_STATE, {
+          moneyShouldPay,
+          balance: this.balance,
+          maxBet: maxBetAmount
+        })
       )
     if (moneyShouldPay > this.balance) {
-      this.reportError(new TexasError(2003, '跟注金额不可大于筹码总数'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_CALL_EXCEEDS_BALANCE, {
+          moneyShouldPay,
+          balance: this.balance
+        })
+      )
     }
     if (moneyShouldPay === this.balance) {
-      this.reportError(
-        new TexasError(2003, '跟注金额等于筹码总数, 应该全押, 不该调用call方法')
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_CALL_SHOULD_ALL_IN)
       )
     }
 
@@ -525,14 +593,22 @@ export class Player implements GameComponent {
     this.#dealer.addAction(this)
     await this.#callbackOfAction?.(this)
 
-    console.log(this.#userInfo.name, '跟注:', moneyShouldPay)
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'call',
+      data: {
+        userId: this.#userInfo.id,
+        name: this.#userInfo.name,
+        moneyShouldPay
+      }
+    })
     this.transferControl()
   }
 
   async allIn() {
     this.checkIfCanAct()
     if (!this.#getAllowedActions().includes(ActionTypeEnum.ALL_IN)) {
-      this.reportError(new TexasError(2003, '不可全押'))
+      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_ALL_IN))
     }
 
     // 其他玩家持有筹码的最大值, 全押金额不可超过该值
@@ -546,11 +622,11 @@ export class Player implements GameComponent {
     )
 
     if (moneyShouldPay <= 0)
-      this.reportError(
-        new TexasError(
-          2003,
-          `数据异常,请手动下注, try to allIn: ${moneyShouldPay}; balance: ${this.balance}`
-        )
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_ALL_IN_INVALID, {
+          moneyShouldPay,
+          balance: this.balance
+        })
       )
 
     this.#pool.add(this, moneyShouldPay)
@@ -564,13 +640,16 @@ export class Player implements GameComponent {
     this.#status = 'allIn'
     this.#dealer.addAction(this)
     await this.#callbackOfAction?.(this)
-    console.log(
-      this.#userInfo.name,
-      '全押:',
-      moneyShouldPay,
-      '剩余筹码: ',
-      this.balance
-    )
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'all_in',
+      data: {
+        userId: this.#userInfo.id,
+        name: this.#userInfo.name,
+        moneyShouldPay,
+        balance: this.balance
+      }
+    })
     this.transferControl()
     return moneyShouldPay
   }
@@ -678,10 +757,10 @@ export class Player implements GameComponent {
   }
 
   checkIfCanAct() {
-    if (this.#controller.status !== 'on')
-      this.reportError(new TexasError(2003, '游戏不在进行中, 不可行动'))
+    if (this.#controller.status !== 'in_hand')
+      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NOT_IN_HAND))
     if (this.#status !== 'active')
-      this.reportError(new TexasError(2003, '没有控制权, 无法行动'))
+      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NO_CONTROL))
   }
 
   toString() {
@@ -690,7 +769,11 @@ export class Player implements GameComponent {
     };balance: ${this.balance}`
   }
   log(prefix: string = '') {
-    console.log(prefix + this.toString())
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'log',
+      data: { line: prefix + this.toString() }
+    })
   }
 
   setHandPokes(pokes: Poke[]) {
@@ -704,7 +787,11 @@ export class Player implements GameComponent {
     this.#balance += money
     this.#wager = money - this.totalBetAmount
 
-    console.log(this.#userInfo.name, '分得奖池金额:', money)
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'earn',
+      data: { userId: this.#userInfo.id, name: this.#userInfo.name, money }
+    })
   }
 
   // 游戏推进到下个阶段后, 需要将此字段清空
@@ -742,8 +829,8 @@ export class Player implements GameComponent {
       (player) => player.getStatus() === 'waiting'
     )
     if (!nextPlayerToGetController)
-      this.reportError(
-        new TexasError(2000, '游戏发生异常, 将控制权移交给不存在的玩家')
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER)
       )
 
     this.#controller.transferControlTo(nextPlayerToGetController)
@@ -756,15 +843,19 @@ export class Player implements GameComponent {
     this[actions[index]](800)
   }
   takeDefaultAction() {
-    if (process.env.PROJECT_ENV === 'dev') {
+    if (TexasEngineContext.simulation().randomPickOnDefaultAction) {
       this.__testTakeAction()
       return
     }
-    console.log(
-      this.#userInfo.name,
-      '超时默认行动(allowedActions):',
-      this.#getAllowedActions()
-    )
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'default_action',
+      data: {
+        userId: this.#userInfo.id,
+        name: this.#userInfo.name,
+        allowedActions: this.#getAllowedActions()
+      }
+    })
     if (this.#getAllowedActions().includes(ActionTypeEnum.CHECK)) {
       this.check()
     } else {
@@ -772,21 +863,19 @@ export class Player implements GameComponent {
     }
   }
   continue() {
-    if (process.env.PROJECT_ENV === 'dev') {
+    if (TexasEngineContext.simulation().immediateDefaultActionOnTurn) {
       this.takeDefaultAction()
       return
     }
     // 如果当前玩家是离线状态, 延时一秒后直接采取默认行为
     if (this.#onlineStatus === 'offline') {
-      setTimeout(() => {
-        this.takeDefaultAction()
-      }, 1000)
+      this.#onOfflineTurnStart(this)
       return
     }
     if (!this.#timer)
       this.#timer = setInterval(() => {
         if (this.#countDownTime === 0 && this.#timer) {
-          this.takeDefaultAction()
+          this.#onThinkingDeadline(this)
           return
         }
         this.#countDownTime--
@@ -835,11 +924,15 @@ export class Player implements GameComponent {
     // 最大值是好计算的
     // 最小值就是跟注的金额
     const allowedActions = this.#getAllowedActions()
-    console.log(
-      this.#userInfo.name,
-      '获得控制权, 允许的行动列表: ',
-      allowedActions
-    )
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'got_control',
+      data: {
+        userId: this.#userInfo.id,
+        name: this.#userInfo.name,
+        allowedActions
+      }
+    })
     // 行动前校验
     this.#callback?.({
       allowedActions,
@@ -851,4 +944,11 @@ export class Player implements GameComponent {
     this.continue()
   }
 }
+
+/** 在线状态与倒计时由引擎维护；具体「到时/离线」如何处理由此策略外置（缺省与历史行为一致） */
+export type PlayerActionPolicy = {
+  onThinkingDeadline?: (player: Player) => void
+  onOfflineTurnStart?: (player: Player) => void
+}
+
 export default Player

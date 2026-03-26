@@ -3,11 +3,15 @@
 // 循环运行, 尝试找出在实际运行中
 // 出现的边缘情况
 import Texas from './Texas'
+import { TexasEngineContext } from './TexasEngineContext'
+
+TexasEngineContext.configure({
+  simulation: { resetDealerBeforeHandStart: true }
+})
 
 const texas = new Texas({
   lowestBetAmount: 500,
   maximumCountOfPlayers: 7,
-  allowPlayersToWatch: true,
   initialChips: 10000,
   user: { id: 1, name: 'ycr' },
   thinkingTime: 5
@@ -21,6 +25,11 @@ texas.room.join(p2)
 texas.room.join(p3)
 texas.room.join(p4)
 texas.room.join(p5)
+texas.room.seat(texas.room.owner)
+texas.room.seat(p2)
+texas.room.seat(p3)
+texas.room.seat(p4)
+texas.room.seat(p5)
 
 const delay = (ms = 1000) => {
   return new Promise((resolve) => {

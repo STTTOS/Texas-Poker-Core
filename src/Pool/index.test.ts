@@ -29,7 +29,6 @@ describe('class pool', () => {
       dealer,
       pool
     })
-    console.log(p1.balance, 'p1ba')
     pool.add(p1, 1000)
     pool.add(p2, 2000)
 
@@ -105,6 +104,7 @@ describe('class pool', () => {
       controller,
       initialChips: 5000
     })
+    room.seat(p1)
     const p2 = new Player({
       user: { id: 2, name: '2' },
       initialChips: 10000,
@@ -132,6 +132,9 @@ describe('class pool', () => {
     room.join(p2)
     room.join(p3)
     room.join(p4)
+    room.seat(p2)
+    room.seat(p3)
+    room.seat(p4)
 
     room.ready()
     dealer.dealCards()
@@ -152,8 +155,7 @@ describe('class pool', () => {
       user: { id: 1, name: 'ycr' },
       initialChips: 2000,
       lowestBetAmount: 200,
-      maximumCountOfPlayers: 8,
-      allowPlayersToWatch: true
+      maximumCountOfPlayers: 8
     })
     const p1 = texas.room.owner
     const p2 = texas.createPlayer({ id: 2, name: 'yt' })

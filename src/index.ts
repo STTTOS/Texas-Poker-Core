@@ -1,18 +1,22 @@
 import Texas from './Texas'
-import TexasError from '@/TexasError'
 import { default as Deck } from './Deck'
 import { formatterPoke } from './Deck/core'
 import { default as Dealer } from './Dealer'
 import { stageMap } from './Controller/constants'
 import { roleMap, ActionTypeMap } from './Player/constant'
-import { Stage, StageEnum, ControllerStatus } from './Controller'
-import { texasErrorMap, TexasErrorCode } from '@/TexasError/constant'
+import { Stage, StageEnum, HandLifecycle } from './Controller'
 import {
   RoomStatus,
   default as Room,
   PlayerSeatStatus,
   type RoomCreateOptions
 } from './Room'
+import {
+  TexasEngineContext,
+  type TexasTraceEvent,
+  type TexasSimulationFlags,
+  type TexasEngineGlobalOptions
+} from '@/TexasEngineContext'
 import {
   User,
   Role,
@@ -21,8 +25,18 @@ import {
   ActionType,
   OnlineStatus,
   ActionTypeEnum,
-  default as Player
+  default as Player,
+  type PlayerActionPolicy
 } from './Player'
+import TexasError, {
+  texasErrorMap,
+  TexasCoreErrorCode,
+  texasErrorCategory,
+  type TexasErrorCode,
+  type TexasErrorPayload,
+  formatTexasErrorMessage,
+  type TexasErrorCodeLegacy
+} from '@/TexasError'
 
 export * from './Deck/constant'
 export {
@@ -43,7 +57,7 @@ export {
   ActionTypeMap,
   Stage,
   StageEnum,
-  ControllerStatus,
+  HandLifecycle,
   stageMap,
   Dealer,
   Deck,
@@ -54,7 +68,18 @@ export {
   formatterPoke,
   TexasError,
   TexasErrorCode,
+  TexasErrorPayload,
+  TexasCoreErrorCode,
+  formatTexasErrorMessage,
   texasErrorMap,
+  texasErrorCategory,
+  TexasEngineContext,
   Texas,
-  OnlineStatus
+  OnlineStatus,
+  type PlayerActionPolicy,
+  type TexasEngineGlobalOptions,
+  type TexasSimulationFlags,
+  type TexasTraceEvent,
+  /** @deprecated 旧版宽泛 code 类型，请逐步迁移到 TexasErrorCode */
+  type TexasErrorCodeLegacy
 }

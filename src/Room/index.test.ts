@@ -102,7 +102,8 @@ describe('Room', () => {
     })
     room.join(p2)
     room.join(p3)
-    room.remove(p2)
+    room.setOwner(p2)
+    room.remove(player)
     expect(room.totalPlayersCount).toEqual(2)
   })
   test('test function seat', () => {
@@ -122,7 +123,6 @@ describe('Room', () => {
       owner: player,
       controller,
       initialChips: 500,
-      allowPlayersToWatch: true,
       maximumCountOfPlayers: 1
     })
 
@@ -137,6 +137,7 @@ describe('Room', () => {
     })
     expect(() => room.seat(p2)).toThrow('您不在房间中,无法入座')
 
+    room.seat(player)
     expect(() => room.seat(player)).toThrow('您已在坐席中,请勿重复操作')
 
     room.join(p2)

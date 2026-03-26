@@ -1,21 +1,27 @@
 import Pool from '@/Pool'
 import Room from '@/Room'
 import Dealer from '@/Dealer'
-import TexasError from '@/TexasError'
+import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import Player, { User, ActionType, CallbackOfAction } from '@/Player'
 import Controller, {
   CallbackOfGameEnd,
   CallbackOnNextStage
 } from '@/Controller'
+import {
+  TexasEngineContext,
+  type TexasEngineGlobalOptions
+} from '@/TexasEngineContext'
 
 // 在表单中填入一些基本的信息
 // 比如大盲注
 // 最大玩家数量
-// 是否允许观战
+/** 当前引擎角色表最多支持 10 人桌；更大人数需扩展 playerRoleSetMap */
+const SUPPORTED_MAX_TABLE_PLAYERS = 10
+
 export interface CreateRoomInputArgs {
   lowestBetAmount: number
+  /** 单桌最大入座人数（不超过引擎支持上限） */
   maximumCountOfPlayers: number
-  allowPlayersToWatch: boolean
   /** 入座玩家起始筹码 */
   initialChips: number
   // 需要传入用户信息, 在创建房间时同时指定房主
@@ -34,7 +40,8 @@ export interface PreAction {
 export type TexasErrorCallback = (error: TexasError) => never
 // 组件基类
 export interface GameComponent {
-  reportError?(error: TexasError): void
+  /** 标准 fail-fast：触发后一定抛出并中断流程 */
+  fail?(error: TexasError): never
 }
 
 class GameEventEmitter {
@@ -48,29 +55,35 @@ class Texas extends GameEventEmitter {
   room: Room
   dealer: Dealer
   controller: Controller
+  /** 标准 fail-fast 入口：先通知 onError，再 throw */
+  fail: (error: TexasError) => never
+  /** @deprecated 历史命名；等价于 fail */
   handleError: (error: TexasError) => never
 
   constructor({
     user,
     thinkingTime,
     lowestBetAmount,
-    allowPlayersToWatch,
     maximumCountOfPlayers,
     initialChips
   }: CreateRoomInputArgs) {
     super()
 
     // 使用箭头函数, 防止this指向问题
-    this.handleError = (error: TexasError) => {
+    this.fail = (error: TexasError) => {
       this.errorCallback?.(error)
       throw error
     }
-    if (initialChips < lowestBetAmount) {
-      throw new TexasError(2003, '初始盲注小于大盲注, 初始化游戏错误')
-    }
-    const dealer = new Dealer(lowestBetAmount, this.handleError)
-    const controller = new Controller(dealer, this.handleError)
-    const pool = new Pool(this.handleError)
+    this.handleError = this.fail
+    const cappedMaxPlayers = Math.min(
+      maximumCountOfPlayers,
+      SUPPORTED_MAX_TABLE_PLAYERS
+    )
+    const dealer = new Dealer(lowestBetAmount, this.fail, {
+      maxTablePlayers: cappedMaxPlayers
+    })
+    const controller = new Controller(dealer, this.fail)
+    const pool = new Pool(this.fail)
     const owner = new Player({
       user,
       initialChips,
@@ -79,16 +92,15 @@ class Texas extends GameEventEmitter {
       controller,
       thinkingTime,
       lowestBetAmount,
-      reportError: this.handleError
+      fail: this.fail
     })
     const room = new Room({
       dealer,
       owner,
       controller,
       initialChips,
-      allowPlayersToWatch,
-      maximumCountOfPlayers,
-      reportError: this.handleError
+      maximumCountOfPlayers: cappedMaxPlayers,
+      fail: this.fail
     })
     this.pool = pool
     this.room = room
@@ -127,13 +139,17 @@ class Texas extends GameEventEmitter {
 
   async start() {
     if (this.room.getPlayersBySeatStatus('on-set').length < 2)
-      this.handleError(new TexasError(2100, '玩家数量不足, 无法开始游戏'))
+      this.fail(
+        new TexasError(TexasCoreErrorCode.SESSION_START_MIN_SEATED, {
+          min: 2
+        })
+      )
 
-    if (this.room.status === 'unReady')
-      this.handleError(new TexasError(2100, '玩家位置未确认, 无法进行游戏'))
+    if (this.room.status === 'seats_open')
+      this.fail(new TexasError(TexasCoreErrorCode.SESSION_START_SEATS_OPEN))
 
-    if (this.controller.status !== 'waiting')
-      this.handleError(new TexasError(2100, '游戏已经开始, 请勿重复开始游戏'))
+    if (this.controller.status !== 'idle')
+      this.fail(new TexasError(TexasCoreErrorCode.SESSION_START_NOT_IDLE))
 
     this.resetBeforeGameStart()
     this.dealer.dealCards()
@@ -142,8 +158,8 @@ class Texas extends GameEventEmitter {
 
   // 测试阶段方法, 手动结束游戏
   end() {
-    if (this.controller.status === 'waiting')
-      this.handleError(new TexasError(2100, '游戏还未开始, 无法结束游戏'))
+    if (this.controller.status === 'idle')
+      this.fail(new TexasError(TexasCoreErrorCode.SESSION_END_NOT_STARTED))
 
     this.controller.end()
   }
@@ -183,8 +199,17 @@ class Texas extends GameEventEmitter {
       controller: this.controller,
       thinkingTime: this.room.owner.thinkingTime,
       lowestBetAmount: this.dealer.lowestBetAmount,
-      reportError: this.handleError
+      fail: this.fail
     })
+  }
+
+  /** 进程级配置（trace、仿真开关等），建议在应用启动时调用一次 */
+  static configureEngine(patch: Partial<TexasEngineGlobalOptions>): void {
+    TexasEngineContext.configure(patch)
+  }
+
+  static resetEngineContext(): void {
+    TexasEngineContext.reset()
   }
 }
 

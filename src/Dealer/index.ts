@@ -1,8 +1,9 @@
 import Deck from '@/Deck'
-import TexasError from '@/TexasError'
 import { getRandomInt } from '@/utils'
 import { Role, Player, RoleEnum } from '@/Player'
+import { TexasEngineContext } from '@/TexasEngineContext'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
+import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
 import {
   getWinners,
@@ -17,25 +18,28 @@ import {
  */
 class Dealer implements GameComponent {
   #lowestBetAmount: number
+  #maxTablePlayers: number
   #deck: Deck
   #count = 0
   #button: Player | null = null
   #last: Player | null = null
   #head: Player | null = null
-  reportError: TexasErrorCallback
+  fail: TexasErrorCallback
 
   // 记录最近一个玩家的操作记录
   #actionsHistory: Player[] = []
 
   constructor(
     lowestBetAmount: number,
-    reportError: TexasErrorCallback = (error) => {
+    fail: TexasErrorCallback = (error) => {
       throw error
-    }
+    },
+    options?: { maxTablePlayers?: number }
   ) {
     this.#lowestBetAmount = lowestBetAmount
+    this.#maxTablePlayers = options?.maxTablePlayers ?? 10
     this.#deck = new Deck()
-    this.reportError = reportError
+    this.fail = fail
   }
 
   get actionHistory() {
@@ -68,14 +72,17 @@ class Dealer implements GameComponent {
 
   dealCards() {
     if (!this.#button)
-      this.reportError(new TexasError(2000, '庄家未指定, 无法发牌'))
+      return this.fail(new TexasError(TexasCoreErrorCode.DEALER_NO_BUTTON))
 
-    console.log('玩家信息:')
-    console.log(
-      this.map(
-        (player) => roleMap.get(player.getRole()!) + ': ' + player.toString()
-      )
-    )
+    TexasEngineContext.emitTrace({
+      channel: 'dealer',
+      name: 'deal_cards_players',
+      data: {
+        players: this.map(
+          (player) => roleMap.get(player.getRole()!) + ': ' + player.toString()
+        )
+      }
+    })
     const { handPokes } = this.#deck.dealCards(this.#count)
     this.loop((player, i) => {
       player.setHandPokes(handPokes[i])
@@ -121,10 +128,11 @@ class Dealer implements GameComponent {
   }
 
   logPlayers() {
-    console.log(
-      '玩家信息: \n',
-      this.map((player) => player.toString()).join('\n')
-    )
+    TexasEngineContext.emitTrace({
+      channel: 'dealer',
+      name: 'log_players',
+      data: { lines: this.map((player) => player.toString()) }
+    })
   }
 
   setRoles() {
@@ -149,7 +157,13 @@ class Dealer implements GameComponent {
       player.rankSignature = getFiveCardsRankSignature(bestFiveCards)
       player.rankStrength = getStrengthFromRankSignature(player.rankSignature)
     })
-    console.log('底牌:', formatterPoke(this.#deck.getPokes().commonPokes))
+    TexasEngineContext.emitTrace({
+      channel: 'dealer',
+      name: 'settle_common_pokes',
+      data: {
+        commonPokes: formatterPoke(this.#deck.getPokes().commonPokes)
+      }
+    })
   }
 
   remove(player: Player) {
@@ -212,10 +226,15 @@ class Dealer implements GameComponent {
 
     const roles = playerRoleSetMap.get(this.#count)
 
-    if (!roles) this.reportError(new TexasError(2000, '不支持的玩家人数对局'))
+    if (!roles)
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.DEALER_UNSUPPORTED_COUNT, {
+          count: this.#count
+        })
+      )
 
     this.loop((player, i) => {
-      player.setRole(roles[i])
+      player.setRole(roles![i])
     }, this.#button)
   }
 
@@ -236,23 +255,30 @@ class Dealer implements GameComponent {
   }
 
   log() {
-    console.log(`玩家数量: ${this.#count}`)
-    console.log('底牌:', formatterPoke(this.#deck.getPokes().commonPokes))
+    const lines: string[] = []
+    lines.push(`玩家数量: ${this.#count}`)
+    lines.push('底牌:' + formatterPoke(this.#deck.getPokes().commonPokes))
     this.forEach((player) => {
       const role = player.getRole()
-
-      console.log(
+      lines.push(
         `${
           role ? roleMap.get(role) : 'unSettled'
         }:  ${player.toString()}; 手牌: ${formatterPoke(player.getHandPokes())}`
       )
+    })
+    TexasEngineContext.emitTrace({
+      channel: 'dealer',
+      name: 'table_snapshot',
+      data: { lines }
     })
   }
 
   changeButtonToNextPlayer() {
     const next = this.#button?.getNextPlayer()
     if (!next)
-      this.reportError(new TexasError(2000, '将庄家移交给不存在的玩家'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.DEALER_BUTTON_HANDOFF_INVALID)
+      )
 
     this.setButton(next)
   }
@@ -290,13 +316,20 @@ class Dealer implements GameComponent {
    */
   setOthers() {
     if (!this.#button)
-      this.reportError(new TexasError(2000, '未指定庄家, 无法设置其余玩家位置'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.DEALER_SET_OTHERS_NO_BUTTON)
+      )
 
     let count = this.#count
-    if (process.env.PROJECT_ENV === 'dev' && count === 1) return
+    if (TexasEngineContext.simulation().allowSingleSeatedPlayer && count === 1)
+      return
 
-    if (count < 2 || count > 10)
-      this.reportError(new TexasError(2000, `暂不支持${count}人的对局`))
+    if (count < 2 || count > this.#maxTablePlayers)
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.DEALER_COUNT_OUT_OF_RANGE, {
+          count
+        })
+      )
 
     const roles = playerRoleSetMap.get(count)!.slice(1)
     let role: Role

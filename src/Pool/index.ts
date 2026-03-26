@@ -1,11 +1,12 @@
 import { equals } from 'ramda'
 
 import { Player } from '@/Player'
-import TexasError from '@/TexasError'
 import { sum, filterMap } from '@/utils'
 import allocatePoolByInt from './allocatePoolByInt'
 import { getWinners, formatterPoke } from '@/Deck/core'
+import { TexasEngineContext } from '@/TexasEngineContext'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
+import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
 // 提供奖池结算的能力
 class Pool implements GameComponent {
@@ -26,14 +27,14 @@ class Pool implements GameComponent {
    * 记录玩家分配的奖池金额
    */
   #bills: Map<number, number> = new Map()
-  reportError: TexasErrorCallback
+  fail: TexasErrorCallback
 
   constructor(
-    reportError: TexasErrorCallback = (error) => {
+    fail: TexasErrorCallback = (error) => {
       throw error
     }
   ) {
-    this.reportError = reportError
+    this.fail = fail
   }
   /**
    * @description 玩家在特定的阶段下注时, 记录下注信息
@@ -43,9 +44,16 @@ class Pool implements GameComponent {
    */
   add(player: Player, amount: number) {
     if (amount <= 0)
-      this.reportError(new TexasError(2001, '下注金额不可小于零'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.POOL_NEGATIVE_AMOUNT, { amount })
+      )
     if (player.balance < amount)
-      this.reportError(new TexasError(2003, '玩家余额不足'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.POOL_INSUFFICIENT_BALANCE, {
+          balance: player.balance,
+          amount
+        })
+      )
 
     player.balance -= amount
     player.wager -= amount
@@ -108,7 +116,7 @@ class Pool implements GameComponent {
 
     // 如果剩奖池不够支付所有玩家, 说明游戏的计算出现异常, 需要中止这场比赛,并作废
     if (Array.from(bills.values()).reduce(sum, 0) !== this.#totalAmount) {
-      this.reportError(new TexasError(2001, '支付发生错误, 数据异常'))
+      return this.fail(new TexasError(TexasCoreErrorCode.POOL_PAY_INVALID))
     }
 
     for (const [player, amount] of bills) {
@@ -126,23 +134,29 @@ class Pool implements GameComponent {
   settle() {
     this.calculate()
 
-    console.log('玩家牌力大小:')
-    this.#players.forEach((player) => {
-      console.log(
-        player.getUserInfo().name,
-        player.rankSignature,
-        formatterPoke(player.getHandPokes())
-      )
+    TexasEngineContext.emitTrace({
+      channel: 'pool',
+      name: 'settle_rankings',
+      data: {
+        players: Array.from(this.#players).map((player) => ({
+          name: player.getUserInfo().name,
+          rankSignature: player.rankSignature,
+          hand: formatterPoke(player.getHandPokes())
+        }))
+      }
     })
-    console.log('奖池:')
-    console.log(
-      Array.from(this.#pots.entries()).map(
-        ([players, amount]) =>
-          `(${Array.from(players)
-            .map((player) => player.getUserInfo().name)
-            .join(',')})` + amount
-      )
-    )
+    TexasEngineContext.emitTrace({
+      channel: 'pool',
+      name: 'settle_pots',
+      data: {
+        pots: Array.from(this.#pots.entries()).map(
+          ([players, amount]) =>
+            `(${Array.from(players)
+              .map((player) => player.getUserInfo().name)
+              .join(',')})` + amount
+        )
+      }
+    })
 
     // 记录需要给每个玩家支付多少Money
     const result: Map<Player, number> = new Map()

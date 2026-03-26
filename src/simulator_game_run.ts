@@ -7,7 +7,6 @@ import TexasError from './TexasError'
 
 const texas = new Texas({
   lowestBetAmount: 500,
-  allowPlayersToWatch: true,
   maximumCountOfPlayers: 5,
   initialChips: 10000,
   user: { id: 1, name: 'ycr' },
@@ -20,6 +19,11 @@ const p3 = texas.createPlayer({ id: 3, name: 'wyz' })
 const p4 = texas.createPlayer({ id: 4, name: 'sen' })
 const p5 = texas.createPlayer({ id: 5, name: 'wxl' })
 texas.room.joinMany(p2, p3, p4, p5)
+texas.room.seat(p1)
+texas.room.seat(p2)
+texas.room.seat(p3)
+texas.room.seat(p4)
+texas.room.seat(p5)
 
 // 手动设置庄家位置
 texas.dealer.setButton(p4)

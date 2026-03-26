@@ -1,10 +1,11 @@
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
-import TexasError from '@/TexasError'
 import Controller from '@/Controller'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
+import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
-export type RoomStatus = 'ready' | 'unReady'
+/** 座位/角色是否已由 `ready()` 锁定（原 ready / unReady） */
+export type RoomStatus = 'seats_locked' | 'seats_open'
 export type PlayerSeatStatus = 'hang' | 'on-set'
 
 export type RoomCreateOptions = {
@@ -13,30 +14,20 @@ export type RoomCreateOptions = {
   controller: Controller
   /** 入座玩家默认起始筹码 */
   initialChips: number
-  allowPlayersToWatch?: boolean
+  /** 单桌最大入座人数（须 ≤ 角色表支持人数，当前引擎支持 2–10） */
   maximumCountOfPlayers?: number
-  reportError?: TexasErrorCallback
+  fail?: TexasErrorCallback
 }
 
 // 房间
 class Room implements GameComponent {
   /**
-   * 房间为 公开 / 私密; 如果是私密房间, 只可以受邀进入
-   */
-  #private = false
-  /**
-   * 房间秘钥, 仅匹配后(通过分享)才可加入
-   */
-  #privateKey?: string
-  /**
    * 房间的创建者
    */
   #owner: Player
-  #status: RoomStatus = 'unReady'
+  #status: RoomStatus = 'seats_open'
   #dealer: Dealer
   #lowestBetAmount: number
-  // 是否允许观战
-  #allowPlayersToWatch: boolean
   #maximumCountOfPlayers: number
   /** 入座玩家默认起始筹码 */
   #initialChips: number
@@ -46,28 +37,25 @@ class Room implements GameComponent {
   // 存储于id => Player的实例
   #idToPlayerMap: Map<number, Player> = new Map()
   #controller: Controller
-  reportError: TexasErrorCallback = (error) => {
+  fail: TexasErrorCallback = (error) => {
     throw error
   }
 
-  constructor({
-    dealer,
-    owner,
-    controller,
-    initialChips,
-    allowPlayersToWatch = true,
-    maximumCountOfPlayers = 10,
-    reportError = (error) => {
-      throw error
-    }
-  }: RoomCreateOptions) {
+  constructor(options: RoomCreateOptions) {
+    const {
+      dealer,
+      owner,
+      controller,
+      initialChips,
+      maximumCountOfPlayers = 10,
+      fail
+    } = options
     this.#owner = owner
     this.#dealer = dealer
     this.#controller = controller
     this.#initialChips = initialChips
-    this.#allowPlayersToWatch = allowPlayersToWatch
     this.#maximumCountOfPlayers = maximumCountOfPlayers
-    this.reportError = reportError
+    if (fail) this.fail = fail
 
     const lowestBetAmount = dealer.lowestBetAmount
     this.#lowestBetAmount = lowestBetAmount
@@ -83,13 +71,15 @@ class Room implements GameComponent {
 
   ready() {
     if (this.playersCountOnSeat < 2)
-      this.reportError(new TexasError(2000, '玩家数量小于2, 无法进行游戏'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.ROOM_READY_MIN_SEATED, { min: 2 })
+      )
 
-    if (this.#status === 'ready')
-      this.reportError(new TexasError(2100, '玩家位置已确认,请勿重复设置'))
+    if (this.#status === 'seats_locked')
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_ALREADY_LOCKED))
 
     this.#dealer.setRoles()
-    this.#status = 'ready'
+    this.#status = 'seats_locked'
   }
 
   setOwnerById(userId: number) {
@@ -98,7 +88,8 @@ class Room implements GameComponent {
     this.setOwner(player)
   }
   setOwner(player?: Player) {
-    if (!player) this.reportError(new TexasError(2000, '房主不可为空'))
+    if (!player)
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_OWNER_REQUIRED))
 
     this.#owner = player
   }
@@ -113,12 +104,10 @@ class Room implements GameComponent {
   getBaseInfo() {
     return {
       status: this.#status,
-      private: this.#private,
       totalCount: this.#players.size,
       hangCount: this.playersCountHang,
       lowestBetAmount: this.#lowestBetAmount,
       onSeatCount: this.playersCountOnSeat,
-      allowPlayersToWatch: this.#allowPlayersToWatch,
       maximumCountOfPlayers: this.#maximumCountOfPlayers,
       owner: { ...this.#owner.getUserInfo(), balance: this.#owner.balance },
       initialChips: this.#initialChips
@@ -169,51 +158,14 @@ class Room implements GameComponent {
   }
 
   /**
-   * @description 玩家加入房间, 如果位置还够, 会自动入座
-   * @param player
-   * @returns
+   * @description 玩家加入房间（观战席）；入座请调用 seat / seatById
    */
-  join(player: Player, key?: string) {
+  join(player: Player) {
     if (this.#idToPlayerMap.has(player.getUserInfo().id))
-      this.reportError(new TexasError(2003, '您已经在房间中,不可重复加入'))
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_DUPLICATE_JOIN))
 
-    if (this.#private && this.#privateKey !== key)
-      this.reportError(new TexasError(2003, '私密房间不可加入'))
-
-    if (
-      !this.#allowPlayersToWatch &&
-      this.playersCountOnSeat === this.#maximumCountOfPlayers
-    )
-      this.reportError(
-        new TexasError(2003, '房间设置了不可观战,并且玩家已满,不可加入')
-      )
-
-    if (
-      !this.#allowPlayersToWatch &&
-      player.lowestBetAmount < this.#lowestBetAmount
-    )
-      this.reportError(
-        new TexasError(
-          2003,
-          '房间设置了不可观战, 并且您的余额小于房间的最底下注,无法加入'
-        )
-      )
-
-    // 人数已满 或者 游戏不在准备阶段, 都直接到观战席
-    // 要注意一点, 游戏也会在end阶段持续几秒, 这个时候也需要到观战席
-    // 防止在结算过程中,玩家加入坐席导致交互问题
-    const seatStatus: PlayerSeatStatus =
-      this.playersCountOnSeat === this.#maximumCountOfPlayers ||
-      this.#controller.status !== 'waiting'
-        ? 'hang'
-        : 'on-set'
-
-    if (seatStatus === 'hang') {
-      this.#playersHang.add(player)
-    } else {
-      this.#dealer.join(player)
-      this.#playersOnSet.add(player)
-    }
+    // join 只表示进入房间并进入观战席；是否入座由业务层策略决定。
+    this.#playersHang.add(player)
     this.#idToPlayerMap.set(player.getUserInfo().id, player)
   }
 
@@ -231,18 +183,19 @@ class Room implements GameComponent {
    * @description 将观战席的玩家入座
    */
   seat(player?: Player) {
-    if (this.#controller.status !== 'waiting')
-      this.reportError(new TexasError(2003, '游戏还未结束, 无法入座'))
+    if (this.#controller.status !== 'idle')
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_SEAT_NOT_IDLE))
 
     if (!player || !this.#idToPlayerMap.has(player.getUserInfo().id))
-      this.reportError(new TexasError(2003, '您不在房间中,无法入座'))
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_SEAT_NOT_MEMBER))
 
     if (this.getPlayerSeatStatus(player) === 'on-set')
-      this.reportError(new TexasError(2003, '您已在坐席中,请勿重复操作'))
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_SEAT_ALREADY))
 
     if (this.playersCountOnSeat === this.#maximumCountOfPlayers)
-      this.reportError(new TexasError(2003, '位置已满,无法加入坐席'))
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_SEAT_FULL))
 
+    this.#playersHang.delete(player)
     this.#playersOnSet.add(player)
     this.#dealer.join(player)
   }
@@ -253,16 +206,19 @@ class Room implements GameComponent {
   }
 
   watch(player?: Player) {
-    if (this.#controller.status !== 'waiting')
-      this.reportError(new TexasError(2003, '游戏正在进行中, 无法加入观战席'))
+    if (this.#controller.status !== 'idle')
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_WATCH_NOT_IDLE))
 
     if (!player || !this.#idToPlayerMap.has(player.getUserInfo().id))
-      this.reportError(new TexasError(2003, '您不在房间中,无法观战'))
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_WATCH_NOT_MEMBER))
 
     if (this.getPlayerSeatStatus(player) === 'hang')
-      this.reportError(new TexasError(2003, '您已在观战席中,请勿重复操作'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.ROOM_WATCH_ALREADY_HANG)
+      )
 
     this.#playersHang.add(player)
+    this.#playersOnSet.delete(player)
     this.#dealer.remove(player)
   }
 
@@ -277,10 +233,17 @@ class Room implements GameComponent {
    */
   remove(player?: Player): number | null {
     if (!player || !this.#players.has(player))
-      this.reportError(new TexasError(2003, '您不在房间中,无法退出'))
+      return this.fail(new TexasError(TexasCoreErrorCode.ROOM_LEAVE_NOT_MEMBER))
 
     // 在游戏没开始时离开
-    if (this.#controller.status === 'waiting') {
+    if (this.#controller.status === 'idle') {
+      // core 不负责房主转移策略：由业务层先 setOwner 再 remove
+      if (player === this.#owner) {
+        return this.fail(
+          new TexasError(TexasCoreErrorCode.ROOM_OWNER_LEAVE_BLOCKED)
+        )
+      }
+
       this.#idToPlayerMap.delete(player.getUserInfo().id)
       this.#dealer.remove(player)
       if (this.getPlayerSeatStatus(player) === 'hang') {
@@ -288,14 +251,9 @@ class Room implements GameComponent {
       } else {
         this.#playersOnSet.delete(player)
       }
-
-      const newOwner = player.getNextPlayer()
-      if (!newOwner) return null
-
-      this.setOwner(newOwner)
-      return newOwner.getUserInfo().id
+      return null
     }
-    this.reportError(new TexasError(2003, '游戏进行中, 不可退出'))
+    return this.fail(new TexasError(TexasCoreErrorCode.ROOM_LEAVE_GAME_ACTIVE))
   }
 
   removeById(userId: number) {

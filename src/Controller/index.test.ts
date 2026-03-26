@@ -23,6 +23,7 @@ describe('class Controller', () => {
       controller,
       initialChips: 5000
     })
+    room.seat(p1)
 
     const p2 = new Player({
       lowestBetAmount: 1000,
@@ -52,6 +53,9 @@ describe('class Controller', () => {
     room.join(p2)
     room.join(p3)
     room.join(p4)
+    room.seat(p2)
+    room.seat(p3)
+    room.seat(p4)
     room.getDealer().setButton(p3)
     // 发牌, 分配角色
     room.ready()
@@ -77,5 +81,11 @@ describe('class Controller', () => {
     // expect(p2.getBalance()).toEqual(10000)
     // expect(p3.getBalance()).toEqual(9000)
     // expect(p4.getBalance()).toEqual(0)
+  })
+
+  test('initial status is idle', () => {
+    const dealer = new Dealer(1000)
+    const controller = new Controller(dealer)
+    expect(controller.status).toBe('idle')
   })
 })

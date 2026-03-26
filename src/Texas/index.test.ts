@@ -5,15 +5,17 @@ describe('entery', () => {
     const texas = new Texas({
       lowestBetAmount: 500,
       maximumCountOfPlayers: 7,
-      allowPlayersToWatch: true,
       initialChips: 5000,
       user: { id: 1, name: 'ycr' }
     })
     const p1 = texas.room.owner
     const p2 = texas.createPlayer({ id: 2, name: 'yt' })
     const p3 = texas.createPlayer({ id: 3, name: 'wyz' })
+    texas.room.seat(p1)
     texas.room.join(p2)
     texas.room.join(p3)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
     texas.dealer.setButton(p1)
 
     texas.ready()

@@ -39,9 +39,12 @@ describe('class Player', () => {
       controller,
       initialChips: 18000
     })
+    room.seat(p1)
 
     room.join(p2)
     room.join(p3)
+    room.seat(p2)
+    room.seat(p3)
     room.getDealer().setButton(p2)
     room.ready()
     // 庄家: p3

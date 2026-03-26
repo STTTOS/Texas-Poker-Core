@@ -1,9 +1,10 @@
 // 控制游戏的进程
 import Dealer from '../Dealer'
 import { Player } from '../Player'
-import TexasError from '@/TexasError'
 import { Poke, RankCategory } from '@/Deck/constant'
+import { TexasEngineContext } from '@/TexasEngineContext'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
+import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
 export enum StageEnum {
   PRE_FLOP = 'pre_flop',
@@ -35,51 +36,42 @@ export type CallbackOnNextStage = (params: {
   stage: Stage
   lastStage: Stage
 }) => void
-export type ControllerStatus =
-  /**
-   * 进行中
-   */
-  | 'on'
-  /**
-   * 暂停
-   */
-  | 'pause'
-  /**
-   * 进程出现异常
-   */
-  | 'abort'
-  /**
-   * 未开始
-   */
-  | 'waiting'
-  /**
-   * 游戏结束
-   */
-  | 'end'
+/**
+ * 控制器唯一状态：一手牌从「可开局」到「结束待清理」的完整生命周期。
+ * - `idle`：无进行中的手牌（上一手已 `reset` 之后、下一手 `start` 之前；**局间等待下一手**也在此）
+ * - `in_hand`：本手进行中
+ * - `in_hand_paused`：本手暂停
+ * - `hand_complete`：本手已结束（至调用 `reset` 之前；业务可在此期间做摊牌展示、奖池结算、`settle` 等）
+ * - `aborted`：异常终止（预留）
+ */
+export type HandLifecycle =
+  | 'idle'
+  | 'in_hand'
+  | 'in_hand_paused'
+  | 'hand_complete'
+  | 'aborted'
+
 class Controller implements GameComponent {
-  #status: ControllerStatus = 'waiting'
+  #status: HandLifecycle = 'idle'
   #stage: Stage = StageEnum.PRE_FLOP
   // 游戏在哪个极端结束的, 比如翻牌圈其他玩家都弃牌, 游戏在这个阶段就结束了
   #endAt: Stage = StageEnum.PRE_FLOP
   #activePlayer: Player | null = null
-  #timer: NodeJS.Timeout | null = null
-  // 记录游戏的进行时间,单位 second
-  #count = 0
   #dealer: Dealer
   #callbackOfEnd?: CallbackOfGameEnd
   #callbackOnNextStage?: CallbackOnNextStage
   #callbackOfGameStart?: () => Promise<void>
   #defaultBets: Array<{ userId: number; balance: number; amount: number }> = []
-  reportError: TexasErrorCallback
+  fail: TexasErrorCallback
 
   constructor(
     dealer: Dealer,
-    reportError: TexasErrorCallback = (error) => {
+    fail: TexasErrorCallback = (error) => {
       throw error
     }
   ) {
     this.#dealer = dealer
-    this.reportError = reportError
+    this.fail = fail
   }
 
   get status() {
@@ -115,7 +107,9 @@ class Controller implements GameComponent {
    */
   transferControlTo(player: Player | null) {
     if (this.#activePlayer === player)
-      this.reportError(new TexasError(2100, '无法重复获得控制权'))
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_DUPLICATE_CONTROL)
+      )
 
     this.#activePlayer = player
     player?.getControl()
@@ -141,7 +135,11 @@ class Controller implements GameComponent {
         currentStage: this.#stage,
         showHandPokes: false
       })
-      console.log('游戏结束(otherPlayersFold):', this.#endAt)
+      TexasEngineContext.emitTrace({
+        channel: 'controller',
+        name: 'hand_end_fold_win',
+        data: { endAt: this.#endAt }
+      })
       return true
     }
 
@@ -165,7 +163,11 @@ class Controller implements GameComponent {
         bestPokes: pokes,
         bestRankCategory: rankCategory
       })
-      console.log('游戏结束(shouldEndGame):', this.#endAt)
+      TexasEngineContext.emitTrace({
+        channel: 'controller',
+        name: 'hand_end_showdown',
+        data: { endAt: this.#endAt }
+      })
       return true
     }
     return false
@@ -180,10 +182,6 @@ class Controller implements GameComponent {
       (player) => !player.actionable()
     )
     if (canPushToNextStage) {
-      console.log(
-        '推进到下个阶段, 触发人',
-        this.#activePlayer?.getUserInfo().name
-      )
       const index = stages.findIndex((stage) => stage === this.#stage)
       const currentStage = this.#stage
       const nextStage = stages[index + 1]
@@ -198,7 +196,15 @@ class Controller implements GameComponent {
         lastStage: currentStage,
         commonPokes: this.getCommonPokes(currentStage, nextStage)
       })
-      console.log('游戏进入下一个阶段 => ', this.#stage)
+      TexasEngineContext.emitTrace({
+        channel: 'controller',
+        name: 'stage_changed',
+        data: {
+          from: currentStage,
+          to: nextStage,
+          byUserId: this.#activePlayer?.getUserInfo().id
+        }
+      })
 
       this.resetActivePlayer()
       this.transferControlTo(this.#dealer.getTheFirstPlayerToAct())
@@ -264,7 +270,9 @@ class Controller implements GameComponent {
       // 默认行为结束后, 游戏正式开始
       await this.#callbackOfGameStart?.()
       this.transferControlTo(activePlayer)
-    } else this.reportError(new TexasError(2000, '游戏进程异常'))
+    } else {
+      return this.fail(new TexasError(TexasCoreErrorCode.CTRL_START_NO_ACTIVE))
+    }
   }
   // 获取小盲,大盲玩家
   #getSmallBindAndBigBind() {
@@ -276,67 +284,47 @@ class Controller implements GameComponent {
 
     const result = [smallBind, smallBind?.getNextPlayer()]
     if (result.some((player) => !player))
-      this.reportError(
-        new TexasError(2000, '游戏进程异常: 小盲或大盲玩家不存在')
-      )
+      return this.fail(new TexasError(TexasCoreErrorCode.CTRL_SB_BB_MISSING))
     return result
   }
   /**
    * @description 开始计时器, 将控制权移交给第一个可以行动的玩家
    */
   async start() {
-    this.#status = 'on'
+    this.#status = 'in_hand'
     this.#stage = StageEnum.PRE_FLOP
     this.#endAt = StageEnum.PRE_FLOP
 
-    // 测试环境保持玩家balance起始不变
-    if (process.env.PROJECT_ENV === 'dev') this.#dealer.reset()
+    if (TexasEngineContext.simulation().resetDealerBeforeHandStart) {
+      this.#dealer.reset()
+    }
 
     await this.takeActionInPreFlop()
-    this.startTimer()
   }
 
   onGameStart(callback: () => Promise<void>) {
     this.#callbackOfGameStart = callback
   }
 
-  startTimer() {
-    // 避免重复开启计时器
-    if (this.#timer) return
-
-    this.#timer = setInterval(() => {
-      this.#count++
-    }, 1000)
-  }
-
   /**
    * @description 继续游戏
    */
   continue() {
-    if (this.#status !== 'pause')
-      this.reportError(new TexasError(2100, '游戏不是暂停状态,无法继续'))
+    if (this.#status !== 'in_hand_paused')
+      return this.fail(new TexasError(TexasCoreErrorCode.CTRL_NOT_PAUSED))
 
-    this.#status = 'on'
+    this.#status = 'in_hand'
     this.#activePlayer?.continue()
-    this.startTimer()
-  }
-
-  clearTimer() {
-    if (this.#timer) {
-      clearInterval(this.#timer)
-      this.#timer = null
-    }
   }
 
   /**
    * @description 结束游戏, 回收玩家控制权
    */
   end() {
-    if (this.status !== 'on')
-      this.reportError(new TexasError(2100, '游戏不在进行中, 无法结束'))
+    if (this.status !== 'in_hand')
+      return this.fail(new TexasError(TexasCoreErrorCode.CTRL_END_NOT_IN_HAND))
 
-    this.clearTimer()
-    this.#status = 'end'
+    this.#status = 'hand_complete'
     this.resetActivePlayer()
   }
 
@@ -348,12 +336,9 @@ class Controller implements GameComponent {
    * @description 重置控制器, 在游戏结束之后调用
    */
   reset() {
-    this.clearTimer()
-
     this.resetActivePlayer()
-    this.#count = 0
     this.#defaultBets = []
-    this.#status = 'waiting'
+    this.#status = 'idle'
     this.#endAt = StageEnum.PRE_FLOP
     this.#stage = StageEnum.PRE_FLOP
   }
@@ -362,9 +347,7 @@ class Controller implements GameComponent {
    * @description 暂停游戏
    */
   pause() {
-    this.#status = 'pause'
-
-    this.clearTimer()
+    this.#status = 'in_hand_paused'
     this.activePlayer?.pause()
   }
 }
