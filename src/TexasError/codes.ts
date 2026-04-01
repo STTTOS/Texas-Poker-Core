@@ -72,6 +72,31 @@ export type TexasErrorCode =
   (typeof TexasCoreErrorCode)[keyof typeof TexasCoreErrorCode]
 
 export type TexasErrorPayload = Record<string, unknown>
+export type TexasErrorSeverity = 'recoverable' | 'fatal'
+
+/**
+ * 错误严重程度分级（用于 server 侧错误路由）：
+ * - recoverable: 业务校验失败/重复请求/时序不匹配，可仅拒绝当前动作
+ * - fatal: 核心不变量或流程损坏，建议中止当前对局并广播异常
+ */
+export function getTexasErrorSeverity(
+  code: TexasErrorCode
+): TexasErrorSeverity {
+  const fatalCodes = new Set<TexasErrorCode>([
+    TexasCoreErrorCode.CTRL_SB_BB_MISSING,
+    TexasCoreErrorCode.CTRL_START_NO_ACTIVE,
+    TexasCoreErrorCode.POOL_PAY_INVALID,
+    TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER,
+    TexasCoreErrorCode.DEALER_BUTTON_HANDOFF_INVALID
+  ])
+
+  if (fatalCodes.has(code)) return 'fatal'
+  return 'recoverable'
+}
+
+export function isFatalTexasErrorCode(code: TexasErrorCode): boolean {
+  return getTexasErrorSeverity(code) === 'fatal'
+}
 
 export function formatTexasErrorMessage(
   code: TexasErrorCode,

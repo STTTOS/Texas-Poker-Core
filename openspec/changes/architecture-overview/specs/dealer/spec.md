@@ -2,7 +2,7 @@
 
 ### Requirement: Dealer manages players and settlement inputs
 
-Dealer 维护玩家环形链表、角色分配、发牌，并在结算阶段为每个玩家计算：
+Dealer **MUST** 维护玩家环形链表、角色分配、发牌，并在结算阶段为每个玩家计算：
 
 - `bestFiveCards`
 - `rankSignature`

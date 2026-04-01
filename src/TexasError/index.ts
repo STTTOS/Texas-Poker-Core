@@ -18,6 +18,12 @@ class TexasError extends Error {
 
 export default TexasError
 export type { TexasErrorCode, TexasErrorPayload }
-export { TexasCoreErrorCode, formatTexasErrorMessage } from './codes'
+export {
+  TexasCoreErrorCode,
+  formatTexasErrorMessage,
+  getTexasErrorSeverity,
+  isFatalTexasErrorCode
+} from './codes'
+export type { TexasErrorSeverity } from './codes'
 export { texasErrorCategory, texasErrorMap } from './constant'
 export type { TexasErrorCodeLegacy } from './constant'

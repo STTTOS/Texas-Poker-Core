@@ -1,8 +1,10 @@
+import type { Poke } from '@/Deck/constant'
+
 import Pool from '@/Pool'
 import Room from '@/Room'
 import Dealer from '@/Dealer'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
-import Player, { User, ActionType, CallbackOfAction } from '@/Player'
+import Player, { User, Role, ActionType, CallbackOfAction } from '@/Player'
 import Controller, {
   CallbackOfGameEnd,
   CallbackOnNextStage
@@ -37,6 +39,14 @@ export interface PreAction {
     max: number
   }
 }
+
+export type RolesAssignedEvent = {
+  players: Array<{ userId: number; name: string; role: Role }>
+}
+
+export type CardsDealtEvent = {
+  players: Array<{ userId: number; name: string; handPokes: Poke[] }>
+}
 export type TexasErrorCallback = (error: TexasError) => never
 // 组件基类
 export interface GameComponent {
@@ -44,17 +54,14 @@ export interface GameComponent {
   fail?(error: TexasError): never
 }
 
-class GameEventEmitter {
-  protected errorCallback?: (error: TexasError) => void
-  onError(callback: (error: TexasError) => void) {
-    this.errorCallback = callback
-  }
-}
-class Texas extends GameEventEmitter {
+class Texas {
   pool: Pool
   room: Room
   dealer: Dealer
   controller: Controller
+  protected errorCallback?: (error: TexasError) => void
+  protected rolesAssignedCallback?: (event: RolesAssignedEvent) => void
+  protected cardsDealtCallback?: (event: CardsDealtEvent) => void
   /** 标准 fail-fast 入口：先通知 onError，再 throw */
   fail: (error: TexasError) => never
   /** @deprecated 历史命名；等价于 fail */
@@ -67,8 +74,6 @@ class Texas extends GameEventEmitter {
     maximumCountOfPlayers,
     initialChips
   }: CreateRoomInputArgs) {
-    super()
-
     // 使用箭头函数, 防止this指向问题
     this.fail = (error: TexasError) => {
       this.errorCallback?.(error)
@@ -108,6 +113,16 @@ class Texas extends GameEventEmitter {
     this.controller = controller
   }
 
+  onError(callback: (error: TexasError) => void) {
+    this.errorCallback = callback
+  }
+  onRolesAssigned(callback: (event: RolesAssignedEvent) => void) {
+    this.rolesAssignedCallback = callback
+  }
+  onDealCards(callback: (event: CardsDealtEvent) => void) {
+    this.cardsDealtCallback = callback
+  }
+
   onPreAction(callback: (params: PreAction) => void) {
     this.dealer.forEach((player) => {
       player.onPreAction(callback)
@@ -132,9 +147,42 @@ class Texas extends GameEventEmitter {
     this.dealer.forEach((player) => player.onAction(callback))
   }
 
-  // 设置各个玩家的初始角色
-  ready() {
+  /**
+   * 设置玩家角色并锁定座位（原 ready）。
+   * - `Room.ready()` 会校验入座人数、并调用 `Dealer.setRoles()`
+   * - 成功后会触发 `onRolesAssigned` 事件
+   */
+  setPlayerRoles() {
     this.room.ready()
+    this.rolesAssignedCallback?.({
+      players: this.dealer.players
+        .filter((p) => !!p.getRole())
+        .map((p) => ({
+          userId: p.getUserInfo().id,
+          name: p.getUserInfo().name,
+          role: p.getRole()!
+        }))
+    })
+  }
+
+  /**
+   * 发牌（对外暴露给业务层）。
+   * - 成功后会触发 `onDealCards` 事件
+   */
+  dealCards() {
+    this.dealer.dealCards()
+    this.cardsDealtCallback?.({
+      players: this.dealer.players.map((p) => ({
+        userId: p.getUserInfo().id,
+        name: p.getUserInfo().name,
+        handPokes: p.getHandPokes()
+      }))
+    })
+  }
+
+  /** @deprecated 请使用 setPlayerRoles */
+  ready() {
+    this.setPlayerRoles()
   }
 
   async start() {
@@ -152,7 +200,7 @@ class Texas extends GameEventEmitter {
       this.fail(new TexasError(TexasCoreErrorCode.SESSION_START_NOT_IDLE))
 
     this.resetBeforeGameStart()
-    this.dealer.dealCards()
+    this.dealCards()
     await this.controller.start()
   }
 
@@ -164,10 +212,10 @@ class Texas extends GameEventEmitter {
     this.controller.end()
   }
 
-  async settle() {
+  settle() {
     this.dealer.settle()
     // 计算并分配奖池
-    await this.pool.pay()
+    this.pool.pay()
   }
 
   reset() {

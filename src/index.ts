@@ -33,7 +33,10 @@ import TexasError, {
   TexasCoreErrorCode,
   texasErrorCategory,
   type TexasErrorCode,
+  getTexasErrorSeverity,
+  isFatalTexasErrorCode,
   type TexasErrorPayload,
+  type TexasErrorSeverity,
   formatTexasErrorMessage,
   type TexasErrorCodeLegacy
 } from '@/TexasError'
@@ -69,8 +72,11 @@ export {
   TexasError,
   TexasErrorCode,
   TexasErrorPayload,
+  TexasErrorSeverity,
   TexasCoreErrorCode,
   formatTexasErrorMessage,
+  getTexasErrorSeverity,
+  isFatalTexasErrorCode,
   texasErrorMap,
   texasErrorCategory,
   TexasEngineContext,

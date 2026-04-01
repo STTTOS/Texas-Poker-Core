@@ -351,6 +351,12 @@ export class Player implements GameComponent {
     this.#rankSignature = value
     this.#rankCategory = value[0] as RankCategory
   }
+  get rankCategory(): RankCategory | undefined {
+    return this.#rankCategory
+  }
+  set rankCategory(value: RankCategory | undefined) {
+    this.#rankCategory = value
+  }
 
   getNextPlayer() {
     return this.#nextPlayer

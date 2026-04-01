@@ -44,7 +44,7 @@ let end = 0
 let errorCount = 0
 const errorInfo: string[] = []
 async function test() {
-  texas.ready()
+  texas.setPlayerRoles()
   texas.onGameEnd(() => {
     end++
   })

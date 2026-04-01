@@ -23,16 +23,17 @@ const stages: Stage[] = [
 ]
 
 export type CallbackOfGameEnd = (params: {
-  restCommonPokes: Poke[]
+  /** 与 `onNextStage` 中 `pokesToReveal` 一致：`getCommonPokes(fromStage, toStage)` 本段新亮出的公牌 */
+  pokesToReveal: Poke[]
   currentStage: Stage
-  showHandPokes: boolean
-  // 游戏到shutdown阶段时, 需要展示场上最大牌型组合
-  // 此字段可能为空, 比如其他玩家都弃牌时, 并不需要展示
+  /** 本手结束所在街；摊牌结束为河牌 */
+  endStage: Stage
+  // 摊牌时需展示场上最大牌型组合；他人全弃牌时通常为空
   bestPokes?: Poke[][]
   bestRankCategory?: RankCategory
 }) => void
 export type CallbackOnNextStage = (params: {
-  commonPokes: Poke[]
+  pokesToReveal: Poke[]
   stage: Stage
   lastStage: Stage
 }) => void
@@ -131,9 +132,9 @@ class Controller implements GameComponent {
       this.end()
       this.#endAt = this.#stage
       this.#callbackOfEnd?.({
-        restCommonPokes: this.getCommonPokes(this.#stage, this.#endAt),
+        pokesToReveal: this.getCommonPokes(this.#stage, this.#endAt),
         currentStage: this.#stage,
-        showHandPokes: false
+        endStage: this.#endAt
       })
       TexasEngineContext.emitTrace({
         channel: 'controller',
@@ -157,9 +158,9 @@ class Controller implements GameComponent {
       const { rankCategory, pokes } = this.#dealer.deck.getBestRankInfo()
 
       this.#callbackOfEnd?.({
-        showHandPokes: true,
+        pokesToReveal: this.getCommonPokes(this.#stage, StageEnum.RIVER),
         currentStage: this.#stage,
-        restCommonPokes: this.getCommonPokes(this.#stage, StageEnum.RIVER),
+        endStage: StageEnum.RIVER,
         bestPokes: pokes,
         bestRankCategory: rankCategory
       })
@@ -194,7 +195,7 @@ class Controller implements GameComponent {
       this.#callbackOnNextStage?.({
         stage: nextStage,
         lastStage: currentStage,
-        commonPokes: this.getCommonPokes(currentStage, nextStage)
+        pokesToReveal: this.getCommonPokes(currentStage, nextStage)
       })
       TexasEngineContext.emitTrace({
         channel: 'controller',

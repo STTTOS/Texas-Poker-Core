@@ -2,7 +2,7 @@
 
 ### Requirement: Controller turn control and stage machine
 
-Controller 负责：
+Controller **MUST** 负责：
 
 - `StageEnum` 阶段推进（PRE_FLOP→FLOP→TURN→RIVER）
 - 行动权 `activePlayer` 的移交
@@ -12,7 +12,7 @@ Controller 负责：
 
 - **WHEN** 所有玩家在当前阶段都不可行动
 - **THEN** Controller 必须推进到下一阶段
-- **AND** 触发 onNextStage 回调（包含 stage/lastStage/commonPokes）
+- **AND** 触发 onNextStage 回调（包含 stage/lastStage/cardsToReveal）
 
 #### Scenario: Game end triggers
 

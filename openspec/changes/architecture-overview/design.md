@@ -43,16 +43,22 @@ sequenceDiagram
   App->>Texas: texas.onAction(cb)
   Texas->>Dealer: forEach(player).onAction(cb)
 
-  App->>Texas: texas.ready()
+  App->>Texas: texas.onRolesAssigned(cb)
+
+  App->>Texas: texas.setPlayerRoles()
   Texas->>Room: ready()
   Room->>Dealer: setRoles()
+  Texas-->>App: RolesAssignedEvent(players[userId,name,role])
+
+  App->>Texas: texas.onDealCards(cb)
 
   App->>Texas: texas.start()
   Texas->>Texas: resetBeforeGameStart()
+  Texas->>Texas: dealCards()
   Texas->>Dealer: dealCards()
   Dealer->>Deck: dealCards(count)
   Dealer->>Player: setHandPokes(2 cards)
-  Dealer->>Dealer: assign RoleEnum (BTN/SB/BB/...)
+  Texas-->>App: CardsDealtEvent(players[userId,name,handPokes])
 
   Texas->>Controller: start()
   Controller->>Controller: stage = PRE_FLOP
@@ -86,7 +92,7 @@ sequenceDiagram
 
 ### Controller
 
-- `ControllerStatus`: `waiting` → `on` → (`pause`/`abort`) → `end`
+- `HandLifecycle`: `idle` → `in_hand` → `hand_complete`（可选：`in_hand_paused`，预留：`aborted`）
 - `StageEnum`: `PRE_FLOP` → `FLOP` → `TURN` → `RIVER`
 
 关键点：
@@ -96,7 +102,7 @@ sequenceDiagram
 
 ### Room
 
-- `RoomStatus`: `unReady` → `ready`
+- `RoomStatus`: `seats_open` → `seats_locked`（`ready()` 后锁座/锁定角色）
 - 坐席状态：
   - `on-set`：入座玩家（参与本局）
   - `hang`：观战玩家（不参与本局）
@@ -117,5 +123,7 @@ sequenceDiagram
 
 ## Error handling
 
-- 统一使用 `TexasError`，由 `Texas.handleError`（或组件的 `reportError`）抛出
-- 回调链路中的异常应向外抛出，避免静默失败
+- 统一使用 `TexasError`
+- **fail-fast**：各组件通过注入的 `fail(error): never` 统一中断流程；`Texas.fail` 会先触发 `texas.onError(cb)` 的观察者回调，再 `throw`
+- **domain guards**：推荐使用 `invariant/required` 进行业务约束校验，语义为“不满足即 fail”
+- 回调/异步链路（HTTP/WebSocket/setTimeout 等）仍应在入口处捕获异常并转为对外响应；`onError` 更适合作为日志/监控/观测通道

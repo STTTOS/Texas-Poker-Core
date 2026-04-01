@@ -2,7 +2,7 @@
 
 ### Requirement: Pool records bets and pays out
 
-Pool 负责下注记录、边池划分与结算分配。
+Pool **MUST** 负责下注记录、边池划分与结算分配。
 
 #### Scenario: Pot conservation
 

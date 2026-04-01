@@ -2,7 +2,7 @@
 
 ### Requirement: Five-card evaluation and ordering
 
-Deck/core 提供五张组合牌的可比较标识与可排序强度。
+Deck/core **MUST** 提供五张组合牌的可比较标识与可排序强度。
 
 #### Scenario: RankSignature encodes RankCategory
 
