@@ -903,22 +903,27 @@ export class Player implements GameComponent {
   }
 
   /**
-   * @description 获取行动前的min~max 下注金额范围
+   * @description 获取行动前的 min~max 下注金额范围
+   * - max：当前玩家剩余筹码（可全下上限）
+   * - min：大盲、本家余额、当轮桌上「已下注额」正数最小值 三者取小（有人短码只下 300 时，后续玩家 min 可低至 300）
    */
   getRestrict() {
-    const max = Math.min(
-      this.getMaxAllInAmount() - this.#currentStageTotalAmount,
-      this.balance
+    const max = this.balance
+
+    const positiveStageTotals = this.#dealer
+      .map((p) => p.#currentStageTotalAmount)
+      .filter((n) => n > 0)
+    const minBetOnTableThisRound =
+      positiveStageTotals.length > 0
+        ? Math.min(...positiveStageTotals)
+        : this.#lowestBetAmount
+
+    const min = Math.min(
+      this.#lowestBetAmount,
+      this.balance,
+      minBetOnTableThisRound
     )
 
-    // 计算出跟注的金额
-    const moneyShouldCall =
-      this.getOthersMaxBetAmountAtCurrentStage() - this.#currentStageTotalAmount
-    // 如果跟注金额小于0, 则使用盲注金额
-    const min =
-      moneyShouldCall <= 0
-        ? Math.min(this.#lowestBetAmount, this.balance)
-        : moneyShouldCall
     return {
       min,
       max
