@@ -35,6 +35,8 @@ export const TexasCoreErrorCode = {
   CTRL_END_NOT_IN_HAND: 3303,
   CTRL_SB_BB_MISSING: 3305,
   CTRL_START_NO_ACTIVE: 3306,
+  /** tryToEndGame：Dealer 人数不足 2，流程损坏 */
+  CTRL_ENDGAME_INVARIANT_DEALER_LT_2: 3307,
 
   PLAYER_ACTION_INVALID: 3401,
   PLAYER_CANNOT_CHECK: 3402,
@@ -85,6 +87,7 @@ export function getTexasErrorSeverity(
   const fatalCodes = new Set<TexasErrorCode>([
     TexasCoreErrorCode.CTRL_SB_BB_MISSING,
     TexasCoreErrorCode.CTRL_START_NO_ACTIVE,
+    TexasCoreErrorCode.CTRL_ENDGAME_INVARIANT_DEALER_LT_2,
     TexasCoreErrorCode.POOL_PAY_INVALID,
     TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER,
     TexasCoreErrorCode.DEALER_BUTTON_HANDOFF_INVALID
@@ -152,6 +155,8 @@ export function formatTexasErrorMessage(
       return '游戏进程异常: 小盲或大盲玩家不存在'
     case TexasCoreErrorCode.CTRL_START_NO_ACTIVE:
       return '游戏进程异常'
+    case TexasCoreErrorCode.CTRL_ENDGAME_INVARIANT_DEALER_LT_2:
+      return `游戏进程异常: 进行中手牌 Dealer 人数不足 (${p.count ?? '?'})`
 
     case TexasCoreErrorCode.PLAYER_ACTION_INVALID:
       return String(p.detail ?? '玩家行为异常')

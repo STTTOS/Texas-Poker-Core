@@ -1,8 +1,8 @@
 import Room from '@/Room'
 import Pool from '@/Pool'
-import Controller from '.'
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
+import Controller, { StageEnum } from '.'
 
 describe('class Controller', () => {
   test('function transferControl', async () => {
@@ -87,5 +87,95 @@ describe('class Controller', () => {
     const dealer = new Dealer(1000)
     const controller = new Controller(dealer)
     expect(controller.status).toBe('idle')
+  })
+
+  test('tryToEndGame: exclusive fold ends hand and invokes onGameEnd', async () => {
+    const dealer = new Dealer(1000)
+    const controller = new Controller(dealer)
+    const pool = new Pool()
+    const p1 = new Player({
+      user: { id: 1, name: 'a' },
+      initialChips: 10000,
+      lowestBetAmount: dealer.lowestBetAmount,
+      controller,
+      dealer,
+      pool
+    })
+    const p2 = new Player({
+      user: { id: 2, name: 'b' },
+      initialChips: 10000,
+      lowestBetAmount: dealer.lowestBetAmount,
+      controller,
+      dealer,
+      pool
+    })
+    const room = new Room({
+      dealer,
+      owner: p1,
+      controller,
+      initialChips: 10000
+    })
+    room.seat(p1)
+    room.join(p2)
+    room.seat(p2)
+    dealer.setButton(p1)
+    room.ready()
+    dealer.dealCards()
+
+    const onEnd = jest.fn()
+    controller.onGameEnd(onEnd)
+    await controller.start()
+    await controller.activePlayer!.fold()
+
+    expect(controller.status).toBe('hand_complete')
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(onEnd.mock.calls[0][0].bestPokes).toBeUndefined()
+    expect(onEnd.mock.calls[0][0].bestRankCategory).toBeUndefined()
+  })
+
+  test('tryToEndGame: ends immediately when no one can act (all-in)', async () => {
+    const dealer = new Dealer(1000)
+    const controller = new Controller(dealer)
+    const pool = new Pool()
+    const onEnd = jest.fn()
+    controller.onGameEnd(onEnd)
+    const p1 = new Player({
+      user: { id: 1, name: 'a' },
+      initialChips: 10000,
+      lowestBetAmount: dealer.lowestBetAmount,
+      controller,
+      dealer,
+      pool
+    })
+    const p2 = new Player({
+      user: { id: 2, name: 'b' },
+      initialChips: 10000,
+      lowestBetAmount: dealer.lowestBetAmount,
+      controller,
+      dealer,
+      pool
+    })
+    const room = new Room({
+      dealer,
+      owner: p1,
+      controller,
+      initialChips: 10000
+    })
+    room.seat(p1)
+    room.join(p2)
+    room.seat(p2)
+    dealer.setButton(p1)
+    room.ready()
+    dealer.dealCards()
+    await controller.start()
+
+    while (controller.activePlayer) {
+      await controller.activePlayer.allIn()
+    }
+
+    expect(controller.status).toBe('hand_complete')
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(onEnd.mock.calls[0][0].endStage).toBe(StageEnum.RIVER)
+    expect(onEnd.mock.calls[0][0].bestPokes).toBeDefined()
   })
 })

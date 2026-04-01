@@ -31,6 +31,7 @@ export type CallbackOfGameEnd = (params: {
   // 摊牌时需展示场上最大牌型组合；他人全弃牌时通常为空
   bestPokes?: Poke[][]
   bestRankCategory?: RankCategory
+  showHandPokes: boolean
 }) => void
 export type CallbackOnNextStage = (params: {
   pokesToReveal: Poke[]
@@ -95,6 +96,38 @@ class Controller implements GameComponent {
     return this.#activePlayer
   }
 
+  /**
+   * ① 仅剩一名玩家未弃牌（至少两人局才有「独赢」）
+   */
+  #isWinByExclusiveFold(): boolean {
+    const n = this.#dealer.count
+    if (n < 2)
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_ENDGAME_INVARIANT_DEALER_LT_2, {
+          count: n
+        })
+      )
+
+    const folded = this.#dealer.filter((p) => p.getStatus() === 'out').length
+    return folded === n - 1
+  }
+
+  /**
+   * ② 结束条件（没人还能操作）：
+   * - 场上只剩 out / allIn（无 waiting）=> 直接结束（可能发生在任意街：多人全下）
+   * - 河牌圈且所有仍可行动玩家都不可 actionable（即便 status 仍为 waiting）=> 结束
+   */
+  shouldShowDown(): boolean {
+    const playersCanAct = this.#dealer.getPlayersCanAct()
+
+    // 只剩 1 名未弃牌玩家时由 `#isWinByExclusiveFold` 先结束，不会走到此处。
+    return (
+      playersCanAct.length === 0 ||
+      (this.#stage === StageEnum.RIVER &&
+        playersCanAct.every((player) => !player.actionable()))
+    )
+  }
+
   #getPokeEndIndex(stage: Stage) {
     if (stage === StageEnum.PRE_FLOP) return 0
     if (stage === StageEnum.FLOP) return 3
@@ -107,7 +140,7 @@ class Controller implements GameComponent {
    * @param player
    */
   transferControlTo(player: Player | null) {
-    if (this.#activePlayer === player)
+    if (player !== null && this.#activePlayer === player)
       return this.fail(
         new TexasError(TexasCoreErrorCode.CTRL_DUPLICATE_CONTROL)
       )
@@ -123,18 +156,14 @@ class Controller implements GameComponent {
    * @returns
    */
   tryToEndGame() {
-    const otherPlayersFold =
-      this.#dealer.filter((player) => player.getStatus() === 'out').length ===
-      this.#dealer.count - 1
-
-    // 其他玩家都弃牌了
-    if (otherPlayersFold) {
+    if (this.#isWinByExclusiveFold()) {
       this.end()
       this.#endAt = this.#stage
       this.#callbackOfEnd?.({
         pokesToReveal: this.getCommonPokes(this.#stage, this.#endAt),
         currentStage: this.#stage,
-        endStage: this.#endAt
+        endStage: this.#endAt,
+        showHandPokes: false
       })
       TexasEngineContext.emitTrace({
         channel: 'controller',
@@ -144,25 +173,18 @@ class Controller implements GameComponent {
       return true
     }
 
-    // 可以行动的人数(非allIn & out) <= 1 && 可以行动的人采取了行动
-    const playersCanAct = this.#dealer.getPlayersCanAct()
-    const shouldEndGame =
-      playersCanAct.length === 0 ||
-      (playersCanAct.length === 1 && !playersCanAct[0].actionable()) ||
-      (this.#dealer.every((player) => !player.actionable()) &&
-        this.#stage === StageEnum.RIVER)
-
-    if (shouldEndGame) {
+    if (this.shouldShowDown()) {
       this.end()
       this.#endAt = this.stage
       const { rankCategory, pokes } = this.#dealer.deck.getBestRankInfo()
 
       this.#callbackOfEnd?.({
-        pokesToReveal: this.getCommonPokes(this.#stage, StageEnum.RIVER),
+        bestPokes: pokes,
+        showHandPokes: true,
         currentStage: this.#stage,
         endStage: StageEnum.RIVER,
-        bestPokes: pokes,
-        bestRankCategory: rankCategory
+        bestRankCategory: rankCategory,
+        pokesToReveal: this.getCommonPokes(this.#stage, StageEnum.RIVER)
       })
       TexasEngineContext.emitTrace({
         channel: 'controller',
@@ -171,6 +193,7 @@ class Controller implements GameComponent {
       })
       return true
     }
+
     return false
   }
 
@@ -184,6 +207,8 @@ class Controller implements GameComponent {
     )
     if (canPushToNextStage) {
       const index = stages.findIndex((stage) => stage === this.#stage)
+      if (index < 0 || index >= stages.length - 1) return false
+
       const currentStage = this.#stage
       const nextStage = stages[index + 1]
 
