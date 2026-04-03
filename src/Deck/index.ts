@@ -1,9 +1,5 @@
+import { getBestPokesRankSignature } from './core'
 import { ranks, suits, type Poke, RankCategory } from './constant'
-import {
-  getBestRankInfo,
-  getBestRankCategory,
-  getBestPokesRankSignature
-} from './core'
 
 /**
  * 洗牌, 发牌
@@ -120,16 +116,6 @@ class Deck {
       this.#commonPokes
     )
     return rankSignature[0] as RankCategory
-  }
-  getBestRankSignature() {
-    return getBestRankCategory(this.#handPokes, this.#commonPokes)
-  }
-
-  getBestRankInfo() {
-    return getBestRankInfo(this.#handPokes, this.#commonPokes)
-  }
-  getBestPokeCombinations() {
-    return getBestRankInfo(this.#handPokes, this.#commonPokes).pokes
   }
 }
 export default Deck

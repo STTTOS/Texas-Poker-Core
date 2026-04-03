@@ -1,13 +1,13 @@
 import { equals } from 'ramda'
 
 import { Player } from '@/Player'
+import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import {
   Poke,
   Rank,
   Suit,
   rankMap,
   suitsMap,
-  comboIndices,
   RankCategory,
   RankSignature
 } from './constant'
@@ -63,13 +63,87 @@ function parseRankNumbersFromRankSignature(rankSignature: string): number[] {
   })
 }
 
+/** n 张牌里取 5 张的所有下标组合（C(n,5)） */
+function combinationIndices(n: number, k: number): number[][] {
+  const out: number[][] = []
+  const path: number[] = []
+  function dfs(from: number) {
+    if (path.length === k) {
+      out.push([...path])
+      return
+    }
+    for (let i = from; i < n; i++) {
+      path.push(i)
+      dfs(i + 1)
+      path.pop()
+    }
+  }
+  dfs(0)
+  return out
+}
+
+/** C(5,5)=1：翻牌圈 2 手牌 + 3 公牌 */
+const PRECOMPUTED_INDICES_5_CHOOSE_5: readonly number[][] = [[0, 1, 2, 3, 4]]
+
+/** C(6,5)=6：转牌圈，等价于各去掉一张 */
+const PRECOMPUTED_INDICES_6_CHOOSE_5: readonly number[][] = [
+  [1, 2, 3, 4, 5],
+  [0, 2, 3, 4, 5],
+  [0, 1, 3, 4, 5],
+  [0, 1, 2, 4, 5],
+  [0, 1, 2, 3, 5],
+  [0, 1, 2, 3, 4]
+]
+
+/** C(7,5)=21：河牌圈 */
+const PRECOMPUTED_INDICES_7_CHOOSE_5: readonly number[][] = [
+  [0, 1, 2, 3, 4],
+  [0, 1, 2, 3, 5],
+  [0, 1, 2, 3, 6],
+  [0, 1, 2, 4, 5],
+  [0, 1, 2, 4, 6],
+  [0, 1, 2, 5, 6],
+  [0, 1, 3, 4, 5],
+  [0, 1, 3, 4, 6],
+  [0, 1, 3, 5, 6],
+  [0, 1, 4, 5, 6],
+  [0, 2, 3, 4, 5],
+  [0, 2, 3, 4, 6],
+  [0, 2, 3, 5, 6],
+  [0, 2, 4, 5, 6],
+  [0, 3, 4, 5, 6],
+  [1, 2, 3, 4, 5],
+  [1, 2, 3, 4, 6],
+  [1, 2, 3, 5, 6],
+  [1, 2, 4, 5, 6],
+  [1, 3, 4, 5, 6],
+  [2, 3, 4, 5, 6]
+]
+
 /**
- *
- * @param pokes 2张底牌 + 5张公共牌, length === 7
- * @returns
+ * 德州 5/6/7 张可用牌时，直接返回预展开的 C(n,5) 下标表（零 DFS）；其它 n、k 回退到 `combinationIndices`。
+ * 返回的预计算行请勿原地修改，以免污染全局表。
  */
-function getCombinations(pokes: Poke[]) {
-  return comboIndices.map((indices) => indices.map((i) => pokes[i]))
+export function getFiveCardCombinationIndices(n: number, k = 5): number[][] {
+  if (k !== 5) return combinationIndices(n, k)
+  if (n === 5) return PRECOMPUTED_INDICES_5_CHOOSE_5 as unknown as number[][]
+  if (n === 6) return PRECOMPUTED_INDICES_6_CHOOSE_5 as unknown as number[][]
+  if (n === 7) return PRECOMPUTED_INDICES_7_CHOOSE_5 as unknown as number[][]
+  return combinationIndices(n, k)
+}
+
+/**
+ * 从若干张可用牌（5/6/7 张）枚举所有可能的五张成牌组合。
+ * - 5 张：仅一种（翻牌圈 2 手牌 + 3 公牌）
+ * - 6 张：C(6,5)=6（转牌圈）
+ * - 7 张：C(7,5)=21（河牌圈）
+ */
+function allFiveCardHandsFromPool(cards: Poke[]): Poke[][] {
+  const n = cards.length
+  if (n < 5) throw new Error(`可用牌少于5张（当前${n}张）, 无法组合五张牌型`)
+  return getFiveCardCombinationIndices(n, 5).map((idx) =>
+    idx.map((i) => cards[i])
+  )
 }
 
 const compareFnOfSameType = (a: string, b: string) => {
@@ -85,10 +159,7 @@ const compareFnOfSameType = (a: string, b: string) => {
 }
 
 /**
- * @description 比较两种组合的牌力大小
- * @param a
- * @param b
- * @returns
+ * 以 `rankSignature` 比牌；其中四条为 `x` + 四条点数（标准牌库下同 rank 仅四张，无需踢脚编码）。
  */
 export const compareFn = (a: Poke[], b: Poke[]) => {
   const [rankSigA, rankSigB] = [
@@ -159,7 +230,6 @@ export function getFiveCardsStrength(input: Poke[]): number {
  * @returns rankSignature
  */
 export function getFiveCardsRankSignature(input: Poke[]): RankSignature {
-  // return
   const suits = input.map((poke) => poke[0] as Suit)
   const ranks = input.map((poke) => poke[1] as Rank)
 
@@ -189,7 +259,7 @@ export function getFiveCardsRankSignature(input: Poke[]): RankSignature {
     ]
     const [greaterOne, lessOne] =
       countA > countB ? [rankA, rankB] : [rankB, rankA]
-    // 四条
+    // 四条：同点数全桌至多四张，只编码四条 rank，比牌见 compareFn 说明
     if ([countA, countB].includes(4)) {
       return `x${rankMap(greaterOne)}`
     }
@@ -231,22 +301,27 @@ export function getFiveCardsRankSignature(input: Poke[]): RankSignature {
 }
 
 /**
- * 从 2 张手牌与 5 张底牌中，选出牌力最大的 5 张牌型；。
- * @param handPokes 手牌（如 2 张）
- * @param commonPokes 底牌/公共牌（如 5 张）
+ * 从 2 张手牌与公共牌中选出牌力最大的五张成牌。
+ * - 公共牌 3 张：共 5 张牌，直接作为成牌
+ * - 公共牌 4 张：共 6 张，C(6,5) 择优
+ * - 公共牌 5 张：共 7 张，C(7,5) 择优
  */
 export function getBestFiveCards(
   handPokes: Poke[],
   commonPokes: Poke[]
 ): Poke[] {
-  if (commonPokes.length === 0)
-    throw new Error('底牌数量不足, 无法组合出最大5张牌型')
+  if (handPokes.length !== 2)
+    throw new Error(`手牌须为2张（当前${handPokes.length}张）`)
 
-  const [maxOne] = getCombinations(handPokes.concat(commonPokes)).sort(
-    compareFn
-  )
+  const nc = commonPokes.length
+  if (nc === 0) throw new Error('底牌数量不足, 无法组合出最大5张牌型')
+  if (nc !== 3 && nc !== 4 && nc !== 5)
+    throw new Error(`公共牌须为3、4或5张（当前${nc}张）`)
 
-  return maxOne
+  const all = [...handPokes, ...commonPokes]
+  const combos = allFiveCardHandsFromPool(all)
+  const sorted = combos.sort(compareFn)
+  return sorted[0]
 }
 
 /**
@@ -260,7 +335,10 @@ export function getSortedAllHandPokesCombinations(
 ) {
   const allCombinations = handPokes
     .map((pokes) =>
-      getCombinations([...(pokes as unknown as Poke[]), ...commonPokes])
+      allFiveCardHandsFromPool([
+        ...(pokes as unknown as Poke[]),
+        ...commonPokes
+      ])
     )
     .flat(1)
     .sort(compareFn)
@@ -291,6 +369,7 @@ export function getBestRankInfo(handPokes: Poke[][], commonPokes: Poke[]) {
   )
   const rankSignature = getFiveCardsRankSignature(allCombinations[0])
   const rankCategory = rankSignature[0] as RankCategory
+  const rankStrength = getStrengthFromRankSignature(rankSignature)
 
   const pokes = allCombinations
     .map((combination) => ({
@@ -303,7 +382,8 @@ export function getBestRankInfo(handPokes: Poke[][], commonPokes: Poke[]) {
   return {
     rankSignature,
     rankCategory,
-    pokes
+    pokes,
+    rankStrength
   }
 }
 /**
@@ -318,11 +398,15 @@ export const formatterPoke = (input: Poke[]) => {
 }
 
 /**
- * @description 根据玩家 rankStrength 计算出赢家
+ * @description 根据玩家 rankStrength 计算出赢家 & 如果翻牌前只剩一人, 则此玩家就是赢家
  */
 export const getWinners = (players: Player[]) => {
-  if (players.some((p) => !p.rankSignature))
-    throw new Error('未计算玩家手牌大小,无法比较')
+  // 翻牌前除一位玩家都弃牌, 则此玩家就是赢家
+  if (players.every((p) => !p.rankSignature)) {
+    const winner = players.filter((p) => p.getStatus() !== 'out')
+    if (winner.length === 1) return winner
+    throw new TexasError(TexasCoreErrorCode.POOL_WINNERS_INVALID)
+  }
 
   const maxRankStrength = Math.max(
     ...players

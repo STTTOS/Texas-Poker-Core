@@ -1,3 +1,9 @@
+/** 用于与业务层 WS 节奏对齐的 pacing（在移交控制权 / 开表前等待） */
+export const sleep = (ms: number) =>
+  ms <= 0
+    ? Promise.resolve()
+    : new Promise<void>((resolve) => setTimeout(resolve, ms))
+
 export const getRandomInt = (min: number, max: number) => {
   if (max < min)
     throw new Error('unCaught logic error: max can not lower than min')

@@ -61,6 +61,96 @@ describe('class Player', () => {
   })
 
   describe('getRestrict', () => {
+    test('多人局翻牌前盲注刚下完：即使前位弃牌，后位仍按 BB 作为 min', async () => {
+      const dealer = new Dealer(200)
+      const controller = new Controller(dealer)
+      const pool = new Pool()
+      const p1 = new Player({
+        user: { id: 1, name: 'a' },
+        initialChips: 5000,
+        lowestBetAmount: dealer.lowestBetAmount,
+        controller,
+        dealer,
+        pool
+      })
+      const p2 = new Player({
+        user: { id: 2, name: 'b' },
+        initialChips: 5000,
+        lowestBetAmount: dealer.lowestBetAmount,
+        controller,
+        dealer,
+        pool
+      })
+      const p3 = new Player({
+        user: { id: 3, name: 'c' },
+        initialChips: 5000,
+        lowestBetAmount: dealer.lowestBetAmount,
+        controller,
+        dealer,
+        pool
+      })
+      const room = new Room({
+        dealer,
+        owner: p1,
+        controller,
+        initialChips: 5000
+      })
+      room.seat(p1)
+      room.join(p2)
+      room.join(p3)
+      room.seat(p2)
+      room.seat(p3)
+      dealer.setButton(p1)
+      room.ready()
+      dealer.dealCards()
+      await controller.start()
+
+      const firstActor = controller.activePlayer!
+      expect(firstActor.getRestrict().min).toBe(200)
+
+      // 首个行动者弃牌后，底池仍是 SB+BB，后位仍按“刚下盲注”规则
+      await firstActor.fold()
+      expect(controller.activePlayer!.getRestrict().min).toBe(200)
+    })
+
+    test('双人局翻牌前：按钮位（小盲）min 可为补齐差额（100）', async () => {
+      const dealer = new Dealer(200)
+      const controller = new Controller(dealer)
+      const pool = new Pool()
+      const p1 = new Player({
+        user: { id: 1, name: 'a' },
+        initialChips: 5000,
+        lowestBetAmount: dealer.lowestBetAmount,
+        controller,
+        dealer,
+        pool
+      })
+      const p2 = new Player({
+        user: { id: 2, name: 'b' },
+        initialChips: 5000,
+        lowestBetAmount: dealer.lowestBetAmount,
+        controller,
+        dealer,
+        pool
+      })
+      const room = new Room({
+        dealer,
+        owner: p1,
+        controller,
+        initialChips: 5000
+      })
+      room.seat(p1)
+      room.join(p2)
+      room.seat(p2)
+      dealer.setButton(p1)
+      room.ready()
+      dealer.dealCards()
+      await controller.start()
+
+      // 双人局按钮位先行动，min 可为补齐到 BB 的差额（100）
+      expect(controller.activePlayer!.getRestrict().min).toBe(100)
+    })
+
     test('min is min(lowestBet, balance, smallest positive currentStageTotal on table)', () => {
       const dealer = new Dealer(1000)
       const controller = new Controller(dealer)

@@ -5,6 +5,13 @@ import { Poke, RankCategory } from '@/Deck/constant'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
+import {
+  formatterPoke,
+  getBestRankInfo,
+  getBestFiveCards,
+  getFiveCardsRankSignature,
+  getStrengthFromRankSignature
+} from '@/Deck/core'
 
 export enum StageEnum {
   PRE_FLOP = 'pre_flop',
@@ -31,6 +38,7 @@ export type CallbackOfGameEnd = (params: {
   // 摊牌时需展示场上最大牌型组合；他人全弃牌时通常为空
   bestPokes?: Poke[][]
   bestRankCategory?: RankCategory
+  bestRankStrength?: number
   showHandPokes: boolean
 }) => void
 export type CallbackOnNextStage = (params: {
@@ -53,27 +61,50 @@ export type HandLifecycle =
   | 'hand_complete'
   | 'aborted'
 
+/** 业务注入：在 core 固定顺序点 `await`，用于 WS/动画与思考计时起点对齐 */
+export type TexasTurnPacingHooks = {
+  /**
+   * `onNextStage` 已同步执行完后、`getControl` 交给新街首位之前。
+   * 宜发完 stage 相关 WS/写库后再在此 `sleep`。
+   */
+  beforeStageAdvance?: () => void | Promise<void>
+  /**
+   * 同一街内将控制权交给下一位、`getControl`（开表计时）之前。
+   */
+  beforeNextPlayerTurn?: () => void | Promise<void>
+}
+
 class Controller implements GameComponent {
   #status: HandLifecycle = 'idle'
+  // 当前游戏阶段
   #stage: Stage = StageEnum.PRE_FLOP
-  // 游戏在哪个极端结束的, 比如翻牌圈其他玩家都弃牌, 游戏在这个阶段就结束了
-  #endAt: Stage = StageEnum.PRE_FLOP
+  // 公共牌翻到哪个阶段, 用户结算时结算最大牌型
+  #boardThroughStage: Stage = StageEnum.PRE_FLOP
   #activePlayer: Player | null = null
   #dealer: Dealer
   #callbackOfEnd?: CallbackOfGameEnd
   #callbackOnNextStage?: CallbackOnNextStage
   #callbackOfGameStart?: () => Promise<void>
   #defaultBets: Array<{ userId: number; balance: number; amount: number }> = []
+  /** 牌型结算信息 */
+  #rankInfo: {
+    rankCategory?: RankCategory
+    pokes: Poke[][]
+    rankStrength: number
+  } = { rankCategory: undefined, pokes: [], rankStrength: 0 }
+  #turnPacingHooks?: TexasTurnPacingHooks
   fail: TexasErrorCallback
 
   constructor(
     dealer: Dealer,
     fail: TexasErrorCallback = (error) => {
       throw error
-    }
+    },
+    turnPacingHooks?: TexasTurnPacingHooks
   ) {
     this.#dealer = dealer
     this.fail = fail
+    this.#turnPacingHooks = turnPacingHooks
   }
 
   get status() {
@@ -89,7 +120,7 @@ class Controller implements GameComponent {
   }
 
   get endAt() {
-    return this.#endAt
+    return this.#boardThroughStage
   }
 
   get activePlayer() {
@@ -135,15 +166,29 @@ class Controller implements GameComponent {
     if (stage === StageEnum.RIVER) return 5
   }
 
+  /** 获取游戏结束阶段时的公共牌*/
+  getCommonPokesWhenGameEnd() {
+    return this.getCommonPokes(StageEnum.PRE_FLOP, this.#boardThroughStage)
+  }
+
   /**
    * @description 将控制器移交给指定玩家
-   * @param player
+   * @param skipNextPlayerPacing 为 true 时跳过 `beforeNextPlayerTurn`（例如刚执行完阶段推进并已 `await beforeStageAdvance`）
    */
-  transferControlTo(player: Player | null) {
-    if (player !== null && this.#activePlayer === player)
+  async transferControlTo(
+    player: Player | null,
+    options?: { skipNextPlayerPacing?: boolean }
+  ) {
+    if (!player)
+      return this.fail(new TexasError(TexasCoreErrorCode.CTRL_NO_PLAYER))
+    if (this.#activePlayer === player)
       return this.fail(
         new TexasError(TexasCoreErrorCode.CTRL_DUPLICATE_CONTROL)
       )
+
+    if (!options?.skipNextPlayerPacing) {
+      await this.#turnPacingHooks?.beforeNextPlayerTurn?.()
+    }
 
     this.#activePlayer = player
     player?.getControl()
@@ -157,39 +202,57 @@ class Controller implements GameComponent {
    */
   tryToEndGame() {
     if (this.#isWinByExclusiveFold()) {
+      this.#boardThroughStage = this.#stage
+      this.#settle()
       this.end()
-      this.#endAt = this.#stage
+
       this.#callbackOfEnd?.({
-        pokesToReveal: this.getCommonPokes(this.#stage, this.#endAt),
+        pokesToReveal: this.getCommonPokes(
+          this.#stage,
+          this.#boardThroughStage
+        ),
         currentStage: this.#stage,
-        endStage: this.#endAt,
+        endStage: this.#boardThroughStage,
         showHandPokes: false
       })
       TexasEngineContext.emitTrace({
         channel: 'controller',
         name: 'hand_end_fold_win',
-        data: { endAt: this.#endAt }
+        data: {
+          lastActionStage: this.#stage,
+          boardThroughStage: this.#boardThroughStage
+        }
       })
       return true
     }
 
     if (this.shouldShowDown()) {
+      const currentStage = this.#stage
+      this.#boardThroughStage = StageEnum.RIVER
+      this.#stage = StageEnum.RIVER
+      this.#settle()
       this.end()
-      this.#endAt = this.stage
-      const { rankCategory, pokes } = this.#dealer.deck.getBestRankInfo()
 
+      const { rankCategory, pokes, rankStrength } = this.#rankInfo
       this.#callbackOfEnd?.({
         bestPokes: pokes,
         showHandPokes: true,
-        currentStage: this.#stage,
-        endStage: StageEnum.RIVER,
+        currentStage: currentStage,
+        endStage: this.#boardThroughStage,
+        bestRankStrength: rankStrength,
         bestRankCategory: rankCategory,
-        pokesToReveal: this.getCommonPokes(this.#stage, StageEnum.RIVER)
+        pokesToReveal: this.getCommonPokes(
+          currentStage,
+          this.#boardThroughStage
+        )
       })
       TexasEngineContext.emitTrace({
         channel: 'controller',
         name: 'hand_end_showdown',
-        data: { endAt: this.#endAt }
+        data: {
+          lastActionStage: currentStage,
+          boardThroughStage: this.#boardThroughStage
+        }
       })
       return true
     }
@@ -201,11 +264,15 @@ class Controller implements GameComponent {
    * @description 每个玩家行动之后, 都要调用此方法
    * 推进到新的阶段后, 将控制权交当前阶段第一位可以行动的玩家
    */
-  tryToAdvanceGameToNextStage() {
+  async tryToAdvanceGameToNextStage() {
     const canPushToNextStage = this.#dealer.every(
       (player) => !player.actionable()
     )
     if (canPushToNextStage) {
+      // 补充最后一个玩家的行动间隔
+      if (this.#turnPacingHooks?.beforeNextPlayerTurn) {
+        await this.#turnPacingHooks?.beforeNextPlayerTurn()
+      }
       const index = stages.findIndex((stage) => stage === this.#stage)
       if (index < 0 || index >= stages.length - 1) return false
 
@@ -217,6 +284,7 @@ class Controller implements GameComponent {
       this.#dealer.resetActionsOfPlayers()
       this.#dealer.resetActionsHistory()
 
+      const activePlayerId = this.#activePlayer?.getUserInfo().id
       this.#callbackOnNextStage?.({
         stage: nextStage,
         lastStage: currentStage,
@@ -228,12 +296,15 @@ class Controller implements GameComponent {
         data: {
           from: currentStage,
           to: nextStage,
-          byUserId: this.#activePlayer?.getUserInfo().id
+          byUserId: activePlayerId
         }
       })
-
       this.resetActivePlayer()
-      this.transferControlTo(this.#dealer.getTheFirstPlayerToAct())
+
+      await this.#turnPacingHooks?.beforeStageAdvance?.()
+      await this.transferControlTo(this.#dealer.getTheFirstPlayerToAct(), {
+        skipNextPlayerPacing: true
+      })
       return true
     }
     return false
@@ -295,7 +366,7 @@ class Controller implements GameComponent {
     if (activePlayer) {
       // 默认行为结束后, 游戏正式开始
       await this.#callbackOfGameStart?.()
-      this.transferControlTo(activePlayer)
+      await this.transferControlTo(activePlayer)
     } else {
       return this.fail(new TexasError(TexasCoreErrorCode.CTRL_START_NO_ACTIVE))
     }
@@ -319,7 +390,7 @@ class Controller implements GameComponent {
   async start() {
     this.#status = 'in_hand'
     this.#stage = StageEnum.PRE_FLOP
-    this.#endAt = StageEnum.PRE_FLOP
+    this.#boardThroughStage = StageEnum.PRE_FLOP
 
     if (TexasEngineContext.simulation().resetDealerBeforeHandStart) {
       this.#dealer.reset()
@@ -344,7 +415,16 @@ class Controller implements GameComponent {
   }
 
   /**
-   * @description 结束游戏, 回收玩家控制权
+   * 按「公共牌已发到哪一条街」结算各玩家 bestFiveCards / rank（如发牌后未开局、测试或强制结束时可调）。
+   * 正常对局在 `tryToEndGame` 命中时已内部调用 `#settle`。
+   */
+  settleRankingsThroughStage(throughStage: Stage) {
+    this.#boardThroughStage = throughStage
+    this.#settle()
+  }
+
+  /**
+   * @description 结束游戏, 回收玩家控制权（牌型结算由 `tryToEndGame` 或 `settleRankingsThroughStage` 负责）
    */
   end() {
     if (this.status !== 'in_hand')
@@ -354,6 +434,37 @@ class Controller implements GameComponent {
     this.resetActivePlayer()
   }
 
+  /** 根据当前阶段, dealer,以及deck 比较结算出最大牌型信息, 以及计算出每个玩家的牌型算力 */
+  #settle() {
+    const commonPokesWhenGameEnd = this.getCommonPokesWhenGameEnd()
+    if (commonPokesWhenGameEnd.length === 0) return
+
+    this.#dealer.forEach((player) => {
+      const bestFiveCards = getBestFiveCards(
+        player.getHandPokes(),
+        commonPokesWhenGameEnd
+      )
+
+      // 存储最大五张牌, 防止后续重复计算
+      player.bestFiveCards = bestFiveCards
+      player.rankSignature = getFiveCardsRankSignature(bestFiveCards)
+      player.rankStrength = getStrengthFromRankSignature(player.rankSignature)
+    })
+    this.#rankInfo = getBestRankInfo(
+      this.#dealer
+        // 弃牌玩家不参与最终牌型大小比较
+        .getPlayersStillInGame()
+        .map((player) => player.getHandPokes()),
+      commonPokesWhenGameEnd
+    )
+    TexasEngineContext.emitTrace({
+      channel: 'dealer',
+      name: 'settle_common_pokes',
+      data: {
+        commonPokes: formatterPoke(commonPokesWhenGameEnd)
+      }
+    })
+  }
   resetActivePlayer() {
     this.#activePlayer?.removeControl()
     this.#activePlayer = null
@@ -365,8 +476,9 @@ class Controller implements GameComponent {
     this.resetActivePlayer()
     this.#defaultBets = []
     this.#status = 'idle'
-    this.#endAt = StageEnum.PRE_FLOP
+    this.#boardThroughStage = StageEnum.PRE_FLOP
     this.#stage = StageEnum.PRE_FLOP
+    this.#rankInfo = { rankCategory: undefined, pokes: [], rankStrength: 0 }
   }
 
   /**

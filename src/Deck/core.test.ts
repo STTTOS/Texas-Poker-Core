@@ -2,6 +2,7 @@ import { Rank } from './constant'
 import {
   compareFn,
   isStraight,
+  getBestFiveCards,
   getFiveCardsStrength,
   getFiveCardsRankSignature,
   getBestPokesRankSignature,
@@ -74,6 +75,48 @@ describe('core logic', () => {
       ['s3', 'h3', 'c3', 'h5', 'h6']
     )
     expect(max).toEqual('x3')
+  })
+
+  describe('getBestFiveCards', () => {
+    test('公共牌3张：共5张牌，直接成牌', () => {
+      const hand = ['h7', 'h8'] as const
+      const board = ['h9', 'ht', 'hj'] as const
+      const best = getBestFiveCards([...hand], [...board])
+      expect(best).toHaveLength(5)
+      expect(new Set(best).size).toBe(5)
+      expect(getFiveCardsRankSignature(best)[0]).toBe('y')
+    })
+
+    test('公共牌4张：6张里可组成四条', () => {
+      const hand = ['d2', 'h2'] as const
+      const board = ['c2', 's2', 'ca', 'ck'] as const
+      const best = getBestFiveCards([...hand], [...board])
+      expect(best).toHaveLength(5)
+      expect(getFiveCardsRankSignature(best)).toBe('x2')
+    })
+
+    test('公共牌5张：7张里选最优五张（与多手牌场景一致）', () => {
+      const best = getBestFiveCards(
+        ['c2', 's2'],
+        ['s3', 'h3', 'c3', 'h5', 'h6']
+      )
+      expect(getFiveCardsRankSignature(best)).toEqual(
+        getFiveCardsRankSignature(['c2', 's2', 's3', 'h3', 'c3'])
+      )
+    })
+
+    test('非法张数：公共牌非3/4/5或手牌非2张', () => {
+      expect(() => getBestFiveCards(['ha'], ['h2', 'h3', 'h4'])).toThrow(
+        /手牌须为2张/
+      )
+      expect(() => getBestFiveCards(['ha', 'hk'], [])).toThrow(/底牌数量不足/)
+      expect(() => getBestFiveCards(['ha', 'hk'], ['h2'])).toThrow(
+        /公共牌须为3/
+      )
+      expect(() =>
+        getBestFiveCards(['ha', 'hk'], ['h2', 'h3', 'h4', 'h5', 'h6', 'h7'])
+      ).toThrow(/公共牌须为3/)
+    })
   })
 
   test('function compareFn', () => {

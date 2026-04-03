@@ -1,17 +1,11 @@
 import Deck from '@/Deck'
 import { getRandomInt } from '@/utils'
 import { Role, Player, RoleEnum } from '@/Player'
+import { getWinners, formatterPoke } from '@/Deck/core'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import { GameComponent, TexasErrorCallback } from '@/Texas'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
-import {
-  getWinners,
-  formatterPoke,
-  getBestFiveCards,
-  getFiveCardsRankSignature,
-  getStrengthFromRankSignature
-} from '@/Deck/core'
 
 /**
  * 荷官, 控制游戏进行
@@ -96,12 +90,7 @@ class Dealer implements GameComponent {
     }
     this.#actionsHistory.push(player)
   }
-  /**
-   * @description 获取场上最大的牌力签名（用于比较/展示）
-   */
-  getBestRankSignature() {
-    return this.#deck.getBestRankSignature()
-  }
+
   /**
    * @description 获取最大牌型 category（首字符）
    */
@@ -138,32 +127,6 @@ class Dealer implements GameComponent {
   setRoles() {
     this.setButton()
     this.setOthers()
-  }
-
-  /**
-   * 计算各个玩家的最大牌力
-   */
-  settle() {
-    this.forEach((player) => {
-      if (this.#deck.getPokes().commonPokes.length === 0) return
-
-      const bestFiveCards = getBestFiveCards(
-        player.getHandPokes(),
-        this.#deck.getPokes().commonPokes
-      )
-
-      // 存储最大五张牌, 防止后续重复计算
-      player.bestFiveCards = bestFiveCards
-      player.rankSignature = getFiveCardsRankSignature(bestFiveCards)
-      player.rankStrength = getStrengthFromRankSignature(player.rankSignature)
-    })
-    TexasEngineContext.emitTrace({
-      channel: 'dealer',
-      name: 'settle_common_pokes',
-      data: {
-        commonPokes: formatterPoke(this.#deck.getPokes().commonPokes)
-      }
-    })
   }
 
   remove(player: Player) {
@@ -273,6 +236,11 @@ class Dealer implements GameComponent {
     })
   }
 
+  /** 获取未弃牌玩家 */
+  getPlayersStillInGame() {
+    return this.filter((player) => player.getStatus() !== 'out')
+  }
+
   changeButtonToNextPlayer() {
     const next = this.#button?.getNextPlayer()
     if (!next)
@@ -349,6 +317,14 @@ class Dealer implements GameComponent {
    */
   getCurrentStageMaxBetAmount() {
     return Math.max(...this.map((player) => player.lowestBetAmount))
+  }
+
+  getPlayersByActionSequence() {
+    const playes: Player[] = []
+    this.loop((player) => {
+      playes.push(player)
+    })
+    return playes
   }
 
   /**

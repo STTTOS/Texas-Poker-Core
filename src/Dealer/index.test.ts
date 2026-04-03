@@ -1,7 +1,7 @@
 import Dealer from '.'
 import Pool from '@/Pool'
 import { Player } from '@/Player'
-import Controller from '@/Controller'
+import Controller, { StageEnum } from '@/Controller'
 
 describe('dealer', () => {
   test('Game init successfully', () => {
@@ -31,7 +31,7 @@ describe('dealer', () => {
     )
     dealer.setRoles()
     dealer.dealCards()
-    dealer.settle()
+    controller.settleRankingsThroughStage(StageEnum.RIVER)
 
     expect(dealer.deck.getCards().length).toEqual(52)
     expect(dealer.deck.getPokes().commonPokes.length).toEqual(5)

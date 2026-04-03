@@ -5,14 +5,15 @@ import Room from '@/Room'
 import Dealer from '@/Dealer'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import Player, { User, Role, ActionType, CallbackOfAction } from '@/Player'
-import Controller, {
-  CallbackOfGameEnd,
-  CallbackOnNextStage
-} from '@/Controller'
 import {
   TexasEngineContext,
   type TexasEngineGlobalOptions
 } from '@/TexasEngineContext'
+import Controller, {
+  CallbackOfGameEnd,
+  CallbackOnNextStage,
+  type TexasTurnPacingHooks
+} from '@/Controller'
 
 // 在表单中填入一些基本的信息
 // 比如大盲注
@@ -30,6 +31,12 @@ export interface CreateRoomInputArgs {
   user: User
   // 玩家的思考时间, 单位: s
   thinkingTime?: number
+  /**
+   * 与业务层节奏对齐：在 core 固定时点 `await`，宜在钩子内 `sleep` 或发 WS。
+   * 勿在 `onPreAction` / `onNextStage` 再叠一层相同时长的定时推送。
+   */
+  beforeStageAdvance?: TexasTurnPacingHooks['beforeStageAdvance']
+  beforeNextPlayerTurn?: TexasTurnPacingHooks['beforeNextPlayerTurn']
 }
 export interface PreAction {
   userId: number
@@ -41,7 +48,12 @@ export interface PreAction {
 }
 
 export type RolesAssignedEvent = {
-  players: Array<{ userId: number; name: string; role: Role }>
+  players: Array<{
+    userId: number
+    name: string
+    role: Role
+    actionIndex: number
+  }>
 }
 
 export type CardsDealtEvent = {
@@ -72,7 +84,9 @@ class Texas {
     thinkingTime,
     lowestBetAmount,
     maximumCountOfPlayers,
-    initialChips
+    initialChips,
+    beforeStageAdvance,
+    beforeNextPlayerTurn
   }: CreateRoomInputArgs) {
     // 使用箭头函数, 防止this指向问题
     this.fail = (error: TexasError) => {
@@ -87,7 +101,10 @@ class Texas {
     const dealer = new Dealer(lowestBetAmount, this.fail, {
       maxTablePlayers: cappedMaxPlayers
     })
-    const controller = new Controller(dealer, this.fail)
+    const controller = new Controller(dealer, this.fail, {
+      beforeStageAdvance,
+      beforeNextPlayerTurn
+    })
     const pool = new Pool(this.fail)
     const owner = new Player({
       user,
@@ -155,13 +172,12 @@ class Texas {
   setPlayerRoles() {
     this.room.ready()
     this.rolesAssignedCallback?.({
-      players: this.dealer.players
-        .filter((p) => !!p.getRole())
-        .map((p) => ({
-          userId: p.getUserInfo().id,
-          name: p.getUserInfo().name,
-          role: p.getRole()!
-        }))
+      players: this.dealer.getPlayersByActionSequence().map((p, index) => ({
+        userId: p.getUserInfo().id,
+        name: p.getUserInfo().name,
+        role: p.getRole()!,
+        actionIndex: index
+      }))
     })
   }
 
@@ -213,8 +229,6 @@ class Texas {
   }
 
   settle() {
-    this.dealer.settle()
-    // 计算并分配奖池
     this.pool.pay()
   }
 

@@ -4,8 +4,8 @@ import Texas from '@/Texas'
 import Dealer from '@/Dealer'
 import { sum } from '@/utils'
 import { Player } from '@/Player'
-import Controller from '@/Controller'
 import allocatePoolByInt from './allocatePoolByInt'
+import Controller, { StageEnum } from '@/Controller'
 
 describe('class pool', () => {
   test('function add', () => {
@@ -138,7 +138,7 @@ describe('class pool', () => {
 
     room.ready()
     dealer.dealCards()
-    dealer.settle()
+    controller.settleRankingsThroughStage(StageEnum.RIVER)
 
     pool.add(p1, 1000)
     pool.add(p2, 2000)

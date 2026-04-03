@@ -4,7 +4,12 @@ import { formatterPoke } from './Deck/core'
 import { default as Dealer } from './Dealer'
 import { stageMap } from './Controller/constants'
 import { roleMap, ActionTypeMap } from './Player/constant'
-import { Stage, StageEnum, HandLifecycle } from './Controller'
+import {
+  Stage,
+  StageEnum,
+  HandLifecycle,
+  type TexasTurnPacingHooks
+} from './Controller'
 import {
   RoomStatus,
   default as Room,
@@ -46,7 +51,8 @@ export {
   getBestPokesRankSignature,
   compareRankSignature,
   getFiveCardsStrength,
-  getStrengthFromRankSignature
+  getStrengthFromRankSignature,
+  getFiveCardCombinationIndices
 } from './Deck/core'
 export {
   Player,
@@ -61,6 +67,7 @@ export {
   Stage,
   StageEnum,
   HandLifecycle,
+  type TexasTurnPacingHooks,
   stageMap,
   Dealer,
   Deck,

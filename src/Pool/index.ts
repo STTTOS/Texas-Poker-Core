@@ -27,6 +27,7 @@ class Pool implements GameComponent {
    * 记录玩家分配的奖池金额
    */
   #bills: Map<number, number> = new Map()
+  #paid = false
   fail: TexasErrorCallback
 
   constructor(
@@ -73,6 +74,7 @@ class Pool implements GameComponent {
     this.#players = new Set()
     this.#betRecords = new Map()
     this.#bills = new Map()
+    this.#paid = false
   }
   get bills() {
     return this.#bills
@@ -101,17 +103,28 @@ class Pool implements GameComponent {
     totalAmount: number,
     callback: (player: Player, amount: number) => void
   ) {
-    const winners = getWinners(Array.from(players))
-    const pools = allocatePoolByInt(winners, totalAmount)
-    pools.forEach(({ player, amount }) => {
-      callback(player, amount)
-    })
+    try {
+      const winners = getWinners(Array.from(players))
+      const pools = allocatePoolByInt(winners, totalAmount)
+      pools.forEach(({ player, amount }) => {
+        callback(player, amount)
+      })
+    } catch (error) {
+      if (error instanceof TexasError) {
+        this.fail(error)
+      } else {
+        this.fail(new TexasError(TexasCoreErrorCode.POOL_PAY_INVALID))
+      }
+    }
   }
 
   /**
    * @description 根据计算结果进行支付
    */
   pay() {
+    if (this.#paid)
+      return this.fail(new TexasError(TexasCoreErrorCode.POOL_ALREADY_PAID))
+
     const bills = this.settle()
 
     // 如果剩奖池不够支付所有玩家, 说明游戏的计算出现异常, 需要中止这场比赛,并作废
@@ -122,6 +135,7 @@ class Pool implements GameComponent {
     for (const [player, amount] of bills) {
       player.earn(amount)
     }
+    this.#paid = true
   }
 
   get totalAmount() {

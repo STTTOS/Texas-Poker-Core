@@ -100,10 +100,12 @@ export class Player implements GameComponent {
   #nextPlayer: Player | null = null
 
   #timer: NodeJS.Timeout | null = null
+  /** 当前思考回合结束时刻（epoch ms）；与 `#timer` 链式 tick 配合，不再用 setInterval */
+  #thinkingDeadlineMs: number | null = null
   /**
    * 思考倒计时归零时的策略（缺省：引擎 `takeDefaultAction`）
    */
-  #onThinkingDeadline: (player: Player) => void
+  #onThinkingDeadline: (player: Player) => void | Promise<void>
   /**
    * 轮到离线玩家行动时的策略（缺省：1s 后 `takeDefaultAction`）
    */
@@ -177,13 +179,10 @@ export class Player implements GameComponent {
     this.#onThinkingDeadline =
       actionPolicy?.onThinkingDeadline ??
       ((player) => {
-        player.takeDefaultAction()
+        void player.takeDefaultAction()
       })
     this.#onOfflineTurnStart =
-      actionPolicy?.onOfflineTurnStart ??
-      ((player) => {
-        setTimeout(() => player.takeDefaultAction(), this.#thinkingTime)
-      })
+      actionPolicy?.onOfflineTurnStart ?? (() => void 0)
   }
   get balance() {
     return this.#balance
@@ -429,7 +428,7 @@ export class Player implements GameComponent {
       name: 'check',
       data: { userId: this.#userInfo.id, name: this.#userInfo.name }
     })
-    this.transferControl()
+    await this.transferControl()
   }
 
   async fold() {
@@ -448,7 +447,7 @@ export class Player implements GameComponent {
       name: 'fold',
       data: { userId: this.#userInfo.id, name: this.#userInfo.name }
     })
-    this.transferControl()
+    await this.transferControl()
   }
 
   async bet(money: number, preFlopDefaultAction = false) {
@@ -497,7 +496,7 @@ export class Player implements GameComponent {
     this.#dealer.addAction(this)
 
     await this.#callbackOfAction?.(this, preFlopDefaultAction)
-    if (!preFlopDefaultAction) this.transferControl()
+    if (!preFlopDefaultAction) await this.transferControl()
     return money
   }
 
@@ -555,7 +554,7 @@ export class Player implements GameComponent {
       data: { userId: this.#userInfo.id, name: this.#userInfo.name, money }
     })
 
-    this.transferControl()
+    await this.transferControl()
   }
 
   async call() {
@@ -608,7 +607,7 @@ export class Player implements GameComponent {
         moneyShouldPay
       }
     })
-    this.transferControl()
+    await this.transferControl()
   }
 
   async allIn() {
@@ -656,7 +655,7 @@ export class Player implements GameComponent {
         balance: this.balance
       }
     })
-    this.transferControl()
+    await this.transferControl()
     return moneyShouldPay
   }
 
@@ -807,14 +806,34 @@ export class Player implements GameComponent {
 
   clearTimer() {
     if (this.#timer) {
-      clearInterval(this.#timer)
+      clearTimeout(this.#timer)
       this.#timer = null
-      this.#countDownTime = this.#thinkingTime
     }
+    this.#thinkingDeadlineMs = null
+    this.#countDownTime = this.#thinkingTime
+  }
+
+  /** 按 deadline 校准剩余秒数，并用单次 setTimeout 链式 tick（非 interval） */
+  #scheduleThinkingTick() {
+    if (this.#thinkingDeadlineMs == null) return
+
+    const msLeft = this.#thinkingDeadlineMs - Date.now()
+    if (msLeft <= 0) {
+      this.#countDownTime = 0
+      this.#timer = null
+      void Promise.resolve(this.#onThinkingDeadline(this)).catch(() => {
+        /* 策略内已 fail 时由 fail 抛出 */
+      })
+      return
+    }
+
+    this.#countDownTime = Math.ceil(msLeft / 1000)
+    const nextDelay = Math.min(1000, msLeft)
+    this.#timer = setTimeout(() => this.#scheduleThinkingTick(), nextDelay)
   }
 
   onStatusChange() {}
-  transferControl() {
+  async transferControl() {
     this.clearTimer()
     this.removeControl()
 
@@ -827,7 +846,8 @@ export class Player implements GameComponent {
     // 最后才触发onPreAction事件
 
     // 在移交控制权之前, 需要校验游戏是否该进入下个阶段
-    const canAdvanceToNextStage = this.#controller.tryToAdvanceGameToNextStage()
+    const canAdvanceToNextStage =
+      await this.#controller.tryToAdvanceGameToNextStage()
     if (canAdvanceToNextStage) return
 
     // 移交给下一个可以行动的玩家
@@ -839,7 +859,7 @@ export class Player implements GameComponent {
         new TexasError(TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER)
       )
 
-    this.#controller.transferControlTo(nextPlayerToGetController)
+    await this.#controller.transferControlTo(nextPlayerToGetController)
   }
 
   __testTakeAction() {
@@ -848,7 +868,7 @@ export class Player implements GameComponent {
 
     this[actions[index]](800)
   }
-  takeDefaultAction() {
+  async takeDefaultAction() {
     if (TexasEngineContext.simulation().randomPickOnDefaultAction) {
       this.__testTakeAction()
       return
@@ -863,29 +883,25 @@ export class Player implements GameComponent {
       }
     })
     if (this.#getAllowedActions().includes(ActionTypeEnum.CHECK)) {
-      this.check()
+      await this.check()
     } else {
-      this.fold()
+      await this.fold()
     }
   }
   continue() {
     if (TexasEngineContext.simulation().immediateDefaultActionOnTurn) {
-      this.takeDefaultAction()
+      void this.takeDefaultAction()
       return
     }
     // 如果当前玩家是离线状态, 延时一秒后直接采取默认行为
-    if (this.#onlineStatus === 'offline') {
-      this.#onOfflineTurnStart(this)
-      return
+    // if (this.#onlineStatus === 'offline') {
+    //   this.#onOfflineTurnStart(this)
+    //   return
+    // }
+    if (!this.#timer) {
+      this.#thinkingDeadlineMs = Date.now() + this.#thinkingTime * 1000
+      this.#scheduleThinkingTick()
     }
-    if (!this.#timer)
-      this.#timer = setInterval(() => {
-        if (this.#countDownTime === 0 && this.#timer) {
-          this.#onThinkingDeadline(this)
-          return
-        }
-        this.#countDownTime--
-      }, 1000)
   }
   onAction(callback: CallbackOfAction) {
     this.#callbackOfAction = callback
@@ -918,12 +934,27 @@ export class Player implements GameComponent {
         ? Math.min(...positiveStageTotals)
         : this.#lowestBetAmount
 
-    const min = Math.min(
-      this.#lowestBetAmount,
-      this.balance,
-      minBetOnTableThisRound
-    )
+    // 刚下完盲注（仅盲注两笔动作、且底池为 SB+BB）
+    // 仅用于多人局第一位行动者：min 固定为大盲注
+    const blindHasJustBeenPaid =
+      this.#pool.totalAmount === (this.#dealer.lowestBetAmount * 3) / 2
+    const min = (() => {
+      if (this.#dealer.count === 2)
+        return Math.min(
+          this.#balance,
+          this.#lowestBetAmount,
+          minBetOnTableThisRound
+        )
 
+      // 多人游戏
+      if (blindHasJustBeenPaid)
+        return Math.min(this.#balance, this.#lowestBetAmount)
+      return Math.min(
+        this.#balance,
+        this.#lowestBetAmount,
+        minBetOnTableThisRound
+      )
+    })()
     return {
       min,
       max
@@ -958,7 +989,7 @@ export class Player implements GameComponent {
 
 /** 在线状态与倒计时由引擎维护；具体「到时/离线」如何处理由此策略外置（缺省与历史行为一致） */
 export type PlayerActionPolicy = {
-  onThinkingDeadline?: (player: Player) => void
+  onThinkingDeadline?: (player: Player) => void | Promise<void>
   onOfflineTurnStart?: (player: Player) => void
 }
 

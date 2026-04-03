@@ -17,7 +17,7 @@ class TexasError extends Error {
 }
 
 export default TexasError
-export type { TexasErrorCode, TexasErrorPayload }
+export type { TexasErrorCode, TexasErrorPayload, TexasError }
 export {
   TexasCoreErrorCode,
   formatTexasErrorMessage,

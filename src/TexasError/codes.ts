@@ -30,6 +30,7 @@ export const TexasCoreErrorCode = {
   SESSION_START_NOT_IDLE: 3203,
   SESSION_END_NOT_STARTED: 3204,
 
+  CTRL_NO_PLAYER: 3300,
   CTRL_DUPLICATE_CONTROL: 3301,
   CTRL_NOT_PAUSED: 3302,
   CTRL_END_NOT_IN_HAND: 3303,
@@ -60,6 +61,8 @@ export const TexasCoreErrorCode = {
   POOL_NEGATIVE_AMOUNT: 3501,
   POOL_INSUFFICIENT_BALANCE: 3502,
   POOL_PAY_INVALID: 3503,
+  POOL_WINNERS_INVALID: 3504,
+  POOL_ALREADY_PAID: 3505,
 
   DEALER_NO_BUTTON: 3601,
   DEALER_UNSUPPORTED_COUNT: 3602,
@@ -145,6 +148,8 @@ export function formatTexasErrorMessage(
     case TexasCoreErrorCode.SESSION_END_NOT_STARTED:
       return '游戏还未开始, 无法结束游戏'
 
+    case TexasCoreErrorCode.CTRL_NO_PLAYER:
+      return '玩家不存在, 无法获得控制权'
     case TexasCoreErrorCode.CTRL_DUPLICATE_CONTROL:
       return '无法重复获得控制权'
     case TexasCoreErrorCode.CTRL_NOT_PAUSED:

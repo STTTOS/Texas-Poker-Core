@@ -1,3 +1,4 @@
+import { StageEnum } from '@/Controller'
 import Texas, { type CardsDealtEvent, type RolesAssignedEvent } from '@/Texas'
 
 describe('entery', () => {
@@ -36,6 +37,7 @@ describe('entery', () => {
     expect(texas.start()).rejects.toThrow('游戏已经开始, 请勿重复开始游戏')
 
     texas.controller.end()
+    texas.controller.settleRankingsThroughStage(StageEnum.RIVER)
     texas.settle()
     texas.reset()
     expect(p1.balance + p2.balance + p3.balance).toEqual(15_000)
