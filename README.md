@@ -455,3 +455,7 @@ texas 实例新增 beforeStageAdvance,beforeNextPlayerTurn
 ## 1.4.13
 
 gameEnd 事件增加 pokesRevealed 字段用于入库
+
+## 1.4.14
+
+fix: 修复结算金额分配异常
