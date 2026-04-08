@@ -401,6 +401,7 @@ export class Player implements GameComponent {
     this.#rankStrength = 0
     this.#rankSignature = undefined
     this.#status = 'waiting'
+    this.#wager = 0
 
     if (TexasEngineContext.simulation().restoreBalanceOnPlayerReset) {
       this.balance = this.#balance

@@ -413,5 +413,9 @@ export const getWinners = (players: Player[]) => {
       .filter((player) => player.getStatus() !== 'out')
       .map((player) => player.rankStrength)
   )
-  return players.filter((p) => p.rankStrength === maxRankStrength)
+  // 还好通过数据分析这里
+  // 这里需要过滤弃牌的玩家, 在场玩家去比大小
+  return players
+    .filter((p) => p.getStatus() !== 'out')
+    .filter((p) => p.rankStrength === maxRankStrength)
 }
