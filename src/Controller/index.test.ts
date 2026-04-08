@@ -5,6 +5,16 @@ import { Player } from '@/Player'
 import Controller, { StageEnum } from '.'
 
 describe('class Controller', () => {
+  let teardownController: Controller | null = null
+  afterEach(() => {
+    try {
+      teardownController?.reset()
+    } catch {
+      /* noop */
+    }
+    teardownController = null
+  })
+
   test('function transferControl', async () => {
     const dealer = new Dealer(1000)
     const controller = new Controller(dealer)
@@ -56,10 +66,10 @@ describe('class Controller', () => {
     room.seat(p2)
     room.seat(p3)
     room.seat(p4)
-    room.getDealer().setButton(p3)
-    // 发牌, 分配角色
-    room.ready()
+    // 与旧版「先 setButton(p3) 再 ready 时无参 setButton 会轮换到下家」一致：庄家为 p4
+    room.initialRoles(p4)
 
+    teardownController = controller
     await controller.start()
     room.getDealer().log()
     expect(controller.activePlayer === p3).toBe(true)
@@ -118,12 +128,12 @@ describe('class Controller', () => {
     room.seat(p1)
     room.join(p2)
     room.seat(p2)
-    dealer.setButton(p1)
-    room.ready()
+    room.initialRoles(p2)
     dealer.dealCards()
 
     const onEnd = jest.fn()
     controller.onGameEnd(onEnd)
+    teardownController = controller
     await controller.start()
     await controller.activePlayer!.fold()
 
@@ -164,9 +174,9 @@ describe('class Controller', () => {
     room.seat(p1)
     room.join(p2)
     room.seat(p2)
-    dealer.setButton(p1)
-    room.ready()
+    room.initialRoles(p2)
     dealer.dealCards()
+    teardownController = controller
     await controller.start()
 
     while (controller.activePlayer) {

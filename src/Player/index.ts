@@ -821,6 +821,7 @@ export class Player implements GameComponent {
     if (msLeft <= 0) {
       this.#countDownTime = 0
       this.#timer = null
+      this.#thinkingDeadlineMs = null
       void Promise.resolve(this.#onThinkingDeadline(this)).catch(() => {
         /* 策略内已 fail 时由 fail 抛出 */
       })
@@ -919,44 +920,25 @@ export class Player implements GameComponent {
   }
 
   /**
-   * @description 获取行动前的 min~max 下注金额范围
-   * - max：当前玩家剩余筹码（可全下上限）
-   * - min：大盲、本家余额、当轮桌上「已下注额」正数最小值 三者取小（有人短码只下 300 时，后续玩家 min 可低至 300）
+   * 行动前可下注区间：
+   * - max：当前筹码（全下上限）
+   * - min：补齐到「其他玩家本轮已下注」的最大值所需筹码；若无需补齐（≤0）则用 `lowestBetAmount`；最后与 max 取小，避免 min > 余额
    */
   getRestrict() {
     const max = this.balance
 
-    const positiveStageTotals = this.#dealer
-      .map((p) => p.#currentStageTotalAmount)
-      .filter((n) => n > 0)
-    const minBetOnTableThisRound =
-      positiveStageTotals.length > 0
-        ? Math.min(...positiveStageTotals)
-        : this.#lowestBetAmount
+    let maxOthersStageTotal = 0
+    this.#dealer.forEach((p) => {
+      if (p !== this && p.#currentStageTotalAmount > maxOthersStageTotal) {
+        maxOthersStageTotal = p.#currentStageTotalAmount
+      }
+    })
 
-    // 刚下完盲注（仅盲注两笔动作、且底池为 SB+BB）
-    // 仅用于多人局第一位行动者：min 固定为大盲注
-    const blindHasJustBeenPaid =
-      this.#pool.totalAmount === (this.#dealer.lowestBetAmount * 3) / 2
-    const min = (() => {
-      if (this.#dealer.count === 2)
-        return Math.min(
-          this.#balance,
-          this.#lowestBetAmount,
-          minBetOnTableThisRound
-        )
+    const callGap = maxOthersStageTotal - this.#currentStageTotalAmount
+    const rawMin = callGap > 0 ? callGap : this.#lowestBetAmount
 
-      // 多人游戏
-      if (blindHasJustBeenPaid)
-        return Math.min(this.#balance, this.#lowestBetAmount)
-      return Math.min(
-        this.#balance,
-        this.#lowestBetAmount,
-        minBetOnTableThisRound
-      )
-    })()
     return {
-      min,
+      min: Math.min(rawMin, max),
       max
     }
   }

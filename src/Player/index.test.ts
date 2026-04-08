@@ -5,6 +5,17 @@ import Dealer from '@/Dealer'
 import Controller from '@/Controller'
 
 describe('class Player', () => {
+  /** 避免 start() 后思考定时器挂起导致 Jest worker 无法干净退出 */
+  let teardownController: Controller | null = null
+  afterEach(() => {
+    try {
+      teardownController?.reset()
+    } catch {
+      /* reset 在部分状态下仍应可重复调用 */
+    }
+    teardownController = null
+  })
+
   test('function allIn', async () => {
     const dealer = new Dealer(1000)
     const controller = new Controller(dealer)
@@ -45,9 +56,9 @@ describe('class Player', () => {
     room.join(p3)
     room.seat(p2)
     room.seat(p3)
-    room.getDealer().setButton(p2)
-    room.ready()
-    // 庄家: p3
+    // 与旧版 ready 前 setButton(p2) 后再轮换一致：庄家为 p3
+    room.initialRoles(p3)
+    teardownController = controller
     await controller.start()
 
     await p3.call()
@@ -61,7 +72,7 @@ describe('class Player', () => {
   })
 
   describe('getRestrict', () => {
-    test('多人局翻牌前盲注刚下完：即使前位弃牌，后位仍按 BB 作为 min', async () => {
+    test('多人局翻牌前：首人 min 为补齐到 BB；前位弃牌后下家按与场上最高注的差额', async () => {
       const dealer = new Dealer(200)
       const controller = new Controller(dealer)
       const pool = new Pool()
@@ -100,17 +111,17 @@ describe('class Player', () => {
       room.join(p3)
       room.seat(p2)
       room.seat(p3)
-      dealer.setButton(p1)
-      room.ready()
+      room.initialRoles(p2)
       dealer.dealCards()
+      teardownController = controller
       await controller.start()
 
       const firstActor = controller.activePlayer!
       expect(firstActor.getRestrict().min).toBe(200)
 
-      // 首个行动者弃牌后，底池仍是 SB+BB，后位仍按“刚下盲注”规则
+      // 典型顺序：下一位为小盲，已下 100，场上最大仍为 BB 200 → 再补 100
       await firstActor.fold()
-      expect(controller.activePlayer!.getRestrict().min).toBe(200)
+      expect(controller.activePlayer!.getRestrict().min).toBe(100)
     })
 
     test('双人局翻牌前：按钮位（小盲）min 可为补齐差额（100）', async () => {
@@ -142,16 +153,16 @@ describe('class Player', () => {
       room.seat(p1)
       room.join(p2)
       room.seat(p2)
-      dealer.setButton(p1)
-      room.ready()
+      room.initialRoles(p2)
       dealer.dealCards()
+      teardownController = controller
       await controller.start()
 
       // 双人局按钮位先行动，min 可为补齐到 BB 的差额（100）
       expect(controller.activePlayer!.getRestrict().min).toBe(100)
     })
 
-    test('min is min(lowestBet, balance, smallest positive currentStageTotal on table)', () => {
+    test('min 为补齐到场上他人最大本轮下注：未下者与最高注之间的差额', () => {
       const dealer = new Dealer(1000)
       const controller = new Controller(dealer)
       const pool = new Pool()
@@ -185,17 +196,17 @@ describe('class Player', () => {
       dealer.join(p3)
       dealer.setButton(p1)
 
-      // 短码只下了 300，另一人满额 1000，第三人本轮尚未下
+      // 他人最高本轮 1000；p3 尚未下，需补 1000
       p1.currentStageTotalAmount = 300
       p2.currentStageTotalAmount = 1000
       p3.currentStageTotalAmount = 0
 
       const r = p3.getRestrict()
       expect(r.max).toBe(8000)
-      expect(r.min).toBe(300)
+      expect(r.min).toBe(1000)
     })
 
-    test('when no positive currentStageTotal on table, min uses lowestBetAmount in the triple min', () => {
+    test('他人本轮均无正下注时 min 为 lowestBetAmount', () => {
       const dealer = new Dealer(1000)
       const controller = new Controller(dealer)
       const pool = new Pool()
@@ -227,7 +238,7 @@ describe('class Player', () => {
       expect(r.min).toBe(lowest)
     })
 
-    test('max equals player balance only', () => {
+    test('补齐额大于余额时 min 与 max 同为 balance', () => {
       const dealer = new Dealer(500)
       const controller = new Controller(dealer)
       const pool = new Pool()
@@ -254,7 +265,39 @@ describe('class Player', () => {
       p1.currentStageTotalAmount = 0
       p2.currentStageTotalAmount = 2000
 
-      expect(p1.getRestrict().max).toBe(350)
+      const r = p1.getRestrict()
+      expect(r.max).toBe(350)
+      expect(r.min).toBe(350)
+    })
+
+    test('已部分跟注时 min 为与场上最高注的剩余差额', () => {
+      const dealer = new Dealer(1000)
+      const controller = new Controller(dealer)
+      const pool = new Pool()
+      const lowest = dealer.lowestBetAmount
+      const p1 = new Player({
+        user: { id: 1, name: 'a' },
+        initialChips: 8000,
+        lowestBetAmount: lowest,
+        controller,
+        dealer,
+        pool
+      })
+      const p2 = new Player({
+        user: { id: 2, name: 'b' },
+        initialChips: 8000,
+        lowestBetAmount: lowest,
+        controller,
+        dealer,
+        pool
+      })
+      dealer.join(p1)
+      dealer.join(p2)
+      dealer.setButton(p1)
+      p1.currentStageTotalAmount = 400
+      p2.currentStageTotalAmount = 1000
+
+      expect(p1.getRestrict().min).toBe(600)
     })
   })
 })

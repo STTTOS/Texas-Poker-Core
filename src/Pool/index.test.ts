@@ -136,7 +136,7 @@ describe('class pool', () => {
     room.seat(p3)
     room.seat(p4)
 
-    room.ready()
+    room.initialRoles()
     dealer.dealCards()
     controller.settleRankingsThroughStage(StageEnum.RIVER)
 

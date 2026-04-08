@@ -124,9 +124,59 @@ class Dealer implements GameComponent {
     })
   }
 
-  setRoles() {
-    this.setButton()
+  /**
+   * 游戏开局（首局）：指定或随机庄家，再按当前人数分配其余座位角色。
+   * @param buttonPlayer 指定庄家（须在桌上）；省略时随机一位当庄。
+   */
+  initialRoles(buttonPlayer?: Player) {
+    if (buttonPlayer) {
+      if (!this.has(buttonPlayer))
+        return this.fail(
+          new TexasError(TexasCoreErrorCode.DEALER_BUTTON_HANDOFF_INVALID)
+        )
+      this.setButton(buttonPlayer)
+    } else {
+      this.#assignButtonAtRandom()
+    }
     this.setOthers()
+  }
+
+  /**
+   * 玩家加入 / 离开环形桌后，按当前庄家位整圈重分配角色（须已存在庄家）。
+   */
+  reArrangeRoles() {
+    if (!this.#button)
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.DEALER_REARRANGE_NO_BUTTON)
+      )
+
+    const roles = playerRoleSetMap.get(this.#count)
+
+    if (!roles)
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.DEALER_UNSUPPORTED_COUNT, {
+          count: this.#count
+        })
+      )
+
+    this.loop((player, i) => {
+      player.setRole(roles![i])
+    }, this.#button)
+  }
+
+  /**
+   * 新一手开始前轮换座位：庄家顺时针下移一位，再按新庄家重算 SB/BB 等。
+   */
+  rotateRolesForNewHand() {
+    this.changeButtonToNextPlayer()
+    this.setOthers()
+  }
+
+  /**
+   * @deprecated 请使用 {@link Dealer.initialRoles}
+   */
+  setRoles() {
+    this.initialRoles()
   }
 
   remove(player: Player) {
@@ -177,28 +227,8 @@ class Dealer implements GameComponent {
     this.#head?.setLastPlayer(player)
 
     this.#last = player
-    this.reArrangeRoles()
+    if (this.#button) this.reArrangeRoles()
     return true
-  }
-
-  /**
-   * 玩家加入 / 离开时重新分配角色
-   */
-  reArrangeRoles() {
-    if (!this.#button) return
-
-    const roles = playerRoleSetMap.get(this.#count)
-
-    if (!roles)
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.DEALER_UNSUPPORTED_COUNT, {
-          count: this.#count
-        })
-      )
-
-    this.loop((player, i) => {
-      player.setRole(roles![i])
-    }, this.#button)
   }
 
   has(player: Player) {
@@ -241,6 +271,7 @@ class Dealer implements GameComponent {
     return this.filter((player) => player.getStatus() !== 'out')
   }
 
+  /** 将庄家移交给下一位玩家（仅更新庄家位，不刷新其余座位；新一局请用 {@link rotateRolesForNewHand}） */
   changeButtonToNextPlayer() {
     const next = this.#button?.getNextPlayer()
     if (!next)
@@ -251,30 +282,24 @@ class Dealer implements GameComponent {
     this.setButton(next)
   }
 
-  /**
-   * @description 如果未指定玩家, 则随机选取一位玩家当庄
-   * @param player
-   * @returns
-   */
-  setButton(player?: Player) {
-    if (player) {
-      player.setRole(RoleEnum.BTN)
-      this.#button = player
-      return
-    }
-    if (this.#button) {
-      this.changeButtonToNextPlayer()
-      return
-    }
+  /** 指定玩家为庄家（仅设 BTN 与内部引用；其余角色请配合 {@link setOthers} 或 {@link reArrangeRoles}） */
+  setButton(player: Player) {
+    player.setRole(RoleEnum.BTN)
+    this.#button = player
+  }
 
+  #assignButtonAtRandom() {
     const count = this.#count
-    const random = getRandomInt(0, count - 1)
+    if (count < 1)
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.DEALER_COUNT_OUT_OF_RANGE, {
+          count
+        })
+      )
 
+    const random = getRandomInt(0, count - 1)
     this.forEach((p, i) => {
-      if (i === random) {
-        p.setRole(RoleEnum.BTN)
-        this.#button = p
-      }
+      if (i === random) this.setButton(p)
     })
   }
 

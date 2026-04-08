@@ -4,6 +4,13 @@ import { Player } from '@/Player'
 import Controller, { StageEnum } from '@/Controller'
 
 describe('dealer', () => {
+  test('reArrangeRoles throws when button is not set', () => {
+    const dealer = new Dealer(200)
+    expect(() => dealer.reArrangeRoles()).toThrow(
+      '未指定庄家, 无法重排座位角色'
+    )
+  })
+
   test('Game init successfully', () => {
     const dealer = new Dealer(200)
     const lowestBetAmount = dealer.lowestBetAmount

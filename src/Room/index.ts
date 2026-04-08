@@ -69,7 +69,7 @@ class Room implements GameComponent {
     this.#initialChips = value
   }
 
-  ready() {
+  #beforeSetRoles() {
     if (this.playersCountOnSeat < 2)
       return this.fail(
         new TexasError(TexasCoreErrorCode.ROOM_READY_MIN_SEATED, { min: 2 })
@@ -77,9 +77,28 @@ class Room implements GameComponent {
 
     if (this.#status === 'seats_locked')
       return this.fail(new TexasError(TexasCoreErrorCode.ROOM_ALREADY_LOCKED))
+  }
 
-    this.#dealer.setRoles()
+  /**
+   * 初次进入游戏，锁定座位并分配角色。
+   * @param buttonPlayer 可选，指定庄家；省略时由荷官随机。
+   */
+  initialRoles(buttonPlayer?: Player) {
+    this.#beforeSetRoles()
+
+    this.#dealer.initialRoles(buttonPlayer)
     this.#status = 'seats_locked'
+  }
+
+  rotateRoles() {
+    this.#beforeSetRoles()
+    this.#dealer.rotateRolesForNewHand()
+    this.#status = 'seats_locked'
+  }
+
+  /**由业务层调用, 解锁座位 */
+  unlockSeats() {
+    this.#status = 'seats_open'
   }
 
   setOwnerById(userId: number) {

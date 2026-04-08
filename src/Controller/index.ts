@@ -32,6 +32,8 @@ const stages: Stage[] = [
 export type CallbackOfGameEnd = (params: {
   /** 与 `onNextStage` 中 `pokesToReveal` 一致：`getCommonPokes(fromStage, toStage)` 本段新亮出的公牌 */
   pokesToReveal: Poke[]
+  /** 游戏结束时, 已亮出的公牌 */
+  pokesRevealed: Poke[]
   currentStage: Stage
   /** 本手结束所在街；摊牌结束为河牌 */
   endStage: Stage
@@ -154,6 +156,8 @@ class Controller implements GameComponent {
     // 只剩 1 名未弃牌玩家时由 `#isWinByExclusiveFold` 先结束，不会走到此处。
     return (
       playersCanAct.length === 0 ||
+      // 只剩一个玩家可以行动, 并且该玩家不能再行动了(并且该玩家已经补足了筹码, 直接结束)
+      (playersCanAct.length === 1 && !playersCanAct[0].actionable()) ||
       (this.#stage === StageEnum.RIVER &&
         playersCanAct.every((player) => !player.actionable()))
     )
@@ -207,13 +211,17 @@ class Controller implements GameComponent {
       this.end()
 
       this.#callbackOfEnd?.({
+        currentStage: this.#stage,
+        endStage: this.#boardThroughStage,
+        showHandPokes: false,
         pokesToReveal: this.getCommonPokes(
           this.#stage,
           this.#boardThroughStage
         ),
-        currentStage: this.#stage,
-        endStage: this.#boardThroughStage,
-        showHandPokes: false
+        pokesRevealed: this.getCommonPokes(
+          StageEnum.PRE_FLOP,
+          this.#boardThroughStage
+        )
       })
       TexasEngineContext.emitTrace({
         channel: 'controller',
@@ -243,6 +251,10 @@ class Controller implements GameComponent {
         bestRankCategory: rankCategory,
         pokesToReveal: this.getCommonPokes(
           currentStage,
+          this.#boardThroughStage
+        ),
+        pokesRevealed: this.getCommonPokes(
+          StageEnum.PRE_FLOP,
           this.#boardThroughStage
         )
       })

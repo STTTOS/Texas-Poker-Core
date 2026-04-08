@@ -29,6 +29,8 @@ export const TexasCoreErrorCode = {
   SESSION_START_SEATS_OPEN: 3202,
   SESSION_START_NOT_IDLE: 3203,
   SESSION_END_NOT_STARTED: 3204,
+  /** 设置/轮换角色时桌上玩家筹码低于大盲（数据异常） */
+  SESSION_SET_ROLES_BALANCE_BELOW_BB: 3205,
 
   CTRL_NO_PLAYER: 3300,
   CTRL_DUPLICATE_CONTROL: 3301,
@@ -69,6 +71,8 @@ export const TexasCoreErrorCode = {
   DEALER_BUTTON_HANDOFF_INVALID: 3603,
   DEALER_SET_OTHERS_NO_BUTTON: 3604,
   DEALER_COUNT_OUT_OF_RANGE: 3605,
+  /** 入座变动后重排角色时庄家位未就绪 */
+  DEALER_REARRANGE_NO_BUTTON: 3606,
 
   INTERNAL_NO_NEXT_PLAYER: 3901
 } as const
@@ -93,7 +97,8 @@ export function getTexasErrorSeverity(
     TexasCoreErrorCode.CTRL_ENDGAME_INVARIANT_DEALER_LT_2,
     TexasCoreErrorCode.POOL_PAY_INVALID,
     TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER,
-    TexasCoreErrorCode.DEALER_BUTTON_HANDOFF_INVALID
+    TexasCoreErrorCode.DEALER_BUTTON_HANDOFF_INVALID,
+    TexasCoreErrorCode.SESSION_SET_ROLES_BALANCE_BELOW_BB
   ])
 
   if (fatalCodes.has(code)) return 'fatal'
@@ -147,6 +152,8 @@ export function formatTexasErrorMessage(
       return '游戏已经开始, 请勿重复开始游戏'
     case TexasCoreErrorCode.SESSION_END_NOT_STARTED:
       return '游戏还未开始, 无法结束游戏'
+    case TexasCoreErrorCode.SESSION_SET_ROLES_BALANCE_BELOW_BB:
+      return `数据异常: 玩家 ${p.userId} 余额(${p.balance})不足大盲(${p.bigBlind}), 无法设置角色`
 
     case TexasCoreErrorCode.CTRL_NO_PLAYER:
       return '玩家不存在, 无法获得控制权'
@@ -215,6 +222,8 @@ export function formatTexasErrorMessage(
       return '将庄家移交给不存在的玩家'
     case TexasCoreErrorCode.DEALER_SET_OTHERS_NO_BUTTON:
       return '未指定庄家, 无法设置其余玩家位置'
+    case TexasCoreErrorCode.DEALER_REARRANGE_NO_BUTTON:
+      return '未指定庄家, 无法重排座位角色'
     case TexasCoreErrorCode.DEALER_COUNT_OUT_OF_RANGE:
       return `暂不支持${p.count}人的对局`
 

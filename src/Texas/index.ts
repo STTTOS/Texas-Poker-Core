@@ -164,13 +164,37 @@ class Texas {
     this.dealer.forEach((player) => player.onAction(callback))
   }
 
+  #assertDealerPlayersMeetBigBlind() {
+    const bigBlind = this.dealer.lowestBetAmount
+    for (const player of this.dealer.players) {
+      if (player.balance < bigBlind) {
+        this.fail(
+          new TexasError(
+            TexasCoreErrorCode.SESSION_SET_ROLES_BALANCE_BELOW_BB,
+            {
+              userId: player.getUserInfo().id,
+              balance: player.balance,
+              bigBlind
+            }
+          )
+        )
+      }
+    }
+  }
+
   /**
    * 设置玩家角色并锁定座位（原 ready）。
-   * - `Room.ready()` 会校验入座人数、并调用 `Dealer.setRoles()`
+   * - `Room.initialRoles()` 会校验入座人数、并调用 `Dealer.initialRoles()`
    * - 成功后会触发 `onRolesAssigned` 事件
    */
-  setPlayerRoles() {
-    this.room.ready()
+  setPlayerRoles(type: 'initial' | 'rotate' = 'initial') {
+    this.#assertDealerPlayersMeetBigBlind()
+
+    if (type === 'initial') {
+      this.room.initialRoles()
+    } else {
+      this.room.rotateRoles()
+    }
     this.rolesAssignedCallback?.({
       players: this.dealer.getPlayersByActionSequence().map((p, index) => ({
         userId: p.getUserInfo().id,
@@ -195,12 +219,9 @@ class Texas {
       }))
     })
   }
-
-  /** @deprecated 请使用 setPlayerRoles */
-  ready() {
-    this.setPlayerRoles()
+  unlockSeats() {
+    this.room.unlockSeats()
   }
-
   async start() {
     if (this.room.getPlayersBySeatStatus('on-set').length < 2)
       this.fail(
@@ -215,8 +236,6 @@ class Texas {
     if (this.controller.status !== 'idle')
       this.fail(new TexasError(TexasCoreErrorCode.SESSION_START_NOT_IDLE))
 
-    this.resetBeforeGameStart()
-    this.dealCards()
     await this.controller.start()
   }
 

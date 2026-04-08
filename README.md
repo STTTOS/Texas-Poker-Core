@@ -431,3 +431,27 @@ bufix
 ## 1.4.7
 
 增加类型到处
+
+## 1.4.8
+
+texas 实例新增 beforeStageAdvance,beforeNextPlayerTurn
+
+## 1.4.9
+
+修复 min,max 逻辑错误
+
+## 1.4.10
+
+增加新一轮重拍角色方法
+
+## 1.4.11
+
+修改游戏结算时的逻辑遗漏
+
+## 1.4.12
+
+修复 wager 局后未清空的问题
+
+## 1.4.13
+
+gameEnd 事件增加 pokesRevealed 字段用于入库
