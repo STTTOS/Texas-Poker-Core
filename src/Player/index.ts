@@ -476,6 +476,9 @@ export class Player implements GameComponent {
         })
       )
     }
+    if (money === this.balance) {
+      return this.allIn()
+    }
     this.#action = {
       type: ActionTypeEnum.BET,
       payload: {
@@ -537,6 +540,9 @@ export class Player implements GameComponent {
           attemptedTotal: money + this.#currentStageTotalAmount
         })
       )
+    }
+    if (money === this.balance) {
+      return this.allIn()
     }
 
     this.#pool.add(this, money)
@@ -618,15 +624,17 @@ export class Player implements GameComponent {
     }
 
     // 其他玩家持有筹码的最大值, 全押金额不可超过该值
-    const maxAllInAmount = this.getMaxAllInAmount()
-    const moneyShouldPay = Math.min(
-      Math.max(
-        maxAllInAmount - this.#currentStageTotalAmount,
-        this.#lowestBetAmount
-      ),
-      this.balance
-    )
+    // const maxAllInAmount = this.getMaxAllInAmount()
+    // const moneyShouldPay = Math.min(
+    //   Math.max(
+    //     maxAllInAmount - this.#currentStageTotalAmount,
+    //     this.#lowestBetAmount
+    //   ),
+    //   this.balance
+    // )
 
+    // fix: 允许玩家全押所有筹码, 多的进入边池就行
+    const moneyShouldPay = this.balance
     if (moneyShouldPay <= 0)
       return this.fail(
         new TexasError(TexasCoreErrorCode.PLAYER_ALL_IN_INVALID, {
@@ -634,7 +642,6 @@ export class Player implements GameComponent {
           balance: this.balance
         })
       )
-
     this.#pool.add(this, moneyShouldPay)
     this.#action = {
       type: ActionTypeEnum.ALL_IN,
