@@ -66,7 +66,7 @@ describe('class Player', () => {
     await p2.allIn()
     controller.end()
 
-    expect(p1.balance).toEqual(8000)
+    expect(p1.balance).toEqual(0)
     expect(p2.balance).toEqual(0)
     expect(p3.balance).toEqual(9000)
   })

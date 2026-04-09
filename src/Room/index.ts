@@ -254,8 +254,11 @@ class Room implements GameComponent {
     if (!player || !this.#players.has(player))
       return this.fail(new TexasError(TexasCoreErrorCode.ROOM_LEAVE_NOT_MEMBER))
 
-    // 在游戏没开始时离开
-    if (this.#controller.status === 'idle') {
+    // 未开局 / 已 reset（idle），或本手已结束待清理（hand_complete）时可离开；进行中不可
+    if (
+      this.#controller.status === 'idle' ||
+      this.#controller.status === 'hand_complete'
+    ) {
       // core 不负责房主转移策略：由业务层先 setOwner 再 remove
       if (player === this.#owner) {
         return this.fail(

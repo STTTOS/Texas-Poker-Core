@@ -1,68 +1,177 @@
 # Texas-Poker-Core
 
-德州扑克核心功能, 包括房间初始化, 玩家加入, 初始化角色, 发牌, 洗牌, 控制游戏的进程, 比牌以及结算,奖池分配等功能
+无服务、无持久化的 **德州扑克（Texas Hold’em）对局引擎**：房间与座位、盲注与角色、发牌、行动轮次、阶段推进、摊牌比牌、奖池与边池分配等规则均在库内完成。  
+**不包含**：账号系统、WebSocket/HTTP、数据库、匹配、UI；这些由业务层接入 `Texas` / `Room` / `Player` 的 API 与回调实现。
 
-# 内测包注意事项
+- **入口类**：`Texas` — 组装 `Pool`、`Dealer`、`Controller`、`Room`，并提供会话级方法。
+- **错误模型**：规则或状态不满足时通过 `TexasError`（`TexasCoreErrorCode`）**fail-fast**；可用 `onError` 先记录再抛出。
+- **可选节奏钩子**：构造 `Texas` 时传入 `beforeStageAdvance` / `beforeNextPlayerTurn`，在阶段切换、轮到下家前 `await`（例如发 WS、动画、`sleep`）。
 
-- 总是使用最新版本
+---
+
+## 安装与构建
 
 ```bash
-npm i texas-poker-core@latest
+npm install texas-poker-core
+# 或 pnpm / yarn
 ```
 
-# 使用手册 Usage
+类型定义见包内 `types/`；本地开发见仓库 `package.json` 中的 `build`、`test` 脚本。
+
+---
+
+## 核心对象一览
+
+| 对象         | 职责                                                                                                        |
+| ------------ | ----------------------------------------------------------------------------------------------------------- |
+| `Texas`      | 创建一桌、注册监听、`setPlayerRoles` / `dealCards` / `start` / `settle` / `reset` 等会话流程                |
+| `Room`       | 成员加入/观战/入座/离座、`initialRoles` / `rotateRoles`、房间 `RoomStatus`（`seats_open` / `seats_locked`） |
+| `Dealer`     | 盲注、庄家、角色顺序、发牌、行动历史（通常不直接给业务大量调用，多经 `Texas` / `Room`）                     |
+| `Controller` | 一手牌生命周期 `HandLifecycle`、当前街 `stage`、活跃玩家 `activePlayer`、阶段推进与终局                     |
+| `Pool`       | 奖池与支付（`texas.settle()` 时 `pool.pay()`）                                                              |
+| `Player`     | 单个座位的筹码、手牌、行动 `check` / `bet` / `call` / `raise` / `fold` / `allIn`、思考计时与 `getControl`   |
+
+---
+
+## `HandLifecycle`（控制器状态）
+
+与「房间是否锁座」不同，这是 **当前这一手** 在引擎里的阶段：
+
+| 状态             | 含义                                                       |
+| ---------------- | ---------------------------------------------------------- |
+| `idle`           | 无进行中的手牌；**上一手已 `reset` 后**、下一手 `start` 前 |
+| `in_hand`        | 本手进行中                                                 |
+| `in_hand_paused` | 暂停                                                       |
+| `hand_complete`  | 本手已结束，**尚未** `reset`；可做摊牌展示、结算入库等     |
+| `aborted`        | 预留                                                       |
+
+**开下一手**：`Texas.start()` 要求 `controller.status === 'idle'`，因此本手结束后需先 `texas.settle()`（按需）、再 `texas.reset()`（或 `resetBeforeGameStart()`），再 `rotateRoles`（若需轮换庄家）、发牌、`start()`。  
+**离座**：`Room.remove` 在 `idle` 或 `hand_complete` 时允许非房主离开；进行中会拒绝。
+
+---
+
+## 典型对局流程（使用手册）
+
+以下为常见顺序；具体校验与错误码以运行时 `TexasError` 为准。
+
+### 1. 创建牌桌
 
 ```ts
 import { Texas } from 'texas-poker-core'
 
-// 实例化Texas
 const texas = new Texas({
-  // 大盲注
-  lowestBetAmount: 500,
-  // 允许的最大玩家数量
-  maximumCountOfPlayers: 7,
-  // 是否允许观战, 如果房间玩家达到上限时, 此字段决定玩家是否还可以加入房间
-  allowPlayersToWatch: true,
-  // room owner info
-  user: { id: 1, balance: 5000, name: 'ycr' },
-  thinkingTime: 5
+  user: { id: 1, name: '房主' },
+  lowestBetAmount: 20,
+  maximumCountOfPlayers: 9,
+  initialChips: 2000,
+  thinkingTime: 30,
+  // 可选：与 WS/动画对齐
+  beforeNextPlayerTurn: async () => {
+    /* await sleep(...) */
+  },
+  beforeStageAdvance: async () => {
+    /* ... */
+  }
 })
-const p2 = texas.createPlayer({ id: 2, name: 'yt', balance: 10000 })
-const p3 = texas.createPlayer({ id: 3, name: 'wyz', balance: 10000 })
-const p4 = texas.createPlayer({ id: 4, name: 'sen', balance: 10000 })
-texas.room.joinMany(p2, p3, p4)
 
-// 玩家行动前触发的回调函数, 包括允许的行动列表, 行动玩家的id, 以及允许的下注范围
-texas.onPreAction((preAction) => {})
-// 玩家行动后触发的回调函数
-// 可在此函数中完成数据上报行为
-texas.onAction((action) => {})
-// 游戏阶段变化触发的回调函数
-texas.onNextStage((stageInfo) => {})
-// 游戏结束时触发的回调函数
-texas.onGameEnd((gameEndInfo) => {
-  // 游戏结束后轮换庄家
-  texas.dealer.changeButtonToNextPlayer()
-  // 庄家变化后, 重新设置其他玩家的角色
-  texas.dealer.setOthers()
-  // 这里可以进行数据上报, 分配奖池, 更新用户的余额到数据库...
-
-  // 操作完成后重置对局信息
-  // 包括奖池, 底牌, 玩家手牌, 收回玩家的控制权...
-  texas.reset()
-  // 如果开启下一轮游戏, 只需再次调用`texas.start`即可
+texas.onError((err) => {
+  // 日志、监控；随后仍会 throw
 })
-// 游戏进程中遇到错误触发的函数
-texas.onError((texasError) => {})
-// 房间初次创建时需调用, 确定各个玩家的角色
-texas.ready()
-
-// 开始游戏
-// 大小盲默认下注, 可以通过texas.getDefaultBet获取默认下注信息
-// 随后将控制权移交给小盲的下一位, 由具有行动权的玩家选择行动
-// 会触发onPreAction回调, 可以在此方法中推送消息给客户端
-texas.start()
 ```
+
+### 2. 注册用户与入座
+
+```ts
+const p2 = texas.createPlayer({ id: 2, name: '玩家2' })
+texas.room.join(p2)
+texas.room.seat(p2)
+// join = 进房（默认观战席）；seat = 上桌，且要求 controller 为 idle
+```
+
+### 3. 锁座、分配角色、发牌
+
+```ts
+texas.setPlayerRoles('initial') // 或 'rotate' 新一轮
+texas.dealCards()
+// 上述会触发 onRolesAssigned / onDealCards（若已注册）
+```
+
+### 4. 开始本手
+
+```ts
+// 要求：至少两人 on-set、房间 seats_locked、controller.idle
+await texas.start()
+// 内部会下盲注并移交控制权到第一个行动玩家
+```
+
+### 5. 轮到谁行动
+
+当前行动玩家：`texas.controller.activePlayer`。  
+该玩家可调用（均为 `async`，内部会校验合法行动并可能推进阶段/终局）：
+
+- `check()` / `bet(amount)` / `call()` / `raise(amount)` / `fold()` / `allIn()`
+
+行动前可给每个玩家注册 `onPreAction`，用于推送「允许行动列表、加注区间」等（见下文监听）。
+
+### 6. 本手结束与清理
+
+终局时 `Controller` 会触发 `onGameEnd`（若已注册）。  
+之后业务侧通常：
+
+```ts
+texas.settle() // pool.pay()，按引擎规则分配边池
+texas.reset() // pool + dealer + controller 清理，controller → idle
+// 下一手：unlockSeats（若业务要开放换座）→ rotateRoles / initialRoles → dealCards → start()
+```
+
+---
+
+## 监听与回调（Texas）
+
+| 方法              | 说明                                                                     |
+| ----------------- | ------------------------------------------------------------------------ |
+| `onError`         | 任意 `fail` / `TexasError` 抛出前回调                                    |
+| `onRolesAssigned` | `setPlayerRoles` 成功后，携带 `userId` / `role` / `actionIndex`          |
+| `onDealCards`     | `dealCards` 成功后，各玩家手牌（业务可据此推送私密牌）                   |
+| `onPreAction`     | 轮到玩家行动前（注册到所有当前 `Player`）                                |
+| `onAction`        | 玩家完成一次合法行动后（写库、广播；默认盲注行为可能不触发，以实现为准） |
+| `onGameStart`     | 本手 `controller.start()` 内、盲注与首回合开始前                         |
+| `onGameEnd`       | 一手结束，携带公牌、摊牌信息、`pokesRevealed` 等                         |
+| `onNextStage`     | 翻牌 / 转牌 / 河牌等阶段推进，携带本段新亮公牌                           |
+
+`Player` 上另有 `onPreAction` / `onAction`，适合按人注册。
+
+---
+
+## Room 常用 API
+
+- `join` / `joinMany`：进房（观战席）
+- `seat` / `seatById`：上桌（需 `controller.status === 'idle'`）
+- `watch` / `watchById`：回观战（需 `idle`）
+- `remove` / `removeById`：离房（`idle` 或 `hand_complete`，且**房主需业务先 `setOwner` 再 remove**）
+- `initialRoles` / `rotateRoles`：分配或轮换盲注位与庄家（内部校验入座人数等）
+- `unlockSeats` / `setOwner` / `setOwnerById` / `getBaseInfo` / `getPlayerById` / `getPlayersBySeatStatus` 等
+
+---
+
+## 引擎与调试
+
+```ts
+Texas.configureEngine({
+  // trace、仿真开关等，见 TexasEngineGlobalOptions
+})
+Texas.resetEngineContext()
+```
+
+导出中还包含牌型/阶段/行动枚举与工具函数（如 `formatterPoke`、`StageEnum`、`ActionTypeEnum`、`isFatalTexasErrorCode` 等），便于与业务错误分级、持久化字段对齐。
+
+---
+
+## 更多文档
+
+- 架构与事件化演进思路：`docs/architecture-events-orchestration.md`、`docs/roadmap-command-event-interpreter.md`
+
+---
 
 # 发布记录
 
@@ -459,3 +568,19 @@ gameEnd 事件增加 pokesRevealed 字段用于入库
 ## 1.4.14
 
 fix: 修复结算金额分配异常
+
+## 1.4.15
+
+允许玩家全押时下注所有筹码
+
+## 1.4.16
+
+允许玩家全押时下注所有筹码
+
+## 1.4.17
+
+对局一结束就允许离开
+
+## 1.4.18
+
+更新使用文档
