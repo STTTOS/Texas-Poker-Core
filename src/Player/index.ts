@@ -398,8 +398,10 @@ export class Player implements GameComponent {
 
     this.#totalBetAmount = 0
     this.#handPokes = []
+    this.#bestFiveCards = undefined
     this.#rankStrength = 0
     this.#rankSignature = undefined
+    this.#rankCategory = undefined
     this.#status = 'waiting'
     this.#wager = 0
 
