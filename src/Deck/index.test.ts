@@ -1,10 +1,7 @@
 import { equals } from 'ramda'
 
-import Pool from '@/Pool'
 import Deck from './index'
-import Dealer from '@/Dealer'
-import { Player } from '@/Player'
-import Controller from '@/Controller'
+import { getBestRankCategory } from './core'
 import { RankCategory, rankCategoryMap } from './constant'
 
 describe('deck', () => {
@@ -34,9 +31,9 @@ describe('deck', () => {
     expect(result).toBe(false)
   })
 
-  // 耗时 10min, 平时不开启此测试
+  // 耗时约 10min，平时不开启此测试
   test.skip('bias in deal probabilities', () => {
-    // 牌型参考概率
+    // 牌型参考概率（2 张底牌 + 5 张公牌组成 7 张选最优 5 张后的牌型分布）
     const standardProbability = new Map<RankCategory, number>([
       ['q', 0.174],
       ['r', 0.438],
@@ -50,29 +47,13 @@ describe('deck', () => {
       ['z', 0.000032]
     ])
     let count = 1_000_000
-    // 测试发牌的误差率
     const times = count
-    // 记录对应牌型的命中次数
-    const hitCountsMap = new Map<RankCategory, number>([])
+    const hitCountsMap = new Map<RankCategory, number>()
     while (count > 0) {
       count--
-      const dealer = new Dealer(200)
-      const controller = new Controller(dealer)
-      const pool = new Pool()
-
-      dealer.join(
-        new Player({
-          user: { id: 1, name: '1' },
-          initialChips: 500,
-          lowestBetAmount: dealer.lowestBetAmount,
-          controller,
-          dealer,
-          pool
-        })
-      )
-      dealer.setRoles()
-      dealer.dealCards()
-      const type = dealer.deck.getBestRankCategory()
+      const deck = new Deck()
+      const { handPokes, commonPokes } = deck.dealCards(2)
+      const type = getBestRankCategory([handPokes[0]], commonPokes)
       if (hitCountsMap.has(type))
         hitCountsMap.set(type, hitCountsMap.get(type)! + 1)
       else hitCountsMap.set(type, 1)
@@ -86,12 +67,10 @@ describe('deck', () => {
       [...hitCountsMap.keys()]
         .map((type) => {
           const catchTimes = hitCountsMap.get(type)!
-          // 概率偏差
           const offsetRate =
             (Math.abs(catchTimes / times - standardProbability.get(type)!) /
               standardProbability.get(type)!) *
             100
-          // 牌型概率
           const probability = (catchTimes / times) * 100
           console.log(
             `${rankCategoryMap.get(
