@@ -14,13 +14,13 @@
 
 ## 优先级总览
 
-| 层级   | 内容                                                                                                                                              | 状态                                                                                                                                                                    |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **P0** | 下注/街道行动从 `Player` 抽到 `handBettingActions`；摊牌评估从 `Player` 字段迁到 `HandSettlement` 按 `userId` 存储，`Player` 经 `Controller` 只读 | **已实施**：`src/Player/handBettingActions.ts`、`HandSettlement` 内 `#evalByUserId`、`Controller.getShowdownEvalForPlayer`、`Texas.reset()` 先 `controller` 后 `dealer` |
-| **P1** | `TableStakes` 对象化；`Player` 依赖窄接口（`PlayerDealerRing` / `PlayerHandSession` / `StreetPotSink`）而非具体 `Dealer`/`Controller`/`Pool` 类型 | **已实施**：`src/TableStakes.ts`、`src/playerSessionPorts.ts`；`Dealer`/`Controller`/`Pool` 分别实现对应接口；`HandLifecycle` 迁至 `gameContracts` 打破循环依赖         |
-| **P1** | `Pool.add` 与余额变更收拢为 `Ledger` 或显式「扣款 + 记池」                                                                                        | **已实施**：`Pool/StreetBetLedger` 负责玩家侧扣款；`Pool#recordPotContribution` 负责 `totalAmount` / `betRecords`；`PlayerStreetBetLedger` 见 `playerSessionPorts`      |
-| **P2** | 显式 `Hand` / `CurrentHand` 聚合根，一手内状态归位                                                                                                | 待做                                                                                                                                                                    |
-| **P2** | 领域事件 + 读模型，收敛 `Texas` 上零散 callback                                                                                                   | 待做                                                                                                                                                                    |
+| 层级   | 内容                                                                                                                                              | 状态                                                                                                                                                                                         |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P0** | 下注/街道行动从 `Player` 抽到 `handBettingActions`；摊牌评估从 `Player` 字段迁到 `HandSettlement` 按 `userId` 存储，`Player` 经 `Controller` 只读 | **已实施**：`src/Player/handBettingActions.ts`、`HandSettlement` 内 `#evalByUserId`、`Controller.getShowdownEvalForPlayer`、`Texas.reset()` 先 `controller` 后 `dealer`                      |
+| **P1** | `TableStakes` 对象化；`Player` 依赖窄接口（`PlayerDealerRing` / `PlayerHandSession` / `StreetPotSink`）而非具体 `Dealer`/`Controller`/`Pool` 类型 | **已实施**：`src/TableStakes.ts`、`src/playerSessionPorts.ts`；`Dealer`/`Controller`/`Pool` 分别实现对应接口；`HandLifecycle` 迁至 `gameContracts` 打破循环依赖                              |
+| **P1** | `Pool.add` 与余额变更收拢为 `Ledger` 或显式「扣款 + 记池」                                                                                        | **已实施**：`Pool/StreetBetLedger` 负责玩家侧扣款；`Pool#recordPotContribution` 负责 `totalAmount` / `betRecords`；`PlayerStreetBetLedger` 见 `playerSessionPorts`                           |
+| **P2** | 显式 `Hand` / `CurrentHand` 聚合根，一手内状态归位                                                                                                | **已实施**：`src/Hand/CurrentHand.ts`；`Controller` 内聚 `#hand` 持有生命周期/街/控制权/盲注记录/`HandSettlement`                                                                            |
+| **P2** | 领域事件 + 读模型，收敛 `Texas` 上零散 callback                                                                                                   | **已实施（渐进）**：`Texas.subscribeEngineEvents` 统一 `roles_assigned` / `cards_dealt` / `hand_completed` / `stage_advanced`；与 `onRolesAssigned` 等并存；`Controller` 回调支持多 listener |
 
 ---
 
@@ -46,10 +46,10 @@
 - **`HandLifecycle`**：定义于 `gameContracts.ts`，`Controller` 再导出，供 `playerSessionPorts` 引用。
 - **`StreetBetLedger`**：`Pool.add` = 玩家账务扣减 + 中央池记账两步；包入口导出 `StreetBetLedger` / `PlayerStreetBetLedger`，便于自定义测试或接审计。
 
-## P2（后续说明）
+## P2（已落地摘要）
 
-- **`Hand` 聚合根**：把「本手」内聚为独立对象，`Controller` 变薄为调度多手与房间生命周期。
-- **领域事件**：用 `HandEnded`、`PotDistributed` 等替代零散 callback，外围只订阅。
+- **`CurrentHand`**：一手内状态（`status` / `stage` / `boardThroughStage` / `activePlayer` / `defaultBets` / `HandSettlement`）由 `Controller` 的 `#hand` 持有；`reset()` 与 `Controller.reset` 对齐。
+- **领域事件**：`TexasEngineEvent` + `subscribeEngineEvents`；终局与进街与 `controller.onGameEnd` / `onNextStage` 同源 payload。角色与发牌在 `setPlayerRoles` / `dealCards` 内同步发出。历史 `onXxx` callback 仍可用；后续可逐步只保留事件总线或再拆 `PotDistributed` 等细粒度事件。
 
 ---
 

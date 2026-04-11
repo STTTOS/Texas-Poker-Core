@@ -53,6 +53,22 @@ export type RolesAssignedEvent = {
 export type CardsDealtEvent = {
   players: Array<{ userId: number; name: string; handPokes: Poke[] }>
 }
+
+/** 会话级领域事件（与 `onRolesAssigned` / `onDealCards` / `onGameEnd` / `onNextStage` 同源数据，可多订阅） */
+export type TexasEngineEvent =
+  | { type: 'roles_assigned'; payload: RolesAssignedEvent }
+  | { type: 'cards_dealt'; payload: CardsDealtEvent }
+  | {
+      type: 'hand_completed'
+      payload: Parameters<CallbackOfGameEnd>[0]
+    }
+  | {
+      type: 'stage_advanced'
+      payload: Parameters<CallbackOnNextStage>[0]
+    }
+
+export type TexasEngineEventListener = (event: TexasEngineEvent) => void
+
 export type { TexasErrorCallback, GameComponent } from '@/gameContracts'
 
 class Texas {
@@ -63,6 +79,7 @@ class Texas {
   protected errorCallback?: (error: TexasError) => void
   protected rolesAssignedCallback?: (event: RolesAssignedEvent) => void
   protected cardsDealtCallback?: (event: CardsDealtEvent) => void
+  #engineEventListeners = new Set<TexasEngineEventListener>()
   /** 标准 fail-fast 入口：先通知 onError，再 throw */
   fail: (error: TexasError) => never
   /** @deprecated 历史命名；等价于 fail */
@@ -117,6 +134,27 @@ class Texas {
     this.room = room
     this.dealer = dealer
     this.controller = controller
+
+    this.controller.onGameEnd((payload) => {
+      this.#emitEngineEvent({ type: 'hand_completed', payload })
+    })
+    this.controller.onNextStage((payload) => {
+      this.#emitEngineEvent({ type: 'stage_advanced', payload })
+    })
+  }
+
+  /** 统一领域事件（与 `onRolesAssigned` 等并存；适合日志/WS/多模块订阅） */
+  subscribeEngineEvents(listener: TexasEngineEventListener): () => void {
+    this.#engineEventListeners.add(listener)
+    return () => {
+      this.#engineEventListeners.delete(listener)
+    }
+  }
+
+  #emitEngineEvent(event: TexasEngineEvent) {
+    for (const listener of this.#engineEventListeners) {
+      listener(event)
+    }
   }
 
   onError(callback: (error: TexasError) => void) {
@@ -184,14 +222,16 @@ class Texas {
     } else {
       this.room.rotateRoles()
     }
-    this.rolesAssignedCallback?.({
+    const rolesPayload = {
       players: this.dealer.getPlayersByActionSequence().map((p, index) => ({
         userId: p.getUserInfo().id,
         name: p.getUserInfo().name,
         role: p.getRole()!,
         actionIndex: index
       }))
-    })
+    }
+    this.rolesAssignedCallback?.(rolesPayload)
+    this.#emitEngineEvent({ type: 'roles_assigned', payload: rolesPayload })
   }
 
   /**
@@ -200,13 +240,15 @@ class Texas {
    */
   dealCards() {
     this.dealer.dealCards()
-    this.cardsDealtCallback?.({
+    const dealtPayload = {
       players: this.dealer.players.map((p) => ({
         userId: p.getUserInfo().id,
         name: p.getUserInfo().name,
         handPokes: p.getHandPokes()
       }))
-    })
+    }
+    this.cardsDealtCallback?.(dealtPayload)
+    this.#emitEngineEvent({ type: 'cards_dealt', payload: dealtPayload })
   }
   unlockSeats() {
     this.room.unlockSeats()

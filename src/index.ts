@@ -9,6 +9,7 @@ import Texas from './Texas'
 import { default as Deck } from './Deck'
 import { formatterPoke } from './Deck/core'
 import { TableStakes } from './TableStakes'
+import { CurrentHand } from './Hand/CurrentHand'
 import { stageMap } from './Controller/constants'
 import Dealer, { Table, DealerService } from './Dealer'
 import { StreetBetLedger } from './Pool/StreetBetLedger'
@@ -116,5 +117,13 @@ export {
   type TexasSimulationFlags,
   type TexasTraceEvent,
   /** @deprecated 旧版宽泛 code 类型，请逐步迁移到 TexasErrorCode */
-  type TexasErrorCodeLegacy
+  type TexasErrorCodeLegacy,
+  CurrentHand
 }
+
+export type {
+  RolesAssignedEvent,
+  CardsDealtEvent,
+  TexasEngineEvent,
+  TexasEngineEventListener
+} from './Texas'
