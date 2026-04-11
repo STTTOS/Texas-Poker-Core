@@ -7,6 +7,7 @@ import { Player } from '@/Player'
 import { sum, filterMap } from '@/utils'
 import { getWinners } from './getWinners'
 import { formatterPoke } from '@/Deck/core'
+import { StreetBetLedger } from './StreetBetLedger'
 import allocatePoolByInt from './allocatePoolByInt'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
@@ -30,6 +31,8 @@ class Pool implements GameComponent, StreetPotSink<Player> {
    */
   #bills: Map<number, number> = new Map()
   #paid = false
+  /** 玩家扣款与街道累计（与中央池记账分离） */
+  #streetLedger: StreetBetLedger
   fail: TexasErrorCallback
 
   constructor(
@@ -38,32 +41,19 @@ class Pool implements GameComponent, StreetPotSink<Player> {
     }
   ) {
     this.fail = fail
+    this.#streetLedger = new StreetBetLedger(fail)
   }
+
   /**
-   * @description 玩家在特定的阶段下注时, 记录下注信息
-   * @param player
-   * @param amount
-   * @param stage
+   * 街道下注：`StreetBetLedger` 扣玩家筹码 → 本池累加 total、betRecords、参与人集合。
    */
   add(player: Player, amount: number) {
-    if (amount <= 0)
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.POOL_NEGATIVE_AMOUNT, { amount })
-      )
-    if (player.balance < amount)
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.POOL_INSUFFICIENT_BALANCE, {
-          balance: player.balance,
-          amount
-        })
-      )
+    this.#streetLedger.assertAndApplyPlayerDebit(player, amount)
+    this.#recordPotContribution(player, amount)
+  }
 
-    player.balance -= amount
-    player.wager -= amount
-    player.currentStageTotalAmount += amount
-    player.totalBetAmount += amount
+  #recordPotContribution(player: Player, amount: number) {
     this.#totalAmount += amount
-
     this.#players.add(player)
     this.#betRecords.set(player, (this.#betRecords.get(player) || 0) + amount)
   }

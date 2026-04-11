@@ -31,8 +31,16 @@ export interface PlayerHandSession<TPlayer = unknown> {
 
 /**
  * 街道筹码流入中央池的端口；{@link Pool#add} 即实现。
- * 便于将来拆 Ledger / 审计流水时替换实现。
+ * 内部先经 {@link PlayerStreetBetLedger} 扣玩家侧，再写入池内 `betRecords` / `totalAmount`。
  */
 export interface StreetPotSink<TPlayer = unknown> {
   add(player: TPlayer, amount: number): void
+}
+
+/**
+ * 街道下注时玩家侧扣款与累计（余额、`currentStageTotalAmount`、`totalBetAmount`）。
+ * 默认实现为 `Pool/StreetBetLedger`。
+ */
+export interface PlayerStreetBetLedger<TPlayer = unknown> {
+  assertAndApplyPlayerDebit(player: TPlayer, amount: number): void
 }

@@ -18,7 +18,7 @@
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **P0** | 下注/街道行动从 `Player` 抽到 `handBettingActions`；摊牌评估从 `Player` 字段迁到 `HandSettlement` 按 `userId` 存储，`Player` 经 `Controller` 只读 | **已实施**：`src/Player/handBettingActions.ts`、`HandSettlement` 内 `#evalByUserId`、`Controller.getShowdownEvalForPlayer`、`Texas.reset()` 先 `controller` 后 `dealer` |
 | **P1** | `TableStakes` 对象化；`Player` 依赖窄接口（`PlayerDealerRing` / `PlayerHandSession` / `StreetPotSink`）而非具体 `Dealer`/`Controller`/`Pool` 类型 | **已实施**：`src/TableStakes.ts`、`src/playerSessionPorts.ts`；`Dealer`/`Controller`/`Pool` 分别实现对应接口；`HandLifecycle` 迁至 `gameContracts` 打破循环依赖         |
-| **P1** | `Pool.add` 与余额变更收拢为 `Ledger` 或显式「扣款 + 记池」                                                                                        | **部分**：`StreetPotSink` 已作为入池端口；`Pool` 仍内联扣余额，后续可抽 `Ledger`                                                                                        |
+| **P1** | `Pool.add` 与余额变更收拢为 `Ledger` 或显式「扣款 + 记池」                                                                                        | **已实施**：`Pool/StreetBetLedger` 负责玩家侧扣款；`Pool#recordPotContribution` 负责 `totalAmount` / `betRecords`；`PlayerStreetBetLedger` 见 `playerSessionPorts`      |
 | **P2** | 显式 `Hand` / `CurrentHand` 聚合根，一手内状态归位                                                                                                | 待做                                                                                                                                                                    |
 | **P2** | 领域事件 + 读模型，收敛 `Texas` 上零散 callback                                                                                                   | 待做                                                                                                                                                                    |
 
@@ -44,6 +44,7 @@
 - **`TableStakes`**：`bigBlind`、`smallBlind`（大盲之半）、`lowestBetAmount` 别名；`Dealer` 构造仍接受 `number`，内部转为 `TableStakes`。
 - **窄接口**：`Player` 构造参数为 `stakes`、`pot`、`dealerRing`、`handSession`；运行时仍传入真实 `Pool`/`Dealer`/`Controller`（结构化实现接口）。
 - **`HandLifecycle`**：定义于 `gameContracts.ts`，`Controller` 再导出，供 `playerSessionPorts` 引用。
+- **`StreetBetLedger`**：`Pool.add` = 玩家账务扣减 + 中央池记账两步；包入口导出 `StreetBetLedger` / `PlayerStreetBetLedger`，便于自定义测试或接审计。
 
 ## P2（后续说明）
 

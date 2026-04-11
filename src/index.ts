@@ -1,7 +1,8 @@
 import type {
   StreetPotSink,
   PlayerDealerRing,
-  PlayerHandSession
+  PlayerHandSession,
+  PlayerStreetBetLedger
 } from './playerSessionPorts'
 
 import Texas from './Texas'
@@ -10,6 +11,7 @@ import { formatterPoke } from './Deck/core'
 import { TableStakes } from './TableStakes'
 import { stageMap } from './Controller/constants'
 import Dealer, { Table, DealerService } from './Dealer'
+import { StreetBetLedger } from './Pool/StreetBetLedger'
 import { roleMap, ActionTypeMap } from './Player/constant'
 import { DealtBoard, type DealSnapshot } from './Deck/DealtBoard'
 import {
@@ -81,7 +83,9 @@ export {
   TableStakes,
   type PlayerDealerRing,
   type PlayerHandSession,
+  type PlayerStreetBetLedger,
   type StreetPotSink,
+  StreetBetLedger,
   stageMap,
   Dealer,
   Table,
