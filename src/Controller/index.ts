@@ -1,9 +1,10 @@
 // 控制游戏的进程
+import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
+
 import Dealer from '../Dealer'
 import { Player } from '../Player'
 import { Poke, RankCategory } from '@/Deck/constant'
 import { TexasEngineContext } from '@/TexasEngineContext'
-import { GameComponent, TexasErrorCallback } from '@/Texas'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import {
   formatterPoke,

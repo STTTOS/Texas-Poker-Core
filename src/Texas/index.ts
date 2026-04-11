@@ -1,10 +1,11 @@
 import type { Poke } from '@/Deck/constant'
+import type { PreAction } from '@/gameContracts'
 
 import Pool from '@/Pool'
 import Room from '@/Room'
 import Dealer from '@/Dealer'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
-import Player, { User, Role, ActionType, CallbackOfAction } from '@/Player'
+import Player, { User, Role, CallbackOfAction } from '@/Player'
 import {
   TexasEngineContext,
   type TexasEngineGlobalOptions
@@ -38,14 +39,7 @@ export interface CreateRoomInputArgs {
   beforeStageAdvance?: TexasTurnPacingHooks['beforeStageAdvance']
   beforeNextPlayerTurn?: TexasTurnPacingHooks['beforeNextPlayerTurn']
 }
-export interface PreAction {
-  userId: number
-  allowedActions: ActionType[]
-  restrict?: {
-    min: number
-    max: number
-  }
-}
+export type { PreAction } from '@/gameContracts'
 
 export type RolesAssignedEvent = {
   players: Array<{
@@ -59,12 +53,7 @@ export type RolesAssignedEvent = {
 export type CardsDealtEvent = {
   players: Array<{ userId: number; name: string; handPokes: Poke[] }>
 }
-export type TexasErrorCallback = (error: TexasError) => never
-// 组件基类
-export interface GameComponent {
-  /** 标准 fail-fast：触发后一定抛出并中断流程 */
-  fail?(error: TexasError): never
-}
+export type { TexasErrorCallback, GameComponent } from '@/gameContracts'
 
 class Texas {
   pool: Pool

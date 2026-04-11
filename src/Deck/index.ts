@@ -1,8 +1,8 @@
-import { getBestPokesRankSignature } from './core'
-import { ranks, suits, type Poke, RankCategory } from './constant'
+import { ranks, suits, type Poke } from './constant'
 
 /**
- * 洗牌, 发牌
+ * 牌堆与发牌流程：生成 52 张牌、洗牌、按德州规则发手牌与公牌（含烧牌），并缓存上一手发牌结果供查询。
+ * 牌力/牌型比较在 `./core` 纯函数中完成，本类不承载评估逻辑。
  */
 class Deck {
   #deck: Poke[] = []
@@ -99,6 +99,7 @@ class Deck {
     }
   }
 
+  // 获取公牌以及玩家的手牌
   getPokes() {
     return {
       handPokes: this.#handPokes,
@@ -106,16 +107,9 @@ class Deck {
     }
   }
 
+  // 获取所有牌
   getCards() {
     return this.#deck
-  }
-
-  getBestRankCategory() {
-    const rankSignature = getBestPokesRankSignature(
-      this.#handPokes,
-      this.#commonPokes
-    )
-    return rankSignature[0] as RankCategory
   }
 }
 export default Deck

@@ -1,3 +1,5 @@
+import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
+
 import { equals } from 'ramda'
 
 import { Player } from '@/Player'
@@ -5,7 +7,6 @@ import { sum, filterMap } from '@/utils'
 import allocatePoolByInt from './allocatePoolByInt'
 import { getWinners, formatterPoke } from '@/Deck/core'
 import { TexasEngineContext } from '@/TexasEngineContext'
-import { GameComponent, TexasErrorCallback } from '@/Texas'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
 // 提供奖池结算的能力

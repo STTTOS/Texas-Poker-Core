@@ -1,3 +1,9 @@
+import type {
+  PreAction,
+  GameComponent,
+  TexasErrorCallback
+} from '@/gameContracts'
+
 import Pool from '@/Pool'
 import Dealer from '@/Dealer'
 import { getRandomInt } from '@/utils'
@@ -6,7 +12,6 @@ import Controller, { StageEnum } from '@/Controller'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { Poke, RankCategory, RankSignature } from '../Deck/constant'
-import { PreAction, GameComponent, TexasErrorCallback } from '@/Texas'
 import { roleMap, RoleEnum, type Role, ActionTypeEnum } from './constant'
 
 export { ActionTypeEnum }

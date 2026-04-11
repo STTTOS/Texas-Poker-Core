@@ -1,14 +1,20 @@
+import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
+
 import Deck from '@/Deck'
 import { getRandomInt } from '@/utils'
 import { Role, Player, RoleEnum } from '@/Player'
-import { getWinners, formatterPoke } from '@/Deck/core'
 import { TexasEngineContext } from '@/TexasEngineContext'
-import { GameComponent, TexasErrorCallback } from '@/Texas'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
+import {
+  getWinners,
+  formatterPoke,
+  getBestRankCategory as resolveTableBestRankCategory
+} from '@/Deck/core'
 
 /**
- * 荷官, 控制游戏进行
+ * 牌桌与座位：环形玩家链、入座/离座、庄家与盲注位角色、发牌调度、桌面快照日志。
+ * 牌型评估请用 `Deck/core` 纯函数或本类对 `getPokes()` 的封装，而非在 `Deck` 内实现业务语义。
  */
 class Dealer implements GameComponent {
   #lowestBetAmount: number
@@ -95,7 +101,8 @@ class Dealer implements GameComponent {
    * @description 获取最大牌型 category（首字符）
    */
   getBestRankCategory() {
-    return this.#deck.getBestRankCategory()
+    const { handPokes, commonPokes } = this.#deck.getPokes()
+    return resolveTableBestRankCategory(handPokes, commonPokes)
   }
 
   /** 获取场上最大的牌型组合（可能多玩家并列） */

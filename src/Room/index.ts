@@ -1,7 +1,8 @@
+import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
+
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
 import Controller from '@/Controller'
-import { GameComponent, TexasErrorCallback } from '@/Texas'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
 /** 座位/角色是否已由 `ready()` 锁定（原 ready / unReady） */
