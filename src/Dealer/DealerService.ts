@@ -3,14 +3,11 @@ import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 
 import Deck from '@/Deck'
 import { getRandomInt } from '@/utils'
+import { formatterPoke } from '@/Deck/core'
 import { Role, Player, RoleEnum } from '@/Player'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
-import {
-  formatterPoke,
-  getBestRankCategory as resolveTableBestRankCategory
-} from '@/Deck/core'
 
 /**
  * 荷官侧流程：牌堆、角色分配、发牌、行动历史、桌面日志；依赖 {@link Table} 提供座位环与遍历。
@@ -18,6 +15,7 @@ import {
 export class DealerService implements GameComponent {
   #table: Table
   #deck: Deck
+  /** 大盲注额（桌上统一 stakes）；与「当前街已下注最大额」无关 */
   #lowestBetAmount: number
   #maxTablePlayers: number
   #actionsHistory: Player[] = []
@@ -47,6 +45,7 @@ export class DealerService implements GameComponent {
     return this.#deck
   }
 
+  /** 大盲注额（桌上统一 stakes） */
   get lowestBetAmount() {
     return this.#lowestBetAmount
   }
@@ -75,37 +74,6 @@ export class DealerService implements GameComponent {
       this.#actionsHistory.shift()
     }
     this.#actionsHistory.push(player)
-  }
-
-  getBestRankCategory() {
-    const { handPokes, commonPokes } = this.#deck.getPokes()
-    return resolveTableBestRankCategory(handPokes, commonPokes)
-  }
-
-  getTableBestFiveCards() {
-    const maxRankStrength = Math.max(
-      ...this.#table.map((player) => player.rankStrength)
-    )
-
-    return this.#table
-      .filter((player) => player.getStatus() !== 'out')
-      .map(({ rankStrength, bestFiveCards }) => ({
-        rankStrength,
-        bestFiveCards
-      }))
-      .filter(
-        ({ rankStrength, bestFiveCards }) =>
-          rankStrength === maxRankStrength && !!bestFiveCards
-      )
-      .map((item) => item.bestFiveCards)
-  }
-
-  logPlayers() {
-    TexasEngineContext.emitTrace({
-      channel: 'dealer',
-      name: 'log_players',
-      data: { lines: this.#table.map((player) => player.toString()) }
-    })
   }
 
   initialRoles(buttonPlayer?: Player) {
@@ -234,16 +202,13 @@ export class DealerService implements GameComponent {
     }
   }
 
-  getCurrentStageMaxBetAmount() {
-    return Math.max(...this.#table.map((player) => player.lowestBetAmount))
-  }
-
+  /** 从庄家下家起绕桌一圈的玩家顺序（与行动序一致） */
   getPlayersByActionSequence() {
-    const playes: Player[] = []
+    const players: Player[] = []
     this.#table.loop((player) => {
-      playes.push(player)
+      players.push(player)
     })
-    return playes
+    return players
   }
 
   resetCurrentStageTotalAmount() {

@@ -3,7 +3,6 @@ import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 import Deck from '@/Deck'
 import { Table } from './Table'
 import { Player } from '@/Player'
-import { getWinners } from '@/Deck/core'
 import { DealerService } from './DealerService'
 
 export { Table } from './Table'
@@ -67,10 +66,7 @@ class Dealer implements GameComponent {
     return this.#table.players
   }
 
-  get winners() {
-    return getWinners(this.#table.players)
-  }
-
+  /** 大盲注额，与 `Player.lowestBetAmount` 一致；非当前下注轮「需跟注的最大额」 */
   get lowestBetAmount() {
     return this.#service.lowestBetAmount
   }
@@ -81,18 +77,6 @@ class Dealer implements GameComponent {
 
   addAction(player: Player) {
     this.#service.addAction(player)
-  }
-
-  getBestRankCategory() {
-    return this.#service.getBestRankCategory()
-  }
-
-  getTableBestFiveCards() {
-    return this.#service.getTableBestFiveCards()
-  }
-
-  logPlayers() {
-    this.#service.logPlayers()
   }
 
   initialRoles(buttonPlayer?: Player) {
@@ -160,10 +144,6 @@ class Dealer implements GameComponent {
 
   setOthers() {
     this.#service.setOthers()
-  }
-
-  getCurrentStageMaxBetAmount() {
-    return this.#service.getCurrentStageMaxBetAmount()
   }
 
   getPlayersByActionSequence() {
