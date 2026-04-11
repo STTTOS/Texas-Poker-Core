@@ -45,10 +45,10 @@
 
 ## 4. `Controller` 与 `HandSettlement`
 
-- 新增 **`Controller/HandSettlement.ts`**：`settleFromCommonBoard` 负责为全体入座玩家写入 `bestFiveCards` / `rankSignature` / `rankStrength`，并汇总最强牌型快照；内部发出与原 `#settle` 一致的 trace。
+- **`Controller/HandSettlement.ts`**：`settleFromCommonBoard` 将每位入座玩家的摊牌结果写入 **`#evalByUserId`**；`Player` 通过 `Controller.getShowdownEvalForPlayer` 只读；并汇总最强牌型快照；内部发出与原 `#settle` 一致的 trace。
 - **`Controller`**：保留阶段机、控制权、`tryToEndGame` 等流程；摊牌数值结算委托给 `#settlement: HandSettlement`。
 
-**收益**：「流程控制」与「摊牌算分」分离，`HandSettlement` 可单独覆盖单测。
+**收益**：「流程控制」与「摊牌算分」分离；评估表单一数据源。长期路线图见 **`docs/maintainability-refactor-roadmap.md`**（含 P0/P1）。
 
 ## 5. 兼容与迁移提示
 
@@ -59,4 +59,4 @@
 ## 6. 后续可选方向
 
 - 将 `Deck/core.test.ts` 按子模块拆成多个测试文件，与源码目录对齐。
-- `Player` 仍较大，可继续把 `bet`/`raise`/`call` 等与 `Pool` 的协作收成小的 **ActionHandlers**（需谨慎保持行为与错误码一致）。
+- 下注执行已抽到 **`Player/handBettingActions.ts`**；可继续 **P2**（`Hand` 聚合根、领域事件），见路线图。

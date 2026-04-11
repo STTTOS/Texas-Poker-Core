@@ -1,3 +1,4 @@
+import type { StreetPotSink } from '@/playerSessionPorts'
 import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 
 import { equals } from 'ramda'
@@ -10,8 +11,7 @@ import allocatePoolByInt from './allocatePoolByInt'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
-// 提供奖池结算的能力
-class Pool implements GameComponent {
+class Pool implements GameComponent, StreetPotSink<Player> {
   // 本轮游戏总下注额度
   #totalAmount = 0
   /**

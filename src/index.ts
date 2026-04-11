@@ -1,22 +1,30 @@
+import type {
+  StreetPotSink,
+  PlayerDealerRing,
+  PlayerHandSession
+} from './playerSessionPorts'
+
 import Texas from './Texas'
 import { default as Deck } from './Deck'
 import { formatterPoke } from './Deck/core'
+import { TableStakes } from './TableStakes'
 import { stageMap } from './Controller/constants'
 import Dealer, { Table, DealerService } from './Dealer'
 import { roleMap, ActionTypeMap } from './Player/constant'
 import { DealtBoard, type DealSnapshot } from './Deck/DealtBoard'
-import {
-  Stage,
-  StageEnum,
-  HandLifecycle,
-  type TexasTurnPacingHooks
-} from './Controller'
 import {
   RoomStatus,
   default as Room,
   PlayerSeatStatus,
   type RoomCreateOptions
 } from './Room'
+import {
+  Stage,
+  StageEnum,
+  HandLifecycle,
+  type ShowdownPlayerEval,
+  type TexasTurnPacingHooks
+} from './Controller'
 import {
   TexasEngineContext,
   type TexasTraceEvent,
@@ -69,6 +77,11 @@ export {
   StageEnum,
   HandLifecycle,
   type TexasTurnPacingHooks,
+  type ShowdownPlayerEval,
+  TableStakes,
+  type PlayerDealerRing,
+  type PlayerHandSession,
+  type StreetPotSink,
   stageMap,
   Dealer,
   Table,

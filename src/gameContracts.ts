@@ -20,3 +20,14 @@ export interface PreAction {
     max: number
   }
 }
+
+/**
+ * 一手牌在控制器中的生命周期。
+ * 放在本文件以便 `playerSessionPorts` 等引用，避免与 `Controller` 循环依赖。
+ */
+export type HandLifecycle =
+  | 'idle'
+  | 'in_hand'
+  | 'in_hand_paused'
+  | 'hand_complete'
+  | 'aborted'

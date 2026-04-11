@@ -25,10 +25,10 @@ describe('Room', () => {
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,
-      lowestBetAmount: dealer.lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const room = new Room(roomOpts(dealer, player, controller))
     expect(room.lowestBetAmount).toEqual(200)
@@ -40,28 +40,27 @@ describe('Room', () => {
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,
-      lowestBetAmount: dealer.lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const room = new Room(roomOpts(dealer, player, controller))
-    const lowestBetAmount = room.lowestBetAmount
     const p2 = new Player({
       user: { id: 2, name: '2' },
       initialChips: 20000,
-      lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const p3 = new Player({
       user: { id: 3, name: '3' },
       initialChips: 20000,
-      lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
 
     room.join(p2)
@@ -76,29 +75,28 @@ describe('Room', () => {
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,
-      lowestBetAmount: dealer.lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const room = new Room(roomOpts(dealer, player, controller))
 
-    const lowestBetAmount = room.lowestBetAmount
     const p2 = new Player({
       user: { id: 2, name: '2' },
       initialChips: 20000,
-      lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const p3 = new Player({
       user: { id: 3, name: '3' },
       initialChips: 20000,
-      lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     room.join(p2)
     room.join(p3)
@@ -113,10 +111,10 @@ describe('Room', () => {
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,
-      lowestBetAmount: dealer.lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const room = new Room({
       dealer,
@@ -126,14 +124,13 @@ describe('Room', () => {
       maximumCountOfPlayers: 1
     })
 
-    const lowestBetAmount = room.lowestBetAmount
     const p2 = new Player({
       user: { id: 2, name: '2' },
       initialChips: 20000,
-      lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     expect(() => room.seat(p2)).toThrow('您不在房间中,无法入座')
 
@@ -150,10 +147,10 @@ describe('Room', () => {
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,
-      lowestBetAmount: dealer.lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const room = new Room(roomOpts(dealer, player, controller))
 

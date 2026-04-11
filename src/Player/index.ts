@@ -1,12 +1,15 @@
+import type { TableStakes } from '@/TableStakes'
 import type {
   PreAction,
   GameComponent,
   TexasErrorCallback
 } from '@/gameContracts'
+import type {
+  StreetPotSink,
+  PlayerDealerRing,
+  PlayerHandSession
+} from '@/playerSessionPorts'
 
-import Pool from '@/Pool'
-import Dealer from '@/Dealer'
-import Controller from '@/Controller'
 import { getRandomInt } from '@/utils'
 import { defaultThinkingTime } from '@/config'
 import { StageEnum } from '@/Controller/stage'
@@ -16,6 +19,14 @@ import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { Poke, RankCategory, RankSignature } from '../Deck/constant'
 import { roleMap, RoleEnum, type Role, ActionTypeEnum } from './constant'
+import {
+  executeBet,
+  executeCall,
+  executeFold,
+  executeAllIn,
+  executeCheck,
+  executeRaise
+} from './handBettingActions'
 
 export { ActionTypeEnum }
 
@@ -67,9 +78,9 @@ export class Player implements GameComponent {
    * 用户信息
    */
   #userInfo: Pick<User, 'id' | 'name'>
-  #pool: Pool
-  #dealer: Dealer
-  #controller: Controller
+  #pot: StreetPotSink<Player>
+  #dealerRing: PlayerDealerRing<Player>
+  #handSession: PlayerHandSession<Player>
   #onlineStatus: OnlineStatus = 'online'
   /**
    * 积分
@@ -81,10 +92,7 @@ export class Player implements GameComponent {
    */
   #thinkingTime: number
   #action?: Action
-  /**
-   * 最小下注金额
-   */
-  #lowestBetAmount: number
+  #stakes: TableStakes
   /**
    * 当前阶段的下注总额, 全押筹码不够时可以小于此金额
    */
@@ -112,13 +120,6 @@ export class Player implements GameComponent {
    * 轮到离线玩家行动时的策略（缺省：1s 后 `takeDefaultAction`）
    */
   #onOfflineTurnStart: (player: Player) => void
-  /**
-   * 与公共牌组合后的最佳五张牌（best 5-card combination）
-   */
-  #bestFiveCards?: Poke[]
-  #rankSignature?: RankSignature
-  #rankStrength = 0
-  #rankCategory?: RankCategory
   #callback?: (params: PreAction) => void
   /**
    * 用户采取行动
@@ -133,12 +134,12 @@ export class Player implements GameComponent {
     /** 起始筹码，写入 #balance */
     initialChips?: number
     role?: Role
-    pool: Pool
-    dealer: Dealer
+    pot: StreetPotSink<Player>
+    dealerRing: PlayerDealerRing<Player>
     isOwner?: boolean
     thinkingTime?: number
-    controller: Controller
-    lowestBetAmount: number
+    handSession: PlayerHandSession<Player>
+    stakes: TableStakes
     lastPlayer?: Player | null
     nextPlayer?: Player | null
     fail?: TexasErrorCallback
@@ -149,13 +150,13 @@ export class Player implements GameComponent {
     }
   }) {
     const {
-      lowestBetAmount,
+      stakes,
       user,
       lastPlayer = null,
       nextPlayer = null,
-      controller,
-      dealer,
-      pool,
+      handSession,
+      dealerRing,
+      pot,
       initialChips = 100,
       thinkingTime = defaultThinkingTime,
       fail,
@@ -163,15 +164,15 @@ export class Player implements GameComponent {
     } = options
     this.#balance = initialChips
 
-    this.#pool = pool
-    this.#dealer = dealer
+    this.#pot = pot
+    this.#dealerRing = dealerRing
     this.#userInfo = user
-    this.#controller = controller
+    this.#handSession = handSession
     if (fail) this.fail = fail
     this.#lastPlayer = lastPlayer
     this.#nextPlayer = nextPlayer
     this.#thinkingTime = thinkingTime
-    this.#lowestBetAmount = lowestBetAmount
+    this.#stakes = stakes
     this.#turnTiming = new PlayerTurnTiming(this.#thinkingTime, () =>
       this.#onThinkingDeadline(this)
     )
@@ -214,7 +215,7 @@ export class Player implements GameComponent {
   }
 
   get lowestBetAmount() {
-    return this.#lowestBetAmount
+    return this.#stakes.bigBlind
   }
   get thinkingTime() {
     return this.#thinkingTime
@@ -224,7 +225,7 @@ export class Player implements GameComponent {
    */
   #isBigBlindOptionInPreFlop(): boolean {
     return (
-      this.#controller.stage === StageEnum.PRE_FLOP &&
+      this.#handSession.stage === StageEnum.PRE_FLOP &&
       this.#role === RoleEnum.BB &&
       this.#currentStageTotalAmount >= this.getMaxBetAmountAtCurrentStage()
     )
@@ -235,20 +236,27 @@ export class Player implements GameComponent {
    * 防止预期外的行为
    */
   #getAllowedActions(): Array<ActionType> {
-    let maxOthersStageBet = 0
-    this.#dealer.forEach((p) => {
-      if (p !== this && p.#currentStageTotalAmount > maxOthersStageBet) {
-        maxOthersStageBet = p.#currentStageTotalAmount
-      }
-    })
     return resolveAllowedActions({
       selfStatus: this.#status,
       selfBalance: this.balance,
       selfCurrentStageTotal: this.#currentStageTotalAmount,
-      dealerActionHistory: this.#dealer.actionHistory,
-      maxOthersStageBet,
+      dealerActionHistory: this.#dealerRing.actionHistory,
+      maxOthersStageBet: this.getMaxOthersStageBet(),
       isBigBlindPreFlopOption: this.#isBigBlindOptionInPreFlop()
     })
+  }
+
+  /**
+   * 本街其他在座玩家已下注额的最大值（不含自己），供允许动作与加注校验使用。
+   */
+  getMaxOthersStageBet(): number {
+    let maxOthersStageBet = 0
+    this.#dealerRing.forEach((p) => {
+      if (p !== this && p.currentStageTotalAmount > maxOthersStageBet) {
+        maxOthersStageBet = p.currentStageTotalAmount
+      }
+    })
+    return maxOthersStageBet
   }
 
   /**
@@ -258,29 +266,19 @@ export class Player implements GameComponent {
     return this.#thinkingTime - this.#turnTiming.countDownTime
   }
 
+  /** 摊牌评估存于 {@link HandSettlement}，经控制器按 userId 解析 */
   get bestFiveCards(): Poke[] | undefined {
-    return this.#bestFiveCards
-  }
-
-  set bestFiveCards(value: Poke[] | undefined) {
-    this.#bestFiveCards = value
+    return this.#handSession.getShowdownEvalForPlayer(this)?.bestFiveCards
   }
 
   setNextPlayer(player: Player | null) {
     this.#nextPlayer = player
   }
   get rankSignature(): RankSignature | undefined {
-    return this.#rankSignature
-  }
-  set rankSignature(value: RankSignature) {
-    this.#rankSignature = value
-    this.#rankCategory = value[0] as RankCategory
+    return this.#handSession.getShowdownEvalForPlayer(this)?.rankSignature
   }
   get rankCategory(): RankCategory | undefined {
-    return this.#rankCategory
-  }
-  set rankCategory(value: RankCategory | undefined) {
-    this.#rankCategory = value
+    return this.#handSession.getShowdownEvalForPlayer(this)?.rankCategory
   }
 
   getNextPlayer() {
@@ -308,11 +306,8 @@ export class Player implements GameComponent {
     this.#onlineStatus = value
   }
 
-  set rankStrength(value: number) {
-    this.#rankStrength = value
-  }
   get rankStrength() {
-    return this.#rankStrength
+    return this.#handSession.getShowdownEvalForPlayer(this)?.rankStrength ?? 0
   }
   onPreAction(callback: (params: PreAction) => void) {
     this.#callback = callback
@@ -323,10 +318,6 @@ export class Player implements GameComponent {
     this.resetCurrentStageTotalAmount()
 
     this.#totalBetAmount = 0
-    this.#bestFiveCards = undefined
-    this.#rankStrength = 0
-    this.#rankSignature = undefined
-    this.#rankCategory = undefined
     this.#status = 'waiting'
     this.#wager = 0
 
@@ -341,257 +332,52 @@ export class Player implements GameComponent {
     this.#role = role
   }
 
-  async check() {
-    this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes(ActionTypeEnum.CHECK))
-      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CHECK))
+  /** 本街已确认的动作写入（由 handBettingActions 在校验通过后调用） */
+  assignCurrentStreetAction(action: Action): void {
+    this.#action = action
+  }
 
-    this.#action = {
-      type: ActionTypeEnum.CHECK
-    }
-    this.#dealer.addAction(this)
-    await this.#callbackOfAction?.(this)
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'check',
-      data: { userId: this.#userInfo.id, name: this.#userInfo.name }
-    })
+  /** 将筹码记入中央奖池 */
+  appendChipsToPot(amount: number): void {
+    this.#pot.add(this, amount)
+  }
+
+  /** 记入荷官行动顺序（与发牌位无关，仅时间序） */
+  notifyDealerActionHistory(): void {
+    this.#dealerRing.addAction(this)
+  }
+
+  async invokeOnActionCallback(isPreFlop?: boolean): Promise<void> {
+    await this.#callbackOfAction?.(this, isPreFlop)
+  }
+
+  /** 单步下注落账后：尝试收局 / 进街 / 把控制权交给下一位 */
+  async completeBettingTurn(): Promise<void> {
     await this.transferControl()
+  }
+
+  async check() {
+    return executeCheck(this)
   }
 
   async fold() {
-    this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes(ActionTypeEnum.FOLD))
-      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_FOLD))
-
-    this.#action = {
-      type: ActionTypeEnum.FOLD
-    }
-    this.#status = 'out'
-    this.#dealer.addAction(this)
-    await this.#callbackOfAction?.(this)
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'fold',
-      data: { userId: this.#userInfo.id, name: this.#userInfo.name }
-    })
-    await this.transferControl()
+    return executeFold(this)
   }
 
   async bet(money: number, preFlopDefaultAction = false) {
-    if (preFlopDefaultAction === false) this.checkIfCanAct()
-
-    if (
-      !this.#getAllowedActions().includes(ActionTypeEnum.BET) &&
-      !preFlopDefaultAction
-    )
-      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_BET))
-
-    if (money > this.balance) {
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_BET_EXCEEDS_BALANCE, {
-          money,
-          balance: this.balance
-        })
-      )
-    }
-    if (money < this.#lowestBetAmount && !preFlopDefaultAction) {
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_BET_BELOW_BB, {
-          money,
-          lowestBetAmount: this.#lowestBetAmount
-        })
-      )
-    }
-    if (money === this.balance) {
-      return this.allIn()
-    }
-    this.#action = {
-      type: ActionTypeEnum.BET,
-      payload: {
-        value: money
-      }
-    }
-
-    this.#pool.add(this, money)
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'bet',
-      data: {
-        userId: this.#userInfo.id,
-        name: this.#userInfo.name,
-        money,
-        balance: this.balance
-      }
-    })
-    this.#dealer.addAction(this)
-
-    await this.#callbackOfAction?.(this, preFlopDefaultAction)
-    if (!preFlopDefaultAction) await this.transferControl()
-    return money
+    return executeBet(this, money, preFlopDefaultAction)
   }
 
   async raise(money: number) {
-    this.checkIfCanAct()
-    // 当前轮的最多下注额
-    const maxBetAmount = Math.max(
-      ...this.#dealer
-        .filter((p) => p !== this)
-        .map((p) => p.#currentStageTotalAmount)
-    )
-
-    if (!this.#getAllowedActions().includes(ActionTypeEnum.RAISE))
-      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_RAISE))
-
-    if (money > this.balance) {
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_RAISE_EXCEEDS_BALANCE, {
-          money,
-          balance: this.balance
-        })
-      )
-    }
-    if (money < this.#lowestBetAmount) {
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_RAISE_BELOW_BB, {
-          money,
-          lowestBetAmount: this.#lowestBetAmount
-        })
-      )
-    }
-
-    if (money + this.#currentStageTotalAmount <= maxBetAmount) {
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_RAISE_NOT_INCREASE, {
-          maxBetAmount,
-          attemptedTotal: money + this.#currentStageTotalAmount
-        })
-      )
-    }
-    if (money === this.balance) {
-      return this.allIn()
-    }
-
-    this.#pool.add(this, money)
-    this.#action = {
-      type: ActionTypeEnum.RAISE,
-      payload: {
-        value: money
-      }
-    }
-
-    this.#dealer.addAction(this)
-    await this.#callbackOfAction?.(this)
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'raise',
-      data: { userId: this.#userInfo.id, name: this.#userInfo.name, money }
-    })
-
-    await this.transferControl()
+    return executeRaise(this, money)
   }
 
   async call() {
-    this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes(ActionTypeEnum.CALL))
-      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CALL))
-
-    // 其他玩家的最大下注金额
-    const maxBetAmount = this.getOthersMaxBetAmountAtCurrentStage()
-    const moneyShouldPay = maxBetAmount - this.#currentStageTotalAmount
-    if (moneyShouldPay <= 0)
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_CALL_INVALID_STATE, {
-          moneyShouldPay,
-          balance: this.balance,
-          maxBet: maxBetAmount
-        })
-      )
-    if (moneyShouldPay > this.balance) {
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_CALL_EXCEEDS_BALANCE, {
-          moneyShouldPay,
-          balance: this.balance
-        })
-      )
-    }
-    if (moneyShouldPay === this.balance) {
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_CALL_SHOULD_ALL_IN)
-      )
-    }
-
-    this.#action = {
-      type: ActionTypeEnum.CALL,
-      payload: {
-        value: moneyShouldPay
-      }
-    }
-
-    this.#pool.add(this, moneyShouldPay)
-    this.#dealer.addAction(this)
-    await this.#callbackOfAction?.(this)
-
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'call',
-      data: {
-        userId: this.#userInfo.id,
-        name: this.#userInfo.name,
-        moneyShouldPay
-      }
-    })
-    await this.transferControl()
+    return executeCall(this)
   }
 
   async allIn() {
-    this.checkIfCanAct()
-    if (!this.#getAllowedActions().includes(ActionTypeEnum.ALL_IN)) {
-      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_ALL_IN))
-    }
-
-    // 其他玩家持有筹码的最大值, 全押金额不可超过该值
-    // const maxAllInAmount = this.getMaxAllInAmount()
-    // const moneyShouldPay = Math.min(
-    //   Math.max(
-    //     maxAllInAmount - this.#currentStageTotalAmount,
-    //     this.#lowestBetAmount
-    //   ),
-    //   this.balance
-    // )
-
-    // fix: 允许玩家全押所有筹码, 多的进入边池就行
-    const moneyShouldPay = this.balance
-    if (moneyShouldPay <= 0)
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_ALL_IN_INVALID, {
-          moneyShouldPay,
-          balance: this.balance
-        })
-      )
-    this.#pool.add(this, moneyShouldPay)
-    this.#action = {
-      type: ActionTypeEnum.ALL_IN,
-      payload: {
-        value: moneyShouldPay
-      }
-    }
-
-    this.#status = 'allIn'
-    this.#dealer.addAction(this)
-    await this.#callbackOfAction?.(this)
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'all_in',
-      data: {
-        userId: this.#userInfo.id,
-        name: this.#userInfo.name,
-        moneyShouldPay,
-        balance: this.balance
-      }
-    })
-    await this.transferControl()
-    return moneyShouldPay
+    return executeAllIn(this)
   }
 
   /**
@@ -599,7 +385,8 @@ export class Player implements GameComponent {
    */
   getOthersMaxBetAmountAtCurrentStage() {
     return Math.max(
-      ...this.getOtherPlayers().map((p) => p.#currentStageTotalAmount)
+      0,
+      ...this.getOtherPlayers().map((p) => p.currentStageTotalAmount)
     )
   }
 
@@ -609,7 +396,8 @@ export class Player implements GameComponent {
    */
   getMaxBetAmountAtCurrentStage() {
     return Math.max(
-      ...this.#dealer.map((player) => player.#currentStageTotalAmount)
+      0,
+      ...this.#dealerRing.map((player) => player.currentStageTotalAmount)
     )
   }
 
@@ -619,8 +407,9 @@ export class Player implements GameComponent {
    */
   getMaxAllInAmount() {
     return Math.max(
+      0,
       ...this.getOtherPlayers().map(
-        (player) => player.balance + player.#currentStageTotalAmount
+        (player) => player.balance + player.currentStageTotalAmount
       )
     )
   }
@@ -629,7 +418,7 @@ export class Player implements GameComponent {
    * @description 获取除自己外的其他玩家
    */
   getOtherPlayers() {
-    return this.#dealer.filter((player) => player !== this)
+    return this.#dealerRing.filter((player) => player !== this)
   }
 
   /**
@@ -697,7 +486,7 @@ export class Player implements GameComponent {
   }
 
   checkIfCanAct() {
-    if (this.#controller.status !== 'in_hand')
+    if (this.#handSession.status !== 'in_hand')
       return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NOT_IN_HAND))
     if (this.#status !== 'active')
       return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NO_CONTROL))
@@ -718,7 +507,7 @@ export class Player implements GameComponent {
 
   /** 手牌唯一存于荷官侧快照，经 {@link Dealer.getHoleCardsForPlayer} 按座位解析 */
   getHandPokes(): Poke[] {
-    return [...this.#dealer.getHoleCardsForPlayer(this)]
+    return [...this.#dealerRing.getHoleCardsForPlayer(this)]
   }
 
   earn(money: number) {
@@ -746,7 +535,7 @@ export class Player implements GameComponent {
     this.clearTimer()
     this.removeControl()
 
-    const shouldEndGame = this.#controller.tryToEndGame()
+    const shouldEndGame = this.#handSession.tryToEndGame()
     if (shouldEndGame) {
       return
     }
@@ -756,7 +545,7 @@ export class Player implements GameComponent {
 
     // 在移交控制权之前, 需要校验游戏是否该进入下个阶段
     const canAdvanceToNextStage =
-      await this.#controller.tryToAdvanceGameToNextStage()
+      await this.#handSession.tryToAdvanceGameToNextStage()
     if (canAdvanceToNextStage) return
 
     // 移交给下一个可以行动的玩家
@@ -768,7 +557,7 @@ export class Player implements GameComponent {
         new TexasError(TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER)
       )
 
-    await this.#controller.transferControlTo(nextPlayerToGetController)
+    await this.#handSession.transferControlTo(nextPlayerToGetController)
   }
 
   __testTakeAction() {
@@ -831,16 +620,9 @@ export class Player implements GameComponent {
    */
   getRestrict() {
     const max = this.balance
-
-    let maxOthersStageTotal = 0
-    this.#dealer.forEach((p) => {
-      if (p !== this && p.#currentStageTotalAmount > maxOthersStageTotal) {
-        maxOthersStageTotal = p.#currentStageTotalAmount
-      }
-    })
-
+    const maxOthersStageTotal = this.getMaxOthersStageBet()
     const callGap = maxOthersStageTotal - this.#currentStageTotalAmount
-    const rawMin = callGap > 0 ? callGap : this.#lowestBetAmount
+    const rawMin = callGap > 0 ? callGap : this.#stakes.bigBlind
 
     return {
       min: Math.min(rawMin, max),

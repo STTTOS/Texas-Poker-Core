@@ -1,6 +1,6 @@
 import { Player } from '@/Player'
-import { Poke, RankCategory } from '@/Deck/constant'
 import { TexasEngineContext } from '@/TexasEngineContext'
+import { Poke, RankCategory, RankSignature } from '@/Deck/constant'
 import {
   formatterPoke,
   getBestFiveCards,
@@ -14,8 +14,16 @@ export type RankSettlementSnapshot = {
   rankStrength: number
 }
 
+/** 单座摊牌评估（唯一数据源；`Player` 经 `Controller.getShowdownEvalForPlayer` 只读） */
+export type ShowdownPlayerEval = {
+  bestFiveCards: Poke[]
+  rankSignature: RankSignature
+  rankStrength: number
+  rankCategory: RankCategory
+}
+
 /**
- * 摊牌结算：为每位入座玩家算 best five，并汇总桌上最强牌型（供 onGameEnd / 展示）。
+ * 摊牌结算：按 userId 存评估表，并汇总桌上最强牌型。
  * 与阶段机、控制权移交无关。
  */
 export class HandSettlement {
@@ -25,29 +33,40 @@ export class HandSettlement {
     rankStrength: 0
   }
 
+  #evalByUserId = new Map<number, ShowdownPlayerEval>()
+
   get snapshot() {
     return this.#snapshot
   }
 
-  reset() {
-    this.#snapshot = { rankCategory: undefined, pokes: [], rankStrength: 0 }
+  getPlayerEval(userId: number): ShowdownPlayerEval | undefined {
+    return this.#evalByUserId.get(userId)
   }
 
-  /**
-   * 用已写入各玩家的 rankStrength / bestFiveCards 聚合桌上最强牌（避免对未弃牌玩家再跑一遍全量 C(n,5) 展开与排序）。
-   */
+  reset() {
+    this.#snapshot = { rankCategory: undefined, pokes: [], rankStrength: 0 }
+    this.#evalByUserId.clear()
+  }
+
   #snapshotFromShowdownPlayers(stillIn: Player[]): RankSettlementSnapshot {
     if (stillIn.length === 0) {
       return { rankCategory: undefined, pokes: [], rankStrength: 0 }
     }
 
-    const maxStrength = Math.max(...stillIn.map((p) => p.rankStrength))
-    const tied = stillIn.filter((p) => p.rankStrength === maxStrength)
-    const sig = tied[0].rankSignature!
+    const maxStrength = Math.max(
+      ...stillIn.map((p) => this.getPlayerEval(p.id)?.rankStrength ?? 0)
+    )
+    const tiedAtTop = stillIn.filter(
+      (p) => (this.getPlayerEval(p.id)?.rankStrength ?? 0) === maxStrength
+    )
+    const topEval = this.getPlayerEval(tiedAtTop[0].id)
+    if (!topEval || maxStrength === 0) {
+      return { rankCategory: undefined, pokes: [], rankStrength: 0 }
+    }
 
     return {
-      rankCategory: sig[0] as RankCategory,
-      pokes: tied.map((p) => p.bestFiveCards!),
+      rankCategory: topEval.rankCategory,
+      pokes: tiedAtTop.map((p) => this.getPlayerEval(p.id)!.bestFiveCards),
       rankStrength: maxStrength
     }
   }
@@ -61,10 +80,15 @@ export class HandSettlement {
 
     allSeatedPlayers.forEach((player) => {
       const bestFiveCards = getBestFiveCards(player.getHandPokes(), commonPokes)
-      player.bestFiveCards = bestFiveCards
-      const sig = getFiveCardsRankSignature(bestFiveCards)
-      player.rankSignature = sig
-      player.rankStrength = getStrengthFromRankSignature(sig)
+      const rankSignature = getFiveCardsRankSignature(bestFiveCards)
+      const rankStrength = getStrengthFromRankSignature(rankSignature)
+      const rankCategory = rankSignature[0] as RankCategory
+      this.#evalByUserId.set(player.id, {
+        bestFiveCards,
+        rankSignature,
+        rankStrength,
+        rankCategory
+      })
     })
 
     this.#snapshot = this.#snapshotFromShowdownPlayers(playersStillInShowdown)

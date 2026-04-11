@@ -1,3 +1,4 @@
+import type { TableStakes } from '@/TableStakes'
 import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 
 import Dealer from '@/Dealer'
@@ -28,7 +29,7 @@ class Room implements GameComponent {
   #owner: Player
   #status: RoomStatus = 'seats_open'
   #dealer: Dealer
-  #lowestBetAmount: number
+  #stakes: TableStakes
   #maximumCountOfPlayers: number
   /** 入座玩家默认起始筹码 */
   #initialChips: number
@@ -58,8 +59,7 @@ class Room implements GameComponent {
     this.#maximumCountOfPlayers = maximumCountOfPlayers
     if (fail) this.fail = fail
 
-    const lowestBetAmount = dealer.lowestBetAmount
-    this.#lowestBetAmount = lowestBetAmount
+    this.#stakes = dealer.stakes
     this.join(owner)
   }
 
@@ -126,7 +126,7 @@ class Room implements GameComponent {
       status: this.#status,
       totalCount: this.#players.size,
       hangCount: this.playersCountHang,
-      lowestBetAmount: this.#lowestBetAmount,
+      lowestBetAmount: this.#stakes.bigBlind,
       onSeatCount: this.playersCountOnSeat,
       maximumCountOfPlayers: this.#maximumCountOfPlayers,
       owner: { ...this.#owner.getUserInfo(), balance: this.#owner.balance },
@@ -170,7 +170,11 @@ class Room implements GameComponent {
     return this.#dealer
   }
   get lowestBetAmount() {
-    return this.#lowestBetAmount
+    return this.#stakes.bigBlind
+  }
+
+  get stakes() {
+    return this.#stakes
   }
 
   joinMany(...players: Player[]) {

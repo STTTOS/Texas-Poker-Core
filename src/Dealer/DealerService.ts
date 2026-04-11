@@ -1,5 +1,6 @@
 import type { Table } from './Table'
 import type { Poke } from '@/Deck/constant'
+import type { TableStakes } from '@/TableStakes'
 import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 
 import Deck from '@/Deck'
@@ -18,8 +19,7 @@ export class DealerService implements GameComponent {
   #table: Table
   #deck: Deck
   #dealtBoard: DealtBoard
-  /** 大盲注额（桌上统一 stakes）；与「当前街已下注最大额」无关 */
-  #lowestBetAmount: number
+  #stakes: TableStakes
   #maxTablePlayers: number
   #actionsHistory: Player[] = []
   fail: TexasErrorCallback
@@ -27,7 +27,7 @@ export class DealerService implements GameComponent {
   constructor(
     table: Table,
     deck: Deck,
-    lowestBetAmount: number,
+    stakes: TableStakes,
     fail: TexasErrorCallback = (error) => {
       throw error
     },
@@ -36,7 +36,7 @@ export class DealerService implements GameComponent {
     this.#table = table
     this.#deck = deck
     this.#dealtBoard = new DealtBoard()
-    this.#lowestBetAmount = lowestBetAmount
+    this.#stakes = stakes
     this.#maxTablePlayers = options?.maxTablePlayers ?? 10
     this.fail = fail
   }
@@ -54,9 +54,12 @@ export class DealerService implements GameComponent {
     return this.#dealtBoard.getPokes()
   }
 
-  /** 大盲注额（桌上统一 stakes） */
+  get stakes() {
+    return this.#stakes
+  }
+
   get lowestBetAmount() {
-    return this.#lowestBetAmount
+    return this.#stakes.bigBlind
   }
 
   dealCards() {

@@ -98,11 +98,11 @@ class Texas {
     const owner = new Player({
       user,
       initialChips,
-      pool,
-      dealer,
-      controller,
+      pot: pool,
+      dealerRing: dealer,
+      handSession: controller,
       thinkingTime,
-      lowestBetAmount,
+      stakes: dealer.stakes,
       fail: this.fail
     })
     const room = new Room({
@@ -242,8 +242,8 @@ class Texas {
 
   reset() {
     this.pool.reset()
-    this.dealer.reset()
     this.controller.reset()
+    this.dealer.reset()
   }
 
   /**
@@ -264,11 +264,11 @@ class Texas {
     return new Player({
       user: userInfo,
       initialChips: this.room.initialChips,
-      pool: this.pool,
-      dealer: this.dealer,
-      controller: this.controller,
+      pot: this.pool,
+      dealerRing: this.dealer,
+      handSession: this.controller,
       thinkingTime: this.room.owner.thinkingTime,
-      lowestBetAmount: this.dealer.lowestBetAmount,
+      stakes: this.dealer.stakes,
       fail: this.fail
     })
   }

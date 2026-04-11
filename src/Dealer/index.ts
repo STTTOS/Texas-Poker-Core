@@ -1,8 +1,10 @@
+import type { PlayerDealerRing } from '@/playerSessionPorts'
 import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 
 import Deck from '@/Deck'
 import { Table } from './Table'
 import { Player } from '@/Player'
+import { TableStakes } from '@/TableStakes'
 import { DealerService } from './DealerService'
 
 export { Table } from './Table'
@@ -12,13 +14,13 @@ export { DealerService } from './DealerService'
  * 对外门面：组合 {@link Table}（座位环）与 {@link DealerService}（发牌与角色流程），保持原有 API。
  * 需要单独扩展座位逻辑或荷官逻辑时，可访问 `table` / `service`。
  */
-class Dealer implements GameComponent {
+class Dealer implements GameComponent, PlayerDealerRing<Player> {
   readonly #table: Table
   readonly #service: DealerService
   fail: TexasErrorCallback
 
   constructor(
-    lowestBetAmount: number,
+    stakes: TableStakes | number,
     fail: TexasErrorCallback = (error) => {
       throw error
     },
@@ -27,10 +29,12 @@ class Dealer implements GameComponent {
     this.fail = fail
     this.#table = new Table(this.fail)
     const deck = new Deck()
+    const resolvedStakes =
+      typeof stakes === 'number' ? new TableStakes(stakes) : stakes
     this.#service = new DealerService(
       this.#table,
       deck,
-      lowestBetAmount,
+      resolvedStakes,
       this.fail,
       options
     )
@@ -76,7 +80,11 @@ class Dealer implements GameComponent {
     return this.#table.players
   }
 
-  /** 大盲注额，与 `Player.lowestBetAmount` 一致；非当前下注轮「需跟注的最大额」 */
+  get stakes() {
+    return this.#service.stakes
+  }
+
+  /** 大盲注额；与 `stakes.bigBlind` 同义 */
   get lowestBetAmount() {
     return this.#service.lowestBetAmount
   }

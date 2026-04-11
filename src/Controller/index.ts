@@ -1,13 +1,18 @@
 // 控制游戏的进程
-import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
+import type { PlayerHandSession } from '@/playerSessionPorts'
+import type {
+  GameComponent,
+  HandLifecycle,
+  TexasErrorCallback
+} from '@/gameContracts'
 
 import Dealer from '../Dealer'
 import { Player } from '../Player'
-import { HandSettlement } from './HandSettlement'
 import { Poke, RankCategory } from '@/Deck/constant'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import { StageEnum, type Stage, STAGE_ORDER } from './stage'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
+import { HandSettlement, type ShowdownPlayerEval } from './HandSettlement'
 
 export { StageEnum, type Stage } from './stage'
 
@@ -30,20 +35,8 @@ export type CallbackOnNextStage = (params: {
   stage: Stage
   lastStage: Stage
 }) => void
-/**
- * 控制器唯一状态：一手牌从「可开局」到「结束待清理」的完整生命周期。
- * - `idle`：无进行中的手牌（上一手已 `reset` 之后、下一手 `start` 之前；**局间等待下一手**也在此）
- * - `in_hand`：本手进行中
- * - `in_hand_paused`：本手暂停
- * - `hand_complete`：本手已结束（至调用 `reset` 之前；业务可在此期间做摊牌展示、奖池结算、`settle` 等）
- * - `aborted`：异常终止（预留）
- */
-export type HandLifecycle =
-  | 'idle'
-  | 'in_hand'
-  | 'in_hand_paused'
-  | 'hand_complete'
-  | 'aborted'
+
+export type { HandLifecycle }
 
 /** 业务注入：在 core 固定顺序点 `await`，用于 WS/动画与思考计时起点对齐 */
 export type TexasTurnPacingHooks = {
@@ -58,7 +51,7 @@ export type TexasTurnPacingHooks = {
   beforeNextPlayerTurn?: () => void | Promise<void>
 }
 
-class Controller implements GameComponent {
+class Controller implements GameComponent, PlayerHandSession<Player> {
   #status: HandLifecycle = 'idle'
   // 当前游戏阶段
   #stage: Stage = StageEnum.PRE_FLOP
@@ -96,6 +89,10 @@ class Controller implements GameComponent {
 
   get stage() {
     return this.#stage
+  }
+
+  getShowdownEvalForPlayer(player: Player): ShowdownPlayerEval | undefined {
+    return this.#settlement.getPlayerEval(player.id)
   }
 
   get endAt() {
@@ -339,8 +336,8 @@ class Controller implements GameComponent {
       if (player) {
         const amount =
           index === 0
-            ? this.#dealer.lowestBetAmount / 2
-            : this.#dealer.lowestBetAmount
+            ? this.#dealer.stakes.smallBlind
+            : this.#dealer.stakes.bigBlind
 
         player.bet(amount, true)
         this.#defaultBets.push({
@@ -456,4 +453,5 @@ class Controller implements GameComponent {
     this.activePlayer?.pause()
   }
 }
+export type { ShowdownPlayerEval } from './HandSettlement'
 export default Controller

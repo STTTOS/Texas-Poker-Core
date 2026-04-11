@@ -23,26 +23,26 @@ describe('class Player', () => {
     const p1 = new Player({
       user: { id: 1, name: 'ycr' },
       initialChips: 18000,
-      lowestBetAmount: dealer.lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const p2 = new Player({
       user: { id: 2, name: 'yt' },
       initialChips: 5000,
-      lowestBetAmount: dealer.lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const p3 = new Player({
       user: { id: 3, name: 'wyz' },
       initialChips: 10_000,
-      lowestBetAmount: dealer.lowestBetAmount,
-      controller,
-      dealer,
-      pool
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
     })
     const room = new Room({
       dealer,
@@ -79,26 +79,26 @@ describe('class Player', () => {
       const p1 = new Player({
         user: { id: 1, name: 'a' },
         initialChips: 5000,
-        lowestBetAmount: dealer.lowestBetAmount,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const p2 = new Player({
         user: { id: 2, name: 'b' },
         initialChips: 5000,
-        lowestBetAmount: dealer.lowestBetAmount,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const p3 = new Player({
         user: { id: 3, name: 'c' },
         initialChips: 5000,
-        lowestBetAmount: dealer.lowestBetAmount,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const room = new Room({
         dealer,
@@ -131,18 +131,18 @@ describe('class Player', () => {
       const p1 = new Player({
         user: { id: 1, name: 'a' },
         initialChips: 5000,
-        lowestBetAmount: dealer.lowestBetAmount,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const p2 = new Player({
         user: { id: 2, name: 'b' },
         initialChips: 5000,
-        lowestBetAmount: dealer.lowestBetAmount,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const room = new Room({
         dealer,
@@ -166,30 +166,29 @@ describe('class Player', () => {
       const dealer = new Dealer(1000)
       const controller = new Controller(dealer)
       const pool = new Pool()
-      const lowest = dealer.lowestBetAmount
       const p1 = new Player({
         user: { id: 1, name: 'a' },
         initialChips: 8000,
-        lowestBetAmount: lowest,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const p2 = new Player({
         user: { id: 2, name: 'b' },
         initialChips: 8000,
-        lowestBetAmount: lowest,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const p3 = new Player({
         user: { id: 3, name: 'c' },
         initialChips: 8000,
-        lowestBetAmount: lowest,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       dealer.join(p1)
       dealer.join(p2)
@@ -214,18 +213,18 @@ describe('class Player', () => {
       const p1 = new Player({
         user: { id: 1, name: 'a' },
         initialChips: 5000,
-        lowestBetAmount: lowest,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const p2 = new Player({
         user: { id: 2, name: 'b' },
         initialChips: 5000,
-        lowestBetAmount: lowest,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       dealer.join(p1)
       dealer.join(p2)
@@ -242,22 +241,21 @@ describe('class Player', () => {
       const dealer = new Dealer(500)
       const controller = new Controller(dealer)
       const pool = new Pool()
-      const lowest = dealer.lowestBetAmount
       const p1 = new Player({
         user: { id: 1, name: 'x' },
         initialChips: 350,
-        lowestBetAmount: lowest,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const p2 = new Player({
         user: { id: 2, name: 'y' },
         initialChips: 10_000,
-        lowestBetAmount: lowest,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       dealer.join(p1)
       dealer.join(p2)
@@ -274,22 +272,21 @@ describe('class Player', () => {
       const dealer = new Dealer(1000)
       const controller = new Controller(dealer)
       const pool = new Pool()
-      const lowest = dealer.lowestBetAmount
       const p1 = new Player({
         user: { id: 1, name: 'a' },
         initialChips: 8000,
-        lowestBetAmount: lowest,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       const p2 = new Player({
         user: { id: 2, name: 'b' },
         initialChips: 8000,
-        lowestBetAmount: lowest,
-        controller,
-        dealer,
-        pool
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
       })
       dealer.join(p1)
       dealer.join(p2)
