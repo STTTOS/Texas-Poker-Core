@@ -1,4 +1,5 @@
 import type { Table } from './Table'
+import type { Poke } from '@/Deck/constant'
 import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 
 import Deck from '@/Deck'
@@ -73,10 +74,20 @@ export class DealerService implements GameComponent {
     })
     const snapshot = this.#deck.dealCards(this.#table.count)
     this.#dealtBoard.capture(snapshot)
-    const { handPokes } = snapshot
-    this.#table.loop((player, i) => {
-      player.setHandPokes(handPokes[i])
+  }
+
+  /**
+   * 手牌唯一数据源为 {@link DealtBoard}；下标与发牌顺序一致（从庄家下家起绕桌一圈）。
+   */
+  getHoleCardsForPlayer(player: Player): Poke[] {
+    const { handPokes } = this.getPokes()
+    if (!this.#table.button || handPokes.length === 0) return []
+
+    let hole: Poke[] = []
+    this.#table.loop((p, i) => {
+      if (p === player) hole = handPokes[i] ?? []
     }, this.#table.button.getNextPlayer())
+    return hole
   }
 
   addAction(player: Player) {

@@ -38,5 +38,5 @@ Texas 作为对外门面，**MUST** 组装并串联 Room/Dealer/Controller/Pool�
 - **AND** 成功后 **MUST** 触发 `texas.onRolesAssigned(cb)` 回调
 
 - **WHEN** 调用 `texas.dealCards()`
-- **THEN** Texas **MUST** 触发一次发牌流程（写入每个玩家的 2 张 `handPokes`）
+- **THEN** Texas **MUST** 触发一次发牌流程（荷官侧 `DealtBoard` 捕获手牌矩阵；玩家经 `getHandPokes()` 解析得到 2 张私牌）
 - **AND** 成功后 **MUST** 触发 `texas.onDealCards(cb)` 回调

@@ -57,7 +57,7 @@ sequenceDiagram
   Texas->>Texas: dealCards()
   Texas->>Dealer: dealCards()
   Dealer->>Deck: dealCards(count)
-  Dealer->>Player: setHandPokes(2 cards)
+  Dealer->>Dealer: DealtBoard.capture(handPokes)
   Texas-->>App: CardsDealtEvent(players[userId,name,handPokes])
 
   Texas->>Controller: start()

@@ -113,10 +113,6 @@ export class Player implements GameComponent {
    */
   #onOfflineTurnStart: (player: Player) => void
   /**
-   * 玩家的手牌（2 张）
-   */
-  #handPokes: Poke[] = []
-  /**
    * 与公共牌组合后的最佳五张牌（best 5-card combination）
    */
   #bestFiveCards?: Poke[]
@@ -140,7 +136,6 @@ export class Player implements GameComponent {
     pool: Pool
     dealer: Dealer
     isOwner?: boolean
-    handPokes?: Poke[]
     thinkingTime?: number
     controller: Controller
     lowestBetAmount: number
@@ -328,7 +323,6 @@ export class Player implements GameComponent {
     this.resetCurrentStageTotalAmount()
 
     this.#totalBetAmount = 0
-    this.#handPokes = []
     this.#bestFiveCards = undefined
     this.#rankStrength = 0
     this.#rankSignature = undefined
@@ -722,11 +716,9 @@ export class Player implements GameComponent {
     })
   }
 
-  setHandPokes(pokes: Poke[]) {
-    this.#handPokes = pokes
-  }
+  /** 手牌唯一存于荷官侧快照，经 {@link Dealer.getHoleCardsForPlayer} 按座位解析 */
   getHandPokes(): Poke[] {
-    return this.#handPokes
+    return [...this.#dealer.getHoleCardsForPlayer(this)]
   }
 
   earn(money: number) {

@@ -23,7 +23,7 @@
 - **`DealtBoard`**：由 `DealerService` 持有，`capture(snapshot)` 记录当前手牌与公牌；`reset()` 在局间清空。
 - **对外读取**：`Dealer.getPokes()`（门面）→ `DealerService.getPokes()` → `DealtBoard.getPokes()`。`Controller` 等不再通过 `dealer.deck.getPokes()` 取公牌。
 
-**收益**：物理牌堆与「本手已发出的牌」解耦；与玩家身上的手牌并存时，语义更清楚（牌堆对象不再冒充「当前局面」）。
+**收益**：物理牌堆与「本手已发出的牌」解耦；私牌以 `DealtBoard` 为唯一数据源，`Player.getHandPokes()` 经庄家按座位解析（牌堆对象不再冒充「当前局面」）。
 
 ## 3. `Player`：行动合法性 vs 思考计时
 

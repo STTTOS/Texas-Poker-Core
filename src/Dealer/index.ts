@@ -67,6 +67,11 @@ class Dealer implements GameComponent {
     return this.#service.getPokes()
   }
 
+  /** 该玩家在 {@link DealtBoard} 中对应座位的手牌（Player 不再私有缓存） */
+  getHoleCardsForPlayer(player: Player) {
+    return this.#service.getHoleCardsForPlayer(player)
+  }
+
   get players() {
     return this.#table.players
   }
