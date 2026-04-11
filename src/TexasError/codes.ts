@@ -73,6 +73,10 @@ export const TexasCoreErrorCode = {
   DEALER_COUNT_OUT_OF_RANGE: 3605,
   /** 入座变动后重排角色时庄家位未就绪 */
   DEALER_REARRANGE_NO_BUTTON: 3606,
+  /** 玩家已在环形座位中，重复 join */
+  DEALER_TABLE_JOIN_DUPLICATE: 3607,
+  /** 玩家不在环形座位中，无法 remove */
+  DEALER_TABLE_REMOVE_NOT_SEATED: 3608,
 
   INTERNAL_NO_NEXT_PLAYER: 3901
 } as const
@@ -226,6 +230,10 @@ export function formatTexasErrorMessage(
       return '未指定庄家, 无法重排座位角色'
     case TexasCoreErrorCode.DEALER_COUNT_OUT_OF_RANGE:
       return `暂不支持${p.count}人的对局`
+    case TexasCoreErrorCode.DEALER_TABLE_JOIN_DUPLICATE:
+      return `数据异常: 玩家 ${p.userId ?? '?'} 已在座位环中, 不可重复入座`
+    case TexasCoreErrorCode.DEALER_TABLE_REMOVE_NOT_SEATED:
+      return `数据异常: 玩家 ${p.userId ?? '?'} 不在座位环中, 无法离座`
 
     case TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER:
       return '游戏发生异常, 将控制权移交给不存在的玩家'

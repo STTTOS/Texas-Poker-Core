@@ -1,8 +1,8 @@
 import Texas from './Texas'
 import { default as Deck } from './Deck'
 import { formatterPoke } from './Deck/core'
-import { default as Dealer } from './Dealer'
 import { stageMap } from './Controller/constants'
+import Dealer, { Table, DealerService } from './Dealer'
 import { roleMap, ActionTypeMap } from './Player/constant'
 import {
   Stage,
@@ -70,6 +70,8 @@ export {
   type TexasTurnPacingHooks,
   stageMap,
   Dealer,
+  Table,
+  DealerService,
   Deck,
   Room,
   RoomStatus,

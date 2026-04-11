@@ -267,12 +267,13 @@ class Room implements GameComponent {
         )
       }
 
+      const seatedAtRing = this.#playersOnSet.has(player)
       this.#idToPlayerMap.delete(player.getUserInfo().id)
-      this.#dealer.remove(player)
-      if (this.getPlayerSeatStatus(player) === 'hang') {
-        this.#playersHang.delete(player)
-      } else {
+      if (seatedAtRing) {
+        this.#dealer.remove(player)
         this.#playersOnSet.delete(player)
+      } else {
+        this.#playersHang.delete(player)
       }
       return null
     }
