@@ -2,7 +2,13 @@ import { equals } from 'ramda'
 
 import Deck from './index'
 import { getBestRankCategory } from './core'
-import { RankCategory, rankCategoryMap } from './constant'
+import {
+  ranks,
+  suits,
+  type Poke,
+  RankCategory,
+  rankCategoryMap
+} from './constant'
 
 describe('deck', () => {
   test('init deck successfully', () => {
@@ -10,6 +16,23 @@ describe('deck', () => {
     expect(deck.getPokes().commonPokes.length).toEqual(0)
     expect(deck.getPokes().handPokes.length).toEqual(0)
     expect(deck.getCards().length).toEqual(52)
+  })
+
+  /** 构造函数会 #createDeck 再洗牌；排序后与标准 52 张一一对应即可验证牌组完整 */
+  test('createDeck covers exactly 52 unique cards (4 suits × 13 ranks)', () => {
+    const expected: Poke[] = suits.flatMap((s) =>
+      ranks.map((r) => `${s}${r}` as Poke)
+    )
+    expect(expected.length).toBe(52)
+
+    const deck = new Deck()
+    const cards = deck.getCards()
+    expect(cards.length).toBe(52)
+    expect(new Set(cards).size).toBe(52)
+
+    const sortedActual = [...cards].sort()
+    const sortedExpected = [...expected].sort()
+    expect(sortedActual).toEqual(sortedExpected)
   })
 
   test('create deck successfully', () => {
