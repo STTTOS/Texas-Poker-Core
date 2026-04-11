@@ -1,7 +1,8 @@
 import { equals } from 'ramda'
 
 import Deck from './index'
-import { getBestRankCategory } from './core'
+import { DealtBoard } from './DealtBoard'
+import { getBestPokesRankSignature } from './core'
 import {
   ranks,
   suits,
@@ -13,8 +14,9 @@ import {
 describe('deck', () => {
   test('init deck successfully', () => {
     const deck = new Deck()
-    expect(deck.getPokes().commonPokes.length).toEqual(0)
-    expect(deck.getPokes().handPokes.length).toEqual(0)
+    const board = new DealtBoard()
+    expect(board.getPokes().commonPokes.length).toEqual(0)
+    expect(board.getPokes().handPokes.length).toEqual(0)
     expect(deck.getCards().length).toEqual(52)
   })
 
@@ -37,9 +39,9 @@ describe('deck', () => {
 
   test('create deck successfully', () => {
     const deck = new Deck()
-    deck.dealCards(2)
-    expect(deck.getPokes().commonPokes.length).toEqual(5)
-    expect(deck.getPokes().handPokes.length).toEqual(2)
+    const { handPokes, commonPokes } = deck.dealCards(2)
+    expect(commonPokes.length).toEqual(5)
+    expect(handPokes.length).toEqual(2)
     expect(deck.getCards().length).toEqual(52)
   })
 
@@ -76,7 +78,10 @@ describe('deck', () => {
       count--
       const deck = new Deck()
       const { handPokes, commonPokes } = deck.dealCards(2)
-      const type = getBestRankCategory([handPokes[0]], commonPokes)
+      const type = getBestPokesRankSignature(
+        [handPokes[0]],
+        commonPokes
+      )[0] as RankCategory
       if (hitCountsMap.has(type))
         hitCountsMap.set(type, hitCountsMap.get(type)! + 1)
       else hitCountsMap.set(type, 1)

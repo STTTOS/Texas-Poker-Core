@@ -6,9 +6,12 @@ import type {
 
 import Pool from '@/Pool'
 import Dealer from '@/Dealer'
+import Controller from '@/Controller'
 import { getRandomInt } from '@/utils'
 import { defaultThinkingTime } from '@/config'
-import Controller, { StageEnum } from '@/Controller'
+import { StageEnum } from '@/Controller/stage'
+import { PlayerTurnTiming } from './turnTiming'
+import { resolveAllowedActions } from './allowedActions'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { Poke, RankCategory, RankSignature } from '../Deck/constant'
@@ -77,10 +80,6 @@ export class Player implements GameComponent {
    * 默认的思考时间为30s
    */
   #thinkingTime: number
-  /**
-   * 计时器
-   */
-  #countDownTime: number
   #action?: Action
   /**
    * 最小下注金额
@@ -104,9 +103,7 @@ export class Player implements GameComponent {
   #lastPlayer: Player | null = null
   #nextPlayer: Player | null = null
 
-  #timer: NodeJS.Timeout | null = null
-  /** 当前思考回合结束时刻（epoch ms）；与 `#timer` 链式 tick 配合，不再用 setInterval */
-  #thinkingDeadlineMs: number | null = null
+  #turnTiming: PlayerTurnTiming
   /**
    * 思考倒计时归零时的策略（缺省：引擎 `takeDefaultAction`）
    */
@@ -180,7 +177,9 @@ export class Player implements GameComponent {
     this.#nextPlayer = nextPlayer
     this.#thinkingTime = thinkingTime
     this.#lowestBetAmount = lowestBetAmount
-    this.#countDownTime = this.#thinkingTime
+    this.#turnTiming = new PlayerTurnTiming(this.#thinkingTime, () =>
+      this.#onThinkingDeadline(this)
+    )
     this.#onThinkingDeadline =
       actionPolicy?.onThinkingDeadline ??
       ((player) => {
@@ -241,100 +240,27 @@ export class Player implements GameComponent {
    * 防止预期外的行为
    */
   #getAllowedActions(): Array<ActionType> {
-    const helper = (lastPlayer?: Player | null): ActionType[] => {
-      if (this.#status === 'allIn' || this.#status === 'out') return []
-
-      // 当前阶段第一位非`fold`行动的玩家
-      if (!lastPlayer || !lastPlayer.#action)
-        return [
-          ActionTypeEnum.BET,
-          ActionTypeEnum.ALL_IN,
-          ActionTypeEnum.FOLD,
-          ActionTypeEnum.CHECK
-        ]
-
-      // 上个玩家弃牌了, 需要知道最近采取行动的玩家
-      if (lastPlayer.#action?.type === ActionTypeEnum.FOLD) {
-        const player = [...this.#dealer.actionHistory]
-          .reverse()
-          .find((player) => player.getStatus() !== 'out')
-        return helper(player)
+    let maxOthersStageBet = 0
+    this.#dealer.forEach((p) => {
+      if (p !== this && p.#currentStageTotalAmount > maxOthersStageBet) {
+        maxOthersStageBet = p.#currentStageTotalAmount
       }
-
-      if (lastPlayer.#action.type === ActionTypeEnum.CHECK)
-        return [
-          ActionTypeEnum.ALL_IN,
-          ActionTypeEnum.BET,
-          ActionTypeEnum.CHECK,
-          ActionTypeEnum.FOLD
-        ]
-
-      // 前置all-in校验
-      // 其他玩家的最大下注额
-      const maxBetAmount = Math.max(
-        ...this.#dealer!.filter((p) => p !== this).map(
-          (player) => player.#currentStageTotalAmount
-        )
-      )
-      if (this.balance + this.#currentStageTotalAmount <= maxBetAmount) {
-        return [ActionTypeEnum.ALL_IN, ActionTypeEnum.FOLD]
-      }
-
-      if (lastPlayer.#action!.type === ActionTypeEnum.BET) {
-        return [
-          ActionTypeEnum.CALL,
-          ActionTypeEnum.RAISE,
-          ActionTypeEnum.ALL_IN,
-          ActionTypeEnum.FOLD
-        ]
-      }
-
-      if (lastPlayer.#action?.type === ActionTypeEnum.RAISE) {
-        return [
-          ActionTypeEnum.CALL,
-          ActionTypeEnum.RAISE,
-          ActionTypeEnum.ALL_IN,
-          ActionTypeEnum.FOLD
-        ]
-      }
-
-      if (lastPlayer.#action.type === ActionTypeEnum.ALL_IN) {
-        return [
-          ActionTypeEnum.CALL,
-          ActionTypeEnum.RAISE,
-          ActionTypeEnum.ALL_IN,
-          ActionTypeEnum.FOLD
-        ]
-      }
-      // 上个玩家的行为是: call
-      return [
-        ActionTypeEnum.CALL,
-        ActionTypeEnum.RAISE,
-        ActionTypeEnum.FOLD,
-        ActionTypeEnum.ALL_IN
-      ]
-    }
-    const result = helper(
-      this.#dealer.actionHistory[this.#dealer.actionHistory.length - 1]
-    )
-    if (
-      this.#isBigBlindOptionInPreFlop() &&
-      result.includes(ActionTypeEnum.CALL)
-    )
-      return [
-        ActionTypeEnum.CHECK,
-        ActionTypeEnum.RAISE,
-        ActionTypeEnum.FOLD,
-        ActionTypeEnum.ALL_IN
-      ]
-    return result
+    })
+    return resolveAllowedActions({
+      selfStatus: this.#status,
+      selfBalance: this.balance,
+      selfCurrentStageTotal: this.#currentStageTotalAmount,
+      dealerActionHistory: this.#dealer.actionHistory,
+      maxOthersStageBet,
+      isBigBlindPreFlopOption: this.#isBigBlindOptionInPreFlop()
+    })
   }
 
   /**
    * @description 获取剩余的行动思考时间
    */
   getRemainThinkTime() {
-    return this.#thinkingTime - this.#countDownTime
+    return this.#thinkingTime - this.#turnTiming.countDownTime
   }
 
   get bestFiveCards(): Poke[] | undefined {
@@ -820,32 +746,7 @@ export class Player implements GameComponent {
   }
 
   clearTimer() {
-    if (this.#timer) {
-      clearTimeout(this.#timer)
-      this.#timer = null
-    }
-    this.#thinkingDeadlineMs = null
-    this.#countDownTime = this.#thinkingTime
-  }
-
-  /** 按 deadline 校准剩余秒数，并用单次 setTimeout 链式 tick（非 interval） */
-  #scheduleThinkingTick() {
-    if (this.#thinkingDeadlineMs == null) return
-
-    const msLeft = this.#thinkingDeadlineMs - Date.now()
-    if (msLeft <= 0) {
-      this.#countDownTime = 0
-      this.#timer = null
-      this.#thinkingDeadlineMs = null
-      void Promise.resolve(this.#onThinkingDeadline(this)).catch(() => {
-        /* 策略内已 fail 时由 fail 抛出 */
-      })
-      return
-    }
-
-    this.#countDownTime = Math.ceil(msLeft / 1000)
-    const nextDelay = Math.min(1000, msLeft)
-    this.#timer = setTimeout(() => this.#scheduleThinkingTick(), nextDelay)
+    this.#turnTiming.clear()
   }
 
   onStatusChange() {}
@@ -914,10 +815,7 @@ export class Player implements GameComponent {
     //   this.#onOfflineTurnStart(this)
     //   return
     // }
-    if (!this.#timer) {
-      this.#thinkingDeadlineMs = Date.now() + this.#thinkingTime * 1000
-      this.#scheduleThinkingTick()
-    }
+    this.#turnTiming.resumeCountdownIfNeeded()
   }
   onAction(callback: CallbackOfAction) {
     this.#callbackOfAction = callback

@@ -41,8 +41,8 @@ describe('dealer', () => {
     controller.settleRankingsThroughStage(StageEnum.RIVER)
 
     expect(dealer.deck.getCards().length).toEqual(52)
-    expect(dealer.deck.getPokes().commonPokes.length).toEqual(5)
-    expect(dealer.deck.getPokes().handPokes.length).toEqual(2)
+    expect(dealer.getPokes().commonPokes.length).toEqual(5)
+    expect(dealer.getPokes().handPokes.length).toEqual(2)
     expect(dealer.count).toEqual(2)
     expect(dealer.lowestBetAmount).toEqual(200)
   })

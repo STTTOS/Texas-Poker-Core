@@ -3,32 +3,13 @@ import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 
 import Dealer from '../Dealer'
 import { Player } from '../Player'
+import { HandSettlement } from './HandSettlement'
 import { Poke, RankCategory } from '@/Deck/constant'
 import { TexasEngineContext } from '@/TexasEngineContext'
+import { StageEnum, type Stage, STAGE_ORDER } from './stage'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
-import {
-  formatterPoke,
-  getBestRankInfo,
-  getBestFiveCards,
-  getFiveCardsRankSignature,
-  getStrengthFromRankSignature
-} from '@/Deck/core'
 
-export enum StageEnum {
-  PRE_FLOP = 'pre_flop',
-  FLOP = 'flop',
-  TURN = 'turn',
-  RIVER = 'river'
-}
-
-export type Stage = StageEnum
-
-const stages: Stage[] = [
-  StageEnum.PRE_FLOP,
-  StageEnum.FLOP,
-  StageEnum.TURN,
-  StageEnum.RIVER
-]
+export { StageEnum, type Stage } from './stage'
 
 export type CallbackOfGameEnd = (params: {
   /** 与 `onNextStage` 中 `pokesToReveal` 一致：`getCommonPokes(fromStage, toStage)` 本段新亮出的公牌 */
@@ -89,12 +70,7 @@ class Controller implements GameComponent {
   #callbackOnNextStage?: CallbackOnNextStage
   #callbackOfGameStart?: () => Promise<void>
   #defaultBets: Array<{ userId: number; balance: number; amount: number }> = []
-  /** 牌型结算信息 */
-  #rankInfo: {
-    rankCategory?: RankCategory
-    pokes: Poke[][]
-    rankStrength: number
-  } = { rankCategory: undefined, pokes: [], rankStrength: 0 }
+  #settlement = new HandSettlement()
   #turnPacingHooks?: TexasTurnPacingHooks
   fail: TexasErrorCallback
 
@@ -242,7 +218,7 @@ class Controller implements GameComponent {
       this.#settle()
       this.end()
 
-      const { rankCategory, pokes, rankStrength } = this.#rankInfo
+      const { rankCategory, pokes, rankStrength } = this.#settlement.snapshot
       this.#callbackOfEnd?.({
         bestPokes: pokes,
         showHandPokes: true,
@@ -286,11 +262,11 @@ class Controller implements GameComponent {
       if (this.#turnPacingHooks?.beforeNextPlayerTurn) {
         await this.#turnPacingHooks?.beforeNextPlayerTurn()
       }
-      const index = stages.findIndex((stage) => stage === this.#stage)
-      if (index < 0 || index >= stages.length - 1) return false
+      const index = STAGE_ORDER.findIndex((stage) => stage === this.#stage)
+      if (index < 0 || index >= STAGE_ORDER.length - 1) return false
 
       const currentStage = this.#stage
-      const nextStage = stages[index + 1]
+      const nextStage = STAGE_ORDER[index + 1]
 
       this.#stage = nextStage
       this.#dealer.resetCurrentStageTotalAmount()
@@ -332,7 +308,7 @@ class Controller implements GameComponent {
   getCommonPokes(currentStage: Stage, endStage: Stage) {
     if (currentStage === endStage) return []
 
-    const commonPokes = this.#dealer.deck.getPokes().commonPokes
+    const commonPokes = this.#dealer.getPokes().commonPokes
     return commonPokes.slice(
       this.#getPokeEndIndex(currentStage),
       this.#getPokeEndIndex(endStage)
@@ -450,33 +426,11 @@ class Controller implements GameComponent {
   /** 根据当前阶段, dealer,以及deck 比较结算出最大牌型信息, 以及计算出每个玩家的牌型算力 */
   #settle() {
     const commonPokesWhenGameEnd = this.getCommonPokesWhenGameEnd()
-    if (commonPokesWhenGameEnd.length === 0) return
-
-    this.#dealer.forEach((player) => {
-      const bestFiveCards = getBestFiveCards(
-        player.getHandPokes(),
-        commonPokesWhenGameEnd
-      )
-
-      // 存储最大五张牌, 防止后续重复计算
-      player.bestFiveCards = bestFiveCards
-      player.rankSignature = getFiveCardsRankSignature(bestFiveCards)
-      player.rankStrength = getStrengthFromRankSignature(player.rankSignature)
-    })
-    this.#rankInfo = getBestRankInfo(
-      this.#dealer
-        // 弃牌玩家不参与最终牌型大小比较
-        .getPlayersStillInGame()
-        .map((player) => player.getHandPokes()),
+    this.#settlement.settleFromCommonBoard(
+      this.#dealer.players,
+      this.#dealer.getPlayersStillInGame(),
       commonPokesWhenGameEnd
     )
-    TexasEngineContext.emitTrace({
-      channel: 'dealer',
-      name: 'settle_common_pokes',
-      data: {
-        commonPokes: formatterPoke(commonPokesWhenGameEnd)
-      }
-    })
   }
   resetActivePlayer() {
     this.#activePlayer?.removeControl()
@@ -491,7 +445,7 @@ class Controller implements GameComponent {
     this.#status = 'idle'
     this.#boardThroughStage = StageEnum.PRE_FLOP
     this.#stage = StageEnum.PRE_FLOP
-    this.#rankInfo = { rankCategory: undefined, pokes: [], rankStrength: 0 }
+    this.#settlement.reset()
   }
 
   /**

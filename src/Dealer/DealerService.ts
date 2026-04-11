@@ -4,6 +4,7 @@ import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 import Deck from '@/Deck'
 import { getRandomInt } from '@/utils'
 import { formatterPoke } from '@/Deck/core'
+import { DealtBoard } from '@/Deck/DealtBoard'
 import { Role, Player, RoleEnum } from '@/Player'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
@@ -15,6 +16,7 @@ import { roleMap, playerRoleSetMap } from '@/Player/constant'
 export class DealerService implements GameComponent {
   #table: Table
   #deck: Deck
+  #dealtBoard: DealtBoard
   /** 大盲注额（桌上统一 stakes）；与「当前街已下注最大额」无关 */
   #lowestBetAmount: number
   #maxTablePlayers: number
@@ -32,6 +34,7 @@ export class DealerService implements GameComponent {
   ) {
     this.#table = table
     this.#deck = deck
+    this.#dealtBoard = new DealtBoard()
     this.#lowestBetAmount = lowestBetAmount
     this.#maxTablePlayers = options?.maxTablePlayers ?? 10
     this.fail = fail
@@ -43,6 +46,11 @@ export class DealerService implements GameComponent {
 
   get deck() {
     return this.#deck
+  }
+
+  /** 当前已发手牌与公牌快照（与牌堆对象分离） */
+  getPokes() {
+    return this.#dealtBoard.getPokes()
   }
 
   /** 大盲注额（桌上统一 stakes） */
@@ -63,7 +71,9 @@ export class DealerService implements GameComponent {
         )
       }
     })
-    const { handPokes } = this.#deck.dealCards(this.#table.count)
+    const snapshot = this.#deck.dealCards(this.#table.count)
+    this.#dealtBoard.capture(snapshot)
+    const { handPokes } = snapshot
     this.#table.loop((player, i) => {
       player.setHandPokes(handPokes[i])
     }, this.#table.button.getNextPlayer())
@@ -122,7 +132,7 @@ export class DealerService implements GameComponent {
   log() {
     const lines: string[] = []
     lines.push(`玩家数量: ${this.#table.count}`)
-    lines.push('底牌:' + formatterPoke(this.#deck.getPokes().commonPokes))
+    lines.push('底牌:' + formatterPoke(this.#dealtBoard.getPokes().commonPokes))
     this.#table.forEach((player) => {
       const role = player.getRole()
       lines.push(
@@ -224,7 +234,7 @@ export class DealerService implements GameComponent {
   }
 
   reset() {
-    this.#deck.reset()
+    this.#dealtBoard.reset()
     this.resetActionsHistory()
     this.#table.forEach((player) => player.reset())
   }

@@ -62,6 +62,11 @@ class Dealer implements GameComponent {
     return this.#service.deck
   }
 
+  /** 已发手牌与公牌（由 DealerService 内 DealtBoard 持有，与 52 张牌堆分离） */
+  getPokes() {
+    return this.#service.getPokes()
+  }
+
   get players() {
     return this.#table.players
   }

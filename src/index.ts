@@ -4,6 +4,7 @@ import { formatterPoke } from './Deck/core'
 import { stageMap } from './Controller/constants'
 import Dealer, { Table, DealerService } from './Dealer'
 import { roleMap, ActionTypeMap } from './Player/constant'
+import { DealtBoard, type DealSnapshot } from './Deck/DealtBoard'
 import {
   Stage,
   StageEnum,
@@ -73,6 +74,8 @@ export {
   Table,
   DealerService,
   Deck,
+  DealtBoard,
+  type DealSnapshot,
   Room,
   RoomStatus,
   PlayerSeatStatus,

@@ -4,8 +4,9 @@ import { equals } from 'ramda'
 
 import { Player } from '@/Player'
 import { sum, filterMap } from '@/utils'
+import { getWinners } from './getWinners'
+import { formatterPoke } from '@/Deck/core'
 import allocatePoolByInt from './allocatePoolByInt'
-import { getWinners, formatterPoke } from '@/Deck/core'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
