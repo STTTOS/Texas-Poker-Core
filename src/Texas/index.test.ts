@@ -95,4 +95,50 @@ describe('entery', () => {
     )
     expect(isFatalTexasErrorCode(err!.code)).toBe(true)
   })
+
+  test('dispatchCommand rejects non-actor; settle emits PotAwarded', async () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 7,
+      initialChips: 5000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    const p3 = texas.createPlayer({ id: 3, name: 'c' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.join(p3)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
+    texas.dealer.setButton(p1)
+    texas.setPlayerRoles()
+    texas.drainDomainEvents()
+    teardownTexas = texas
+    texas.start()
+    texas.drainDomainEvents()
+    texas.dealCards()
+    texas.drainDomainEvents()
+
+    const actor = texas.controller.activePlayer!
+    const notActor = texas.dealer.players.find((p) => p !== actor)!
+    await expect(
+      texas.dispatchCommand({
+        type: 'Fold',
+        playerId: notActor.getUserInfo().id
+      })
+    ).rejects.toMatchObject({
+      code: TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR
+    })
+
+    texas.controller.end()
+    texas.controller.settleRankingsThroughStage(StageEnum.RIVER)
+    texas.settle()
+    const payEv = texas.drainDomainEvents()
+    expect(payEv.some((e) => e.type === 'PotAwarded')).toBe(true)
+    const pot = payEv.find((e) => e.type === 'PotAwarded')
+    expect(
+      pot && pot.type === 'PotAwarded' && pot.payload.allocations.length
+    ).toBeGreaterThan(0)
+  })
 })

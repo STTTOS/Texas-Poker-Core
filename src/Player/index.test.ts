@@ -5,7 +5,6 @@ import Dealer from '@/Dealer'
 import Controller from '@/Controller'
 
 describe('class Player', () => {
-  /** 避免 start() 后思考定时器挂起导致 Jest worker 无法干净退出 */
   let teardownController: Controller | null = null
   afterEach(() => {
     try {

@@ -1,6 +1,7 @@
 import type { Poke } from '@/Deck/constant'
 import type { Stage } from '@/Controller/stage'
 import type { HandLifecycle } from '@/gameContracts'
+import type { TurnEndedReason } from '@/domain/handDomainEvents'
 import type { ShowdownPlayerEval } from '@/Controller/HandSettlement'
 
 /**
@@ -23,15 +24,18 @@ export interface PlayerDealerRing<TPlayer = unknown> {
 export interface PlayerHandSession<TPlayer = unknown> {
   readonly status: HandLifecycle
   readonly stage: Stage
+  /** 当前轮到行动的玩家；翻前贴盲完成前可能为 `null` */
+  readonly activePlayer: TPlayer | null
   getShowdownEvalForPlayer(player: TPlayer): ShowdownPlayerEval | undefined
   tryToEndGame(): boolean
   tryToAdvanceGameToNextStage(): boolean
   transferControlTo(player: TPlayer): void
-  recordPlayerAction(
-    player: TPlayer,
-    options: { emitPot: boolean; isBlindDefault?: boolean }
-  ): void
+  recordPlayerAction(player: TPlayer, options: { emitPot: boolean }): void
   recordTurnOffered(player: TPlayer): void
+  recordTurnEnded(userId: number, reason: TurnEndedReason): void
+  /** 下一条 `TurnEnded` 使用指定 reason（如超时弃牌）；消费一次后恢复默认 `acted` */
+  setPendingTurnEndedReason(reason: TurnEndedReason): void
+  consumePendingTurnEndedReason(): TurnEndedReason | null
 }
 
 /**

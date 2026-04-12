@@ -1,4 +1,5 @@
 import type { Poke } from '@/Deck/constant'
+import type { TableCommand } from '@/domain/tableCommand'
 import type {
   HandDomainEvent,
   TexasDomainEvent,
@@ -28,6 +29,7 @@ export interface CreateRoomInputArgs {
 }
 
 export type { TexasDomainEvent, HandDomainEvent, SessionDomainEvent }
+export type { TableCommand } from '@/domain/tableCommand'
 
 class Texas {
   pool: Pool
@@ -179,7 +181,58 @@ class Texas {
   }
 
   settle() {
+    const potTotal = this.pool.totalAmount
     this.pool.pay()
+    const allocations = Array.from(this.pool.bills.entries()).map(
+      ([userId, amount]) => ({ userId, amount })
+    )
+    this.controller.recordPotAwarded(potTotal, allocations)
+  }
+
+  /**
+   * 统一指令入口：行动合法性由各 `Player` 动作内的 {@link Player.checkIfCanAct} 校验（含 `activePlayer` / `in_hand` / 座位 `active`）。
+   * 超时弃牌请使用 `FoldDueToTimeout`（会先消费 `setPendingTurnEndedReason('timeout')` 语义，经 `notifyActionCommitted` 产出 `TurnEnded`）。
+   */
+  async dispatchCommand(cmd: TableCommand): Promise<void> {
+    const playerId = cmd.playerId
+    const actor = this.dealer.players.find(
+      (p) => p.getUserInfo().id === playerId
+    )
+    if (!actor)
+      this.fail(
+        new TexasError(TexasCoreErrorCode.SESSION_DISPATCH_PLAYER_NOT_FOUND, {
+          playerId
+        })
+      )
+
+    switch (cmd.type) {
+      case 'Fold':
+        await actor.fold()
+        break
+      case 'FoldDueToTimeout':
+        this.controller.setPendingTurnEndedReason('timeout')
+        await actor.fold()
+        break
+      case 'Check':
+        await actor.check()
+        break
+      case 'Call':
+        await actor.call()
+        break
+      case 'Bet':
+        await actor.bet(cmd.amount)
+        break
+      case 'Raise':
+        await actor.raise(cmd.additionalAmount)
+        break
+      case 'AllIn':
+        await actor.allIn()
+        break
+      default: {
+        const _exhaustive: never = cmd
+        return _exhaustive
+      }
+    }
   }
 
   reset() {

@@ -1,7 +1,10 @@
 // 控制游戏的进程
 import type { ShowdownPlayerEval } from './HandSettlement'
 import type { PlayerHandSession } from '@/playerSessionPorts'
-import type { HandDomainEvent } from '@/domain/handDomainEvents'
+import type {
+  HandDomainEvent,
+  TurnEndedReason
+} from '@/domain/handDomainEvents'
 import type {
   GameComponent,
   HandLifecycle,
@@ -27,6 +30,8 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   #pool: Pool
   #handEventSeq = 0
   #handEvents: HandDomainEvent[] = []
+  /** 下一条行动完成时的 `TurnEnded.reason`（如超时弃牌）；由 `consumePendingTurnEndedReason` 消费 */
+  #pendingTurnEndedReason: TurnEndedReason | null = null
   fail: TexasErrorCallback
 
   constructor(
@@ -77,10 +82,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return this.#hand.activePlayer
   }
 
-  recordPlayerAction(
-    player: Player,
-    options: { emitPot: boolean; isBlindDefault?: boolean }
-  ): void {
+  recordPlayerAction(player: Player, options: { emitPot: boolean }): void {
     const action = player.getAction()
     if (!action) return
     this.#handEvents.push({
@@ -90,8 +92,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         userId: player.getUserInfo().id,
         street: this.#hand.stage,
         actionType: action.type,
-        amount: action.payload?.value,
-        isBlindDefault: options.isBlindDefault
+        amount: action.payload?.value
       }
     })
     if (options.emitPot) this.recordPotUpdated()
@@ -118,6 +119,37 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         street: this.#hand.stage,
         allowedActions: [...player.getAllowedActions()],
         restrict: player.getRestrict()
+      }
+    })
+  }
+
+  recordTurnEnded(userId: number, reason: TurnEndedReason): void {
+    this.#handEvents.push({
+      type: 'TurnEnded',
+      payload: { seq: this.#nextSeq(), userId, reason }
+    })
+  }
+
+  setPendingTurnEndedReason(reason: TurnEndedReason): void {
+    this.#pendingTurnEndedReason = reason
+  }
+
+  consumePendingTurnEndedReason(): TurnEndedReason | null {
+    const r = this.#pendingTurnEndedReason
+    this.#pendingTurnEndedReason = null
+    return r
+  }
+
+  recordPotAwarded(
+    potTotal: number,
+    allocations: Array<{ userId: number; amount: number }>
+  ): void {
+    this.#handEvents.push({
+      type: 'PotAwarded',
+      payload: {
+        seq: this.#nextSeq(),
+        potTotal,
+        allocations
       }
     })
   }
@@ -343,6 +375,19 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     )
   }
 
+  /** 翻前强制贴盲：实际入池 `min(规定额, 当前余额)`，与盲注路径 `executeBet` 一致。 */
+  #postBlind(player: Player, requested: number): number {
+    const balanceBefore = player.balance
+    const posted = Math.min(requested, balanceBefore)
+    player.bet(posted, true, true)
+    this.#hand.defaultBets.push({
+      userId: player.getUserInfo().id,
+      balance: balanceBefore - posted,
+      amount: posted
+    })
+    return posted
+  }
+
   takeActionInPreFlop() {
     this.#handEvents.push({
       type: 'HandStarted',
@@ -354,21 +399,16 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       []
     takeDefaultActionPlayers.forEach((player, index) => {
       if (player) {
-        const amount =
+        const requested =
           index === 0
             ? this.#dealer.stakes.smallBlind
             : this.#dealer.stakes.bigBlind
-
-        player.bet(amount, true, true)
-        this.#hand.defaultBets.push({
-          userId: player.getUserInfo().id,
-          balance: player.balance,
-          amount
-        })
+        const kind = index === 0 ? 'sb' : 'bb'
+        const posted = this.#postBlind(player, requested)
         posts.push({
           userId: player.getUserInfo().id,
-          amount,
-          kind: index === 0 ? 'sb' : 'bb'
+          amount: posted,
+          kind
         })
       }
     })
@@ -402,6 +442,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   start() {
     this.#handEventSeq = 0
     this.#handEvents = []
+    this.#pendingTurnEndedReason = null
     this.#hand.status = 'in_hand'
     this.#hand.stage = StageEnum.PRE_FLOP
     this.#hand.boardThroughStage = StageEnum.PRE_FLOP
@@ -443,12 +484,23 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     )
   }
   resetActivePlayer() {
-    this.#hand.activePlayer?.removeControl()
+    const ap = this.#hand.activePlayer
+    if (ap) {
+      if (ap.getStatus() === 'active') {
+        this.recordTurnEnded(ap.getUserInfo().id, 'control_cleared')
+      }
+      ap.removeControl()
+    }
     this.#hand.activePlayer = null
   }
 
   reset() {
-    this.resetActivePlayer()
+    this.#pendingTurnEndedReason = null
+    const ap = this.#hand.activePlayer
+    if (ap) {
+      ap.removeControl()
+    }
+    this.#hand.activePlayer = null
     this.#hand.reset()
     this.#handEventSeq = 0
     this.#handEvents = []
@@ -456,7 +508,11 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
 
   pause() {
     this.#hand.status = 'in_hand_paused'
-    this.activePlayer?.pause()
+    const ap = this.activePlayer
+    if (ap && ap.getStatus() === 'active') {
+      this.recordTurnEnded(ap.getUserInfo().id, 'paused')
+    }
+    ap?.pause()
   }
 }
 export type { ShowdownPlayerEval } from './HandSettlement'

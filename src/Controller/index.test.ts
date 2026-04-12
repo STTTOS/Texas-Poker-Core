@@ -101,6 +101,59 @@ describe('class Controller', () => {
     expect(controller.status).toBe('idle')
   })
 
+  test('short stack blind posts min(requested, balance)', () => {
+    const dealer = new Dealer(1000)
+    const pool = new Pool()
+    const controller = new Controller(dealer, pool)
+    const p1 = new Player({
+      user: { id: 1, name: 'a' },
+      initialChips: 10_000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const p2 = new Player({
+      user: { id: 2, name: 'b' },
+      initialChips: 10_000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const room = new Room({
+      dealer,
+      owner: p1,
+      controller,
+      initialChips: 10_000
+    })
+    room.seat(p1)
+    room.join(p2)
+    room.seat(p2)
+    room.initialRoles(p2)
+    dealer.dealCards()
+
+    const sb = dealer.button!
+    sb.balance = 300
+
+    teardownController = controller
+    controller.start()
+    const ev = controller.drainHandEvents()
+    const blinds = ev.find(
+      (e): e is Extract<typeof e, { type: 'BlindsPosted' }> =>
+        e.type === 'BlindsPosted'
+    )
+    expect(blinds).toBeDefined()
+    const sbPost = blinds!.payload.posts.find((p) => p.kind === 'sb')
+    expect(sbPost?.amount).toBe(300)
+    expect(pool.totalAmount).toBe(300 + dealer.stakes.bigBlind)
+    const sbRow = controller.defaultBets.find(
+      (d) => d.userId === sb.getUserInfo().id
+    )
+    expect(sbRow?.amount).toBe(300)
+    expect(sbRow?.balance).toBe(0)
+  })
+
   test('tryToEndGame: exclusive fold ends hand and emits HandEnded', async () => {
     const dealer = new Dealer(1000)
     const pool = new Pool()

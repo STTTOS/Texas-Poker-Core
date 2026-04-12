@@ -31,6 +31,8 @@ export const TexasCoreErrorCode = {
   SESSION_END_NOT_STARTED: 3204,
   /** 设置/轮换角色时桌上玩家筹码低于大盲（数据异常） */
   SESSION_SET_ROLES_BALANCE_BELOW_BB: 3205,
+  /** dispatchCommand：桌上无此 userId */
+  SESSION_DISPATCH_PLAYER_NOT_FOUND: 3206,
 
   CTRL_NO_PLAYER: 3300,
   CTRL_DUPLICATE_CONTROL: 3301,
@@ -59,6 +61,8 @@ export const TexasCoreErrorCode = {
   PLAYER_ALL_IN_INVALID: 3416,
   PLAYER_NOT_IN_HAND: 3417,
   PLAYER_NO_CONTROL: 3418,
+  /** dispatchCommand：非当前行动方 */
+  PLAYER_DISPATCH_NOT_ACTOR: 3419,
 
   POOL_NEGATIVE_AMOUNT: 3501,
   POOL_INSUFFICIENT_BALANCE: 3502,
@@ -158,6 +162,8 @@ export function formatTexasErrorMessage(
       return '游戏还未开始, 无法结束游戏'
     case TexasCoreErrorCode.SESSION_SET_ROLES_BALANCE_BELOW_BB:
       return `数据异常: 玩家 ${p.userId} 余额(${p.balance})不足大盲(${p.bigBlind}), 无法设置角色`
+    case TexasCoreErrorCode.SESSION_DISPATCH_PLAYER_NOT_FOUND:
+      return `玩家 ${p.playerId ?? '?'} 不在本桌，无法下发指令`
 
     case TexasCoreErrorCode.CTRL_NO_PLAYER:
       return '玩家不存在, 无法获得控制权'
@@ -210,6 +216,8 @@ export function formatTexasErrorMessage(
       return '游戏不在进行中, 不可行动'
     case TexasCoreErrorCode.PLAYER_NO_CONTROL:
       return '没有控制权, 无法行动'
+    case TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR:
+      return `当前行动方不是玩家 ${p.playerId ?? '?'}，拒绝指令`
 
     case TexasCoreErrorCode.POOL_NEGATIVE_AMOUNT:
       return '下注金额不可小于零'

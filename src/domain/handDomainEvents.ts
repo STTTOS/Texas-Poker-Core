@@ -3,6 +3,9 @@ import type { Stage } from '@/Controller/stage'
 import type { ActionTypeEnum } from '@/Player/constant'
 import type { Poke, RankCategory } from '@/Deck/constant'
 
+/** 思考权结束原因（计时由业务层负责时，`timeout` 在收到超时 Command 后由 Core 标记） */
+export type TurnEndedReason = 'acted' | 'control_cleared' | 'paused' | 'timeout'
+
 /**
  * 本手内领域事件（无业务 callback；由 {@link Texas#drainDomainEvents} / Controller 缓冲取出）。
  * `seq` 单调递增，便于持久化与回放排序。
@@ -28,8 +31,6 @@ export type HandDomainEvent =
         actionType: ActionTypeEnum
         /** 下注/加注等金额；无则省略 */
         amount?: number
-        /** 盲注强制下注时为 true */
-        isBlindDefault?: boolean
       }
     }
   | {
@@ -59,6 +60,23 @@ export type HandDomainEvent =
         street: Stage
         allowedActions: ActionTypeEnum[]
         restrict: { min: number; max: number }
+      }
+    }
+  | {
+      type: 'TurnEnded'
+      payload: {
+        seq: number
+        userId: number
+        reason: TurnEndedReason
+      }
+    }
+  | {
+      type: 'PotAwarded'
+      payload: {
+        seq: number
+        /** 本手中央池在分配前总额（与 Pool.totalAmount 一致） */
+        potTotal: number
+        allocations: Array<{ userId: number; amount: number }>
       }
     }
   | {

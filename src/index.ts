@@ -28,12 +28,6 @@ import Controller, {
   type ShowdownPlayerEval
 } from './Controller'
 import {
-  TexasEngineContext,
-  type TexasTraceEvent,
-  type TexasSimulationFlags,
-  type TexasEngineGlobalOptions
-} from '@/TexasEngineContext'
-import {
   User,
   Role,
   Action,
@@ -41,9 +35,14 @@ import {
   ActionType,
   OnlineStatus,
   ActionTypeEnum,
-  default as Player,
-  type PlayerActionPolicy
+  default as Player
 } from './Player'
+import {
+  TexasEngineContext,
+  type TexasTraceEvent,
+  type TexasSimulationFlags,
+  type TexasEngineGlobalOptions
+} from '@/TexasEngineContext'
 import TexasError, {
   texasErrorMap,
   TexasCoreErrorCode,
@@ -111,7 +110,6 @@ export {
   TexasEngineContext,
   Texas,
   OnlineStatus,
-  type PlayerActionPolicy,
   type TexasEngineGlobalOptions,
   type TexasSimulationFlags,
   type TexasTraceEvent,
@@ -126,5 +124,8 @@ export type {
   SessionDomainEvent,
   CreateRoomInputArgs
 } from './Texas'
+
+export type { TableCommand } from './domain/tableCommand'
+export type { TurnEndedReason } from './domain/handDomainEvents'
 
 export type { PreAction } from './gameContracts'

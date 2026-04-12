@@ -49,11 +49,12 @@ export async function executeFold(actor: Player): Promise<void> {
   await actor.completeBettingTurn()
 }
 
+/** `skipDomainEvents`：盲注路径为 true，由 `BlindsPosted` 表达，不发 `PlayerActed`。 */
 export async function executeBet(
   actor: Player,
   chipAmount: number,
   preFlopDefaultAction = false,
-  suppressEvents = false
+  skipDomainEvents = false
 ): Promise<number | void> {
   if (preFlopDefaultAction === false) actor.checkIfCanAct()
 
@@ -64,7 +65,7 @@ export async function executeBet(
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_BET))
   }
 
-  if (chipAmount > actor.balance) {
+  if (!preFlopDefaultAction && chipAmount > actor.balance) {
     return actor.fail(
       new TexasError(TexasCoreErrorCode.PLAYER_BET_EXCEEDS_BALANCE, {
         money: chipAmount,
@@ -72,36 +73,40 @@ export async function executeBet(
       })
     )
   }
-  if (chipAmount < actor.lowestBetAmount && !preFlopDefaultAction) {
+
+  /** 盲注允许「不足额」：实际下注入池为 min(规定盲注, 当前余额)。自愿下注仍走上方超额校验。 */
+  const committed = preFlopDefaultAction
+    ? Math.min(chipAmount, actor.balance)
+    : chipAmount
+
+  if (committed < actor.lowestBetAmount && !preFlopDefaultAction) {
     return actor.fail(
       new TexasError(TexasCoreErrorCode.PLAYER_BET_BELOW_BB, {
-        money: chipAmount,
+        money: committed,
         lowestBetAmount: actor.lowestBetAmount
       })
     )
   }
-  if (chipAmount === actor.balance) {
-    return executeAllIn(actor)
+  if (committed === actor.balance) {
+    return executeAllIn(actor, skipDomainEvents, preFlopDefaultAction)
   }
 
   actor.assignCurrentStreetAction({
     type: ActionTypeEnum.BET,
-    payload: { value: chipAmount }
+    payload: { value: committed }
   })
-  actor.appendChipsToPot(chipAmount)
+  actor.appendChipsToPot(committed)
   tracePlayerAction('bet', actor, {
-    money: chipAmount,
+    money: committed,
     balance: actor.balance
   })
   actor.notifyDealerActionHistory()
 
-  actor.notifyActionCommitted({
-    emitPot: true,
-    isBlindDefault: preFlopDefaultAction,
-    suppress: suppressEvents
-  })
+  if (!skipDomainEvents) {
+    actor.notifyActionCommitted({ emitPot: true })
+  }
   if (!preFlopDefaultAction) await actor.completeBettingTurn()
-  return chipAmount
+  return committed
 }
 
 export async function executeRaise(
@@ -199,8 +204,13 @@ export async function executeCall(actor: Player): Promise<void> {
   await actor.completeBettingTurn()
 }
 
-export async function executeAllIn(actor: Player): Promise<number | void> {
-  actor.checkIfCanAct()
+/** `skipTurnValidation`：与盲注 `executeBet(..., preFlopDefaultAction)` 一致，贴盲阶段 `activePlayer` 尚未就位。 */
+export async function executeAllIn(
+  actor: Player,
+  skipDomainEvents = false,
+  skipTurnValidation = false
+): Promise<number | void> {
+  if (!skipTurnValidation) actor.checkIfCanAct()
   if (!actor.getAllowedActions().includes(ActionTypeEnum.ALL_IN)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_ALL_IN))
   }
@@ -222,7 +232,9 @@ export async function executeAllIn(actor: Player): Promise<number | void> {
   })
   actor.setStatus('allIn')
   actor.notifyDealerActionHistory()
-  actor.notifyActionCommitted({ emitPot: true })
+  if (!skipDomainEvents) {
+    actor.notifyActionCommitted({ emitPot: true })
+  }
   tracePlayerAction('all_in', actor, {
     moneyShouldPay: chipsToCommit,
     balance: actor.balance

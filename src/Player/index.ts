@@ -9,7 +9,6 @@ import type {
 import { getRandomInt } from '@/utils'
 import { defaultThinkingTime } from '@/config'
 import { StageEnum } from '@/Controller/stage'
-import { PlayerTurnTiming } from './turnTiming'
 import { resolveAllowedActions } from './allowedActions'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
@@ -103,15 +102,6 @@ export class Player implements GameComponent {
   #lastPlayer: Player | null = null
   #nextPlayer: Player | null = null
 
-  #turnTiming: PlayerTurnTiming
-  /**
-   * 思考倒计时归零时的策略（缺省：引擎 `takeDefaultAction`）
-   */
-  #onThinkingDeadline: (player: Player) => void | Promise<void>
-  /**
-   * 轮到离线玩家行动时的策略（缺省：1s 后 `takeDefaultAction`）
-   */
-  #onOfflineTurnStart: (player: Player) => void
   fail: TexasErrorCallback = (error) => {
     throw error
   }
@@ -130,11 +120,6 @@ export class Player implements GameComponent {
     lastPlayer?: Player | null
     nextPlayer?: Player | null
     fail?: TexasErrorCallback
-    /** 超时/离线时的默认行动策略；不传则保持原有引擎默认行为 */
-    actionPolicy?: {
-      onThinkingDeadline?: (player: Player) => void
-      onOfflineTurnStart?: (player: Player) => void
-    }
   }) {
     const {
       stakes,
@@ -146,8 +131,7 @@ export class Player implements GameComponent {
       pot,
       initialChips = 100,
       thinkingTime = defaultThinkingTime,
-      fail,
-      actionPolicy
+      fail
     } = options
     this.#balance = initialChips
 
@@ -160,16 +144,6 @@ export class Player implements GameComponent {
     this.#nextPlayer = nextPlayer
     this.#thinkingTime = thinkingTime
     this.#stakes = stakes
-    this.#turnTiming = new PlayerTurnTiming(this.#thinkingTime, () =>
-      this.#onThinkingDeadline(this)
-    )
-    this.#onThinkingDeadline =
-      actionPolicy?.onThinkingDeadline ??
-      ((player) => {
-        void player.takeDefaultAction()
-      })
-    this.#onOfflineTurnStart =
-      actionPolicy?.onOfflineTurnStart ?? (() => void 0)
   }
   get balance() {
     return this.#balance
@@ -247,10 +221,10 @@ export class Player implements GameComponent {
   }
 
   /**
-   * @description 获取剩余的行动思考时间
+   * 建议思考窗口秒数（创建玩家时的配置）；实际倒计时由业务在消费 `TurnOffered` 后自行维护。
    */
   getRemainThinkTime() {
-    return this.#thinkingTime - this.#turnTiming.countDownTime
+    return this.#thinkingTime
   }
 
   /** 摊牌评估存于 {@link HandSettlement}，经控制器按 userId 解析 */
@@ -330,16 +304,15 @@ export class Player implements GameComponent {
     this.#dealerRing.addAction(this)
   }
 
-  notifyActionCommitted(options: {
-    emitPot: boolean
-    isBlindDefault?: boolean
-    suppress?: boolean
-  }): void {
-    if (options.suppress) return
+  notifyActionCommitted(options: { emitPot: boolean }): void {
     this.#handSession.recordPlayerAction(this, {
-      emitPot: options.emitPot,
-      isBlindDefault: options.isBlindDefault
+      emitPot: options.emitPot
     })
+    const turnReason = this.#handSession.consumePendingTurnEndedReason()
+    this.#handSession.recordTurnEnded(
+      this.getUserInfo().id,
+      turnReason ?? 'acted'
+    )
   }
 
   /** 单步下注落账后：尝试收局 / 进街 / 把控制权交给下一位 */
@@ -355,12 +328,16 @@ export class Player implements GameComponent {
     return executeFold(this)
   }
 
+  /**
+   * @param preFlopDefaultAction 盲注等强制下注的规则分支
+   * @param skipDomainEvents 为 true 时不发 `PlayerActed`/`TurnEnded`/`PotUpdated`（盲注由 `BlindsPosted` 表达）
+   */
   async bet(
     money: number,
     preFlopDefaultAction = false,
-    suppressEvents = false
+    skipDomainEvents = false
   ) {
-    return executeBet(this, money, preFlopDefaultAction, suppressEvents)
+    return executeBet(this, money, preFlopDefaultAction, skipDomainEvents)
   }
 
   async raise(money: number) {
@@ -480,7 +457,18 @@ export class Player implements GameComponent {
     return this.#userInfo
   }
 
+  /**
+   * 自愿行动前校验：须为 `controller.activePlayer`、本手 `in_hand`、且座位 `active`。
+   * 与 {@link Texas.dispatchCommand} 对齐；盲注等结构性下注须跳过本方法（见 `executeBet`/`executeAllIn`）。
+   */
   checkIfCanAct() {
+    if (this.#handSession.activePlayer !== this) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR, {
+          playerId: this.#userInfo.id
+        })
+      )
+    }
     if (this.#handSession.status !== 'in_hand')
       return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NOT_IN_HAND))
     if (this.#status !== 'active')
@@ -522,7 +510,7 @@ export class Player implements GameComponent {
   }
 
   clearTimer() {
-    this.#turnTiming.clear()
+    /* 思考计时应由业务层在收到 TurnOffered 后自行调度；Core 不再使用 setTimeout */
   }
 
   onStatusChange() {}
@@ -580,14 +568,7 @@ export class Player implements GameComponent {
   continue() {
     if (TexasEngineContext.simulation().immediateDefaultActionOnTurn) {
       void this.takeDefaultAction()
-      return
     }
-    // 如果当前玩家是离线状态, 延时一秒后直接采取默认行为
-    // if (this.#onlineStatus === 'offline') {
-    //   this.#onOfflineTurnStart(this)
-    //   return
-    // }
-    this.#turnTiming.resumeCountdownIfNeeded()
   }
   pause() {
     this.removeControl()
@@ -636,12 +617,6 @@ export class Player implements GameComponent {
 
     this.continue()
   }
-}
-
-/** 在线状态与倒计时由引擎维护；具体「到时/离线」如何处理由此策略外置（缺省与历史行为一致） */
-export type PlayerActionPolicy = {
-  onThinkingDeadline?: (player: Player) => void | Promise<void>
-  onOfflineTurnStart?: (player: Player) => void
 }
 
 export default Player
