@@ -1,5 +1,6 @@
 import Texas from '@/Texas'
 import { StageEnum } from '@/Controller'
+import { ActionTypeEnum } from '@/Player'
 import TexasError, {
   TexasCoreErrorCode,
   isFatalTexasErrorCode
@@ -140,5 +141,65 @@ describe('entery', () => {
     expect(
       pot && pot.type === 'PotAwarded' && pot.payload.allocations.length
     ).toBeGreaterThan(0)
+  })
+
+  test('CheckDueToTimeout yields TurnEnded reason timeout on flop', async () => {
+    const texas = new Texas({
+      lowestBetAmount: 1000,
+      maximumCountOfPlayers: 7,
+      initialChips: 50_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.seat(p2)
+    texas.dealer.setButton(p1)
+    texas.setPlayerRoles()
+    texas.drainDomainEvents()
+    teardownTexas = texas
+    texas.start()
+    texas.drainDomainEvents()
+    texas.dealCards()
+    texas.drainDomainEvents()
+
+    const firstPf = texas.controller.activePlayer!
+    await texas.dispatchCommand({
+      type: 'Call',
+      playerId: firstPf.getUserInfo().id
+    })
+    texas.drainDomainEvents()
+    const secondPf = texas.controller.activePlayer!
+    await texas.dispatchCommand({
+      type: 'Check',
+      playerId: secondPf.getUserInfo().id
+    })
+    texas.drainDomainEvents()
+
+    expect(texas.controller.stage).toBe(StageEnum.FLOP)
+    const firstOnFlop = texas.controller.activePlayer!
+    expect(firstOnFlop).toBeDefined()
+
+    await texas.dispatchCommand({
+      type: 'CheckDueToTimeout',
+      playerId: firstOnFlop.getUserInfo().id
+    })
+    const uid = firstOnFlop.getUserInfo().id
+    const ev = texas.drainDomainEvents()
+    const turnEnded = ev.find(
+      (e) =>
+        e.type === 'TurnEnded' &&
+        e.payload.userId === uid &&
+        e.payload.reason === 'timeout'
+    )
+    expect(turnEnded).toBeDefined()
+    const acted = ev.find(
+      (e) =>
+        e.type === 'PlayerActed' &&
+        e.payload.userId === uid &&
+        e.payload.actionType === ActionTypeEnum.CHECK
+    )
+    expect(acted).toBeDefined()
   })
 })

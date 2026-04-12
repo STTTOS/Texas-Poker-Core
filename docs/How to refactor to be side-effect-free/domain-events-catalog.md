@@ -215,7 +215,7 @@ Core 负责：**状态**确实一条街一条街变（真多步），**不在 Co
 
 1. Core 产出 `TurnOffered`（规则上轮到谁、允许哪些动作）。
 2. **解释器 / 业务**：收到后启动自己的计时器（时长、是否银行家时间、是否全局统一，全在业务配置）。
-3. 到时后业务向 Core 发 **显式 Command**（如 `FoldDueToTimeout` / `MuckDueToTimeout`，由规则表定义是否等价于 `Fold`）。
+3. 到时后业务向 Core 发 **显式 Command**（如 `FoldDueToTimeout`、`CheckDueToTimeout`（可过牌时），由规则表定义等价行动）。
 4. Core `apply` 校验「仍是该玩家回合」后，产出 `TurnEnded`（`reason: 'timeout'`），再按 §5 硬边界在**后续** `apply` 中产 `TurnOffered`（下家）或进入阶段推进。
 
 这样 **「多久算超时、超时算弃牌还是过牌、是否提醒一次」** 全是业务策略；Core 只认**合法 Command** 与**状态迁移**。现有 `Player` 上的思考计时若仍存在，演进方向是 **迁到解释器**，与 [roadmap-command-event-interpreter.md](./roadmap-command-event-interpreter.md) 阶段 4 一致。

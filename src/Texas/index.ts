@@ -191,7 +191,7 @@ class Texas {
 
   /**
    * 统一指令入口：行动合法性由各 `Player` 动作内的 {@link Player.checkIfCanAct} 校验（含 `activePlayer` / `in_hand` / 座位 `active`）。
-   * 超时弃牌请使用 `FoldDueToTimeout`（会先消费 `setPendingTurnEndedReason('timeout')` 语义，经 `notifyActionCommitted` 产出 `TurnEnded`）。
+   * 超时：弃牌用 `FoldDueToTimeout`，可过牌时用 `CheckDueToTimeout`（均先 `setPendingTurnEndedReason('timeout')`，经 `notifyActionCommitted` 产出 `TurnEnded`）。
    */
   async dispatchCommand(cmd: TableCommand): Promise<void> {
     const playerId = cmd.playerId
@@ -212,6 +212,10 @@ class Texas {
       case 'FoldDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
         await actor.fold()
+        break
+      case 'CheckDueToTimeout':
+        this.controller.setPendingTurnEndedReason('timeout')
+        await actor.check()
         break
       case 'Check':
         await actor.check()
