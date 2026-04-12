@@ -126,6 +126,12 @@ export type {
 } from './Texas'
 
 export type { TableCommand } from './domain/tableCommand'
-export type { TurnEndedReason } from './domain/handDomainEvents'
+export type { TurnEndedReason, HandEventMeta } from './domain/handDomainEvents'
+
+export type {
+  OrchestrationCtx,
+  DomainEventHandler
+} from './orchestration/interpret'
+export { interpret } from './orchestration/interpret'
 
 export type { PreAction } from './gameContracts'

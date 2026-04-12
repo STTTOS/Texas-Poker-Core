@@ -274,7 +274,23 @@ const defaultLivePipeline = [
 
 ## 7. 相关代码位置（便于对照）
 
-- `Controller.transferControlTo`、`tryToAdvanceGameToNextStage`：`TexasTurnPacingHooks`、`beforeNextPlayerTurn`、`beforeStageAdvance`
-- `Player.transferControl`、`bet` / `fold` 等行动后的控制流
+- **领域事件缓冲**：`Controller` 内 `#handEvents`、`drainHandEvents`；本手 `handId` + `seq` 在 `start()` / `#eventMeta()`。
+- **统一指令**：`Texas.dispatchCommand`、`domain/tableCommand.ts`。
+- **解释器雏形**：`src/orchestration/interpret.ts`（`interpret` + `DomainEventHandler`）。
+- **交权**：`Controller.transferControlTo` 当前为同步 `getControl()`，**不再**内嵌 `await` pacing hook；动画/间隔由业务在消费 `TurnOffered` / `StageAdvanced` 后自行延迟（阶段 4 的「延迟交权 / openNextTurn」仍为可选演进）。
+- **玩家行动链**：`Player.transferControl`、`handBettingActions`、`notifyActionCommitted`。
 
-实现演进后，可在此文档补充「事件类型表」「中间态不变量」「公开 API 列表」等附录。
+---
+
+## 8. Core 禁止清单（阶段 0，长期约束）
+
+下列能力**不应**出现在领域规则路径（`Player` 下注、`Controller` 阶段机、池子结算等）的**必选**依赖中；若暂时存在，应标 TODO 并迁往解释器或业务层：
+
+| 禁止 / 慎用在 Core 内                               | 归属                                       |
+| --------------------------------------------------- | ------------------------------------------ |
+| `setTimeout` / `sleep` 驱动「何时交权」             | `handlerPacing` 或 API 层                  |
+| 直接写数据库 / ORM                                  | `handlerPersist`                           |
+| WebSocket / HTTP 推送                               | `handlerNotify`                            |
+| `Date.now()` 写入**规则事实** payload（回放非确定） | 出站打时间戳由 handler 完成（见事件表 §1） |
+
+**允许**：`TexasEngineContext.emitTrace` 类诊断日志（不参与规则真值）；测试/仿真开关。

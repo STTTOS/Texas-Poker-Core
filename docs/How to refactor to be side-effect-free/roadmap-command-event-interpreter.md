@@ -181,14 +181,16 @@
 
 ---
 
-## 12. 文档维护
+## 12. 文档维护（与本仓库对齐进度）
 
-完成某一阶段后，可在本节打勾并注明 PR/日期：
+在「理想终态」下逐条打勾；**部分完成**用说明标注（更新时请改日期）。
 
-- [ ] 阶段 0
-- [ ] 阶段 1
-- [ ] 阶段 2
-- [ ] 阶段 3
-- [ ] 阶段 4
-- [ ] 阶段 5
-- [ ] 阶段 6
+- [x] **阶段 0** — 词汇与边界：`domain-events-catalog.md`、`architecture-events-orchestration.md` §8 **Core 禁止清单**；本手 `handId` + `seq` 已在 `HandDomainEvent` 落地（`HandEventMeta`）。`tableId` / `correlationId` 仍可选、未强制进 payload。
+- [x] **阶段 1** — 旁路事件：`Controller` 缓冲 + `Texas.drainDomainEvents()`；类型见 `handDomainEvents.ts`。
+- [x] **阶段 2** — 解释器雏形：`src/orchestration/interpret.ts`（`interpret` + `DomainEventHandler`），根 `index` 已导出；业务工程可挂 `handlerPersist` / `handlerNotify`。
+- [ ] **阶段 3** — callback → handler：Core 内已无 `#callbackOfAction` 一类钩子；**尚未**要求所有持久化/推送只经 `interpret`（需接入方迁移）。
+- [ ] **阶段 4** — pacing 迁出：`transferControlTo` **无**内嵌 `await` 节奏；**未做**「延迟交权 / `openNextTurn`」显式 API 与中间态不变量全文。
+- [ ] **阶段 5** — Command 门面：`Texas.dispatchCommand` + `TableCommand` **已有**；`Player.bet`/`fold` 等仍为公开方法，测试与兼容路径仍可直接调用。
+- [ ] **阶段 6** — 事件持久化与重放：无 append-only 存储与官方 `reduce(apply)` 重放工具；机器人仍可按现有 API 接 Command。
+
+**§9 通用清单**：回归测试随 PR 跑通；apply vs interpret **分段指标**与**功能开关**仍待产品化。

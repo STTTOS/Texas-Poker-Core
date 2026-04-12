@@ -7,25 +7,31 @@ import type { Poke, RankCategory } from '@/Deck/constant'
 export type TurnEndedReason = 'acted' | 'control_cleared' | 'paused' | 'timeout'
 
 /**
+ * 本手内每条领域事件均携带同一 `handId`（`Controller.start()` 分配）与单调 `seq`，
+ * 便于持久化幂等与回放；会话级事件见 {@link SessionDomainEvent}。
+ */
+export type HandEventMeta = {
+  handId: string
+  seq: number
+}
+
+/**
  * 本手内领域事件（无业务 callback；由 {@link Texas#drainDomainEvents} / Controller 缓冲取出）。
- * `seq` 单调递增，便于持久化与回放排序。
  */
 export type HandDomainEvent =
   | {
       type: 'HandStarted'
-      payload: { seq: number }
+      payload: HandEventMeta
     }
   | {
       type: 'BlindsPosted'
-      payload: {
-        seq: number
+      payload: HandEventMeta & {
         posts: Array<{ userId: number; amount: number; kind: 'sb' | 'bb' }>
       }
     }
   | {
       type: 'PlayerActed'
-      payload: {
-        seq: number
+      payload: HandEventMeta & {
         userId: number
         street: Stage
         actionType: ActionTypeEnum
@@ -35,16 +41,14 @@ export type HandDomainEvent =
     }
   | {
       type: 'PotUpdated'
-      payload: {
-        seq: number
+      payload: HandEventMeta & {
         totalAmount: number
         contributions: Array<{ userId: number; amount: number }>
       }
     }
   | {
       type: 'StageAdvanced'
-      payload: {
-        seq: number
+      payload: HandEventMeta & {
         fromStage: Stage
         toStage: Stage
         pokesRevealedThisStep: Poke[]
@@ -54,8 +58,7 @@ export type HandDomainEvent =
     }
   | {
       type: 'TurnOffered'
-      payload: {
-        seq: number
+      payload: HandEventMeta & {
         userId: number
         street: Stage
         allowedActions: ActionTypeEnum[]
@@ -64,16 +67,14 @@ export type HandDomainEvent =
     }
   | {
       type: 'TurnEnded'
-      payload: {
-        seq: number
+      payload: HandEventMeta & {
         userId: number
         reason: TurnEndedReason
       }
     }
   | {
       type: 'PotAwarded'
-      payload: {
-        seq: number
+      payload: HandEventMeta & {
         /** 本手中央池在分配前总额（与 Pool.totalAmount 一致） */
         potTotal: number
         allocations: Array<{ userId: number; amount: number }>
@@ -81,8 +82,7 @@ export type HandDomainEvent =
     }
   | {
       type: 'HandEnded'
-      payload: {
-        seq: number
+      payload: HandEventMeta & {
         outcome: 'showdown' | 'fold_win'
         pokesRevealed: Poke[]
         currentStage: Stage

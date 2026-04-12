@@ -28,6 +28,10 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   #hand = new CurrentHand()
   #dealer: Dealer
   #pool: Pool
+  /** 桌级单调递增；每次 `start()` 生成新本手 id（`h1`,`h2`,…） */
+  #handSerial = 0
+  /** 当前本手 id；`start()` 起至 `reset()` 清空 */
+  #activeHandId: string | null = null
   #handEventSeq = 0
   #handEvents: HandDomainEvent[] = []
   /** 下一条行动完成时的 `TurnEnded.reason`（如超时弃牌）；由 `consumePendingTurnEndedReason` 消费 */
@@ -49,6 +53,21 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   #nextSeq(): number {
     this.#handEventSeq += 1
     return this.#handEventSeq
+  }
+
+  /** 本手领域事件元数据；须在 `start()` 之后调用 */
+  #eventMeta(): { handId: string; seq: number } {
+    if (this.#activeHandId === null) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.INTERNAL_NO_ACTIVE_HAND_ID)
+      )
+    }
+    return { handId: this.#activeHandId, seq: this.#nextSeq() }
+  }
+
+  /** 当前本手 id；未开局或未 `start()` 时为 `null` */
+  get currentHandId(): string | null {
+    return this.#activeHandId
   }
 
   /** 自上次 drain 以来本手产生的事件（取出后清空本手缓冲） */
@@ -88,7 +107,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#handEvents.push({
       type: 'PlayerActed',
       payload: {
-        seq: this.#nextSeq(),
+        ...this.#eventMeta(),
         userId: player.getUserInfo().id,
         street: this.#hand.stage,
         actionType: action.type,
@@ -103,7 +122,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#handEvents.push({
       type: 'PotUpdated',
       payload: {
-        seq: this.#nextSeq(),
+        ...this.#eventMeta(),
         totalAmount: snap.totalAmount,
         contributions: snap.contributions
       }
@@ -114,7 +133,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#handEvents.push({
       type: 'TurnOffered',
       payload: {
-        seq: this.#nextSeq(),
+        ...this.#eventMeta(),
         userId: player.getUserInfo().id,
         street: this.#hand.stage,
         allowedActions: [...player.getAllowedActions()],
@@ -126,7 +145,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   recordTurnEnded(userId: number, reason: TurnEndedReason): void {
     this.#handEvents.push({
       type: 'TurnEnded',
-      payload: { seq: this.#nextSeq(), userId, reason }
+      payload: { ...this.#eventMeta(), userId, reason }
     })
   }
 
@@ -147,7 +166,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#handEvents.push({
       type: 'PotAwarded',
       payload: {
-        seq: this.#nextSeq(),
+        ...this.#eventMeta(),
         potTotal,
         allocations
       }
@@ -223,7 +242,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       this.#handEvents.push({
         type: 'HandEnded',
         payload: {
-          seq: this.#nextSeq(),
+          ...this.#eventMeta(),
           outcome: 'fold_win',
           pokesRevealed,
           currentStage: this.#hand.stage,
@@ -257,7 +276,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
           this.#handEvents.push({
             type: 'StageAdvanced',
             payload: {
-              seq: this.#nextSeq(),
+              ...this.#eventMeta(),
               fromStage: from,
               toStage: to,
               pokesRevealedThisStep: pokes,
@@ -284,7 +303,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       this.#handEvents.push({
         type: 'HandEnded',
         payload: {
-          seq: this.#nextSeq(),
+          ...this.#eventMeta(),
           outcome: 'showdown',
           pokesRevealed,
           currentStage: stageBeforeRunout,
@@ -335,7 +354,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       this.#handEvents.push({
         type: 'StageAdvanced',
         payload: {
-          seq: this.#nextSeq(),
+          ...this.#eventMeta(),
           ...stagePayload
         }
       })
@@ -382,7 +401,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   takeActionInPreFlop() {
     this.#handEvents.push({
       type: 'HandStarted',
-      payload: { seq: this.#nextSeq() }
+      payload: this.#eventMeta()
     })
 
     const takeDefaultActionPlayers = this.#getSmallBindAndBigBind()
@@ -405,7 +424,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     })
     this.#handEvents.push({
       type: 'BlindsPosted',
-      payload: { seq: this.#nextSeq(), posts }
+      payload: { ...this.#eventMeta(), posts }
     })
     this.recordPotUpdated()
 
@@ -431,6 +450,8 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   start() {
+    this.#handSerial += 1
+    this.#activeHandId = `h${this.#handSerial}`
     this.#handEventSeq = 0
     this.#handEvents = []
     this.#pendingTurnEndedReason = null
@@ -495,6 +516,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#hand.reset()
     this.#handEventSeq = 0
     this.#handEvents = []
+    this.#activeHandId = null
   }
 
   pause() {

@@ -82,7 +82,9 @@ export const TexasCoreErrorCode = {
   /** 玩家不在环形座位中，无法 remove */
   DEALER_TABLE_REMOVE_NOT_SEATED: 3608,
 
-  INTERNAL_NO_NEXT_PLAYER: 3901
+  INTERNAL_NO_NEXT_PLAYER: 3901,
+  /** 在 `Controller.start()` 之前产出本手领域事件（不变量损坏） */
+  INTERNAL_NO_ACTIVE_HAND_ID: 3902
 } as const
 
 export type TexasErrorCode =
@@ -105,6 +107,7 @@ export function getTexasErrorSeverity(
     TexasCoreErrorCode.CTRL_ENDGAME_INVARIANT_DEALER_LT_2,
     TexasCoreErrorCode.POOL_PAY_INVALID,
     TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER,
+    TexasCoreErrorCode.INTERNAL_NO_ACTIVE_HAND_ID,
     TexasCoreErrorCode.DEALER_BUTTON_HANDOFF_INVALID,
     TexasCoreErrorCode.SESSION_SET_ROLES_BALANCE_BELOW_BB
   ])
@@ -245,6 +248,8 @@ export function formatTexasErrorMessage(
 
     case TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER:
       return '游戏发生异常, 将控制权移交给不存在的玩家'
+    case TexasCoreErrorCode.INTERNAL_NO_ACTIVE_HAND_ID:
+      return '数据异常: 本手 handId 未就绪却尝试写入领域事件'
 
     default:
       return `未知错误 (${code})`

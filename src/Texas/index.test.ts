@@ -44,7 +44,15 @@ describe('entery', () => {
 
     teardownTexas = texas
     texas.start()
-    texas.drainDomainEvents()
+    const afterStart = texas.drainDomainEvents()
+    expect(texas.controller.currentHandId).toBe('h1')
+    expect(
+      afterStart.some(
+        (e) =>
+          'handId' in (e as { payload: { handId?: string } }).payload &&
+          (e as { payload: { handId: string } }).payload.handId === 'h1'
+      )
+    ).toBe(true)
 
     texas.dealCards()
     const dealEv = texas.drainDomainEvents()
