@@ -9,9 +9,9 @@ import Controller, { StageEnum } from '@/Controller'
 
 describe('class pool', () => {
   test('function add', () => {
-    const pool = new Pool()
     const dealer = new Dealer(500)
-    const controller = new Controller(dealer)
+    const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const p1 = new Player({
       user: { id: 1, name: '1' },
       initialChips: 5000,
@@ -37,9 +37,9 @@ describe('class pool', () => {
   })
 
   test('function calculate', () => {
-    const pool = new Pool()
     const dealer = new Dealer(500)
-    const controller = new Controller(dealer)
+    const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const p1 = new Player({
       user: { id: 1, name: '1' },
       initialChips: 5000,
@@ -88,8 +88,8 @@ describe('class pool', () => {
 
   test('function settle & (getter)totalAmount', () => {
     const dealer = new Dealer(500)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const p1 = new Player({
       user: { id: 1, name: '1' },
       initialChips: 5000,

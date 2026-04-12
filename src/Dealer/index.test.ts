@@ -13,8 +13,8 @@ describe('dealer', () => {
 
   test('Game init successfully', () => {
     const dealer = new Dealer(200)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     dealer.join(
       new Player({
         user: { id: 2, name: '2' },

@@ -29,16 +29,12 @@ texas.room.seat(p5)
 texas.dealer.setButton(p4)
 texas.dealer.setOthers()
 texas.dealer.log()
-texas.onError((error) => {
-  console.log('错误信息')
-  console.log(error)
-})
-
 // texas.controller.transferControlTo(p1)
 // ----
 // 模拟下注行为
 async function test() {
-  await texas.controller.start()
+  texas.controller.start()
+  texas.controller.drainHandEvents()
 
   await p2.raise(800)
   await p3.call()

@@ -17,8 +17,8 @@ describe('class Controller', () => {
 
   test('function transferControl', async () => {
     const dealer = new Dealer(1000)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const p1 = new Player({
       user: { id: 1, name: 'yt' },
       initialChips: 5000,
@@ -70,7 +70,8 @@ describe('class Controller', () => {
     room.initialRoles(p4)
 
     teardownController = controller
-    await controller.start()
+    controller.start()
+    controller.drainHandEvents()
     room.getDealer().log()
     expect(controller.activePlayer === p3).toBe(true)
     // p1.log()
@@ -95,14 +96,15 @@ describe('class Controller', () => {
 
   test('initial status is idle', () => {
     const dealer = new Dealer(1000)
-    const controller = new Controller(dealer)
+    const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     expect(controller.status).toBe('idle')
   })
 
-  test('tryToEndGame: exclusive fold ends hand and invokes onGameEnd', async () => {
+  test('tryToEndGame: exclusive fold ends hand and emits HandEnded', async () => {
     const dealer = new Dealer(1000)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const p1 = new Player({
       user: { id: 1, name: 'a' },
       initialChips: 10000,
@@ -131,24 +133,26 @@ describe('class Controller', () => {
     room.initialRoles(p2)
     dealer.dealCards()
 
-    const onEnd = jest.fn()
-    controller.onGameEnd(onEnd)
     teardownController = controller
-    await controller.start()
+    controller.start()
+    controller.drainHandEvents()
     await controller.activePlayer!.fold()
 
     expect(controller.status).toBe('hand_complete')
-    expect(onEnd).toHaveBeenCalledTimes(1)
-    expect(onEnd.mock.calls[0][0].bestPokes).toBeUndefined()
-    expect(onEnd.mock.calls[0][0].bestRankCategory).toBeUndefined()
+    const ev = controller.drainHandEvents()
+    const ended = ev.find(
+      (e): e is Extract<typeof e, { type: 'HandEnded' }> =>
+        e.type === 'HandEnded'
+    )
+    expect(ended).toBeDefined()
+    expect(ended!.payload.outcome).toBe('fold_win')
+    expect(ended!.payload.bestPokes).toBeUndefined()
   })
 
   test('tryToEndGame: ends immediately when no one can act (all-in)', async () => {
     const dealer = new Dealer(1000)
-    const controller = new Controller(dealer)
     const pool = new Pool()
-    const onEnd = jest.fn()
-    controller.onGameEnd(onEnd)
+    const controller = new Controller(dealer, pool)
     const p1 = new Player({
       user: { id: 1, name: 'a' },
       initialChips: 10000,
@@ -177,15 +181,26 @@ describe('class Controller', () => {
     room.initialRoles(p2)
     dealer.dealCards()
     teardownController = controller
-    await controller.start()
+    controller.start()
+    controller.drainHandEvents()
 
     while (controller.activePlayer) {
       await controller.activePlayer.allIn()
     }
 
     expect(controller.status).toBe('hand_complete')
-    expect(onEnd).toHaveBeenCalledTimes(1)
-    expect(onEnd.mock.calls[0][0].endStage).toBe(StageEnum.RIVER)
-    expect(onEnd.mock.calls[0][0].bestPokes).toBeDefined()
+    const ev = controller.drainHandEvents()
+    const runouts = ev.filter(
+      (e) =>
+        e.type === 'StageAdvanced' && e.payload.advanceKind === 'runout_reveal'
+    )
+    expect(runouts.length).toBe(3)
+    const ended = ev.find(
+      (e): e is Extract<typeof e, { type: 'HandEnded' }> =>
+        e.type === 'HandEnded'
+    )
+    expect(ended).toBeDefined()
+    expect(ended!.payload.endStage).toBe(StageEnum.RIVER)
+    expect(ended!.payload.bestPokes).toBeDefined()
   })
 })

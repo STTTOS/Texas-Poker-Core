@@ -21,12 +21,11 @@ import {
   PlayerSeatStatus,
   type RoomCreateOptions
 } from './Room'
-import {
+import Controller, {
   Stage,
   StageEnum,
   HandLifecycle,
-  type ShowdownPlayerEval,
-  type TexasTurnPacingHooks
+  type ShowdownPlayerEval
 } from './Controller'
 import {
   TexasEngineContext,
@@ -79,7 +78,6 @@ export {
   Stage,
   StageEnum,
   HandLifecycle,
-  type TexasTurnPacingHooks,
   type ShowdownPlayerEval,
   TableStakes,
   type PlayerDealerRing,
@@ -88,6 +86,7 @@ export {
   type StreetPotSink,
   StreetBetLedger,
   stageMap,
+  Controller,
   Dealer,
   Table,
   DealerService,
@@ -122,8 +121,10 @@ export {
 }
 
 export type {
-  RolesAssignedEvent,
-  CardsDealtEvent,
-  TexasEngineEvent,
-  TexasEngineEventListener
+  TexasDomainEvent,
+  HandDomainEvent,
+  SessionDomainEvent,
+  CreateRoomInputArgs
 } from './Texas'
+
+export type { PreAction } from './gameContracts'

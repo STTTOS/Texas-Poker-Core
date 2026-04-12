@@ -20,8 +20,8 @@ const roomOpts = (
 describe('Room', () => {
   test('init room successfully', () => {
     const dealer = new Dealer(200)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,
@@ -35,8 +35,8 @@ describe('Room', () => {
   })
   test('test function join', () => {
     const dealer = new Dealer(200)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,
@@ -70,8 +70,8 @@ describe('Room', () => {
   })
   test('test function removePlayer', () => {
     const dealer = new Dealer(200)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,
@@ -106,8 +106,8 @@ describe('Room', () => {
   })
   test('test function seat', () => {
     const dealer = new Dealer(200)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,
@@ -142,8 +142,8 @@ describe('Room', () => {
   })
   test('test function has', () => {
     const dealer = new Dealer(200)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const player = new Player({
       user: { id: 1, name: '1' },
       initialChips: 500,

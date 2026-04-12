@@ -1,9 +1,5 @@
 import type { TableStakes } from '@/TableStakes'
-import type {
-  PreAction,
-  GameComponent,
-  TexasErrorCallback
-} from '@/gameContracts'
+import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 import type {
   StreetPotSink,
   PlayerDealerRing,
@@ -59,10 +55,6 @@ export interface User {
    */
   name: string
 }
-export type CallbackOfAction = (
-  player: Player,
-  isPreFlop?: boolean
-) => Promise<void>
 export type { Role } from './constant'
 export { RoleEnum } from './constant'
 
@@ -120,11 +112,6 @@ export class Player implements GameComponent {
    * 轮到离线玩家行动时的策略（缺省：1s 后 `takeDefaultAction`）
    */
   #onOfflineTurnStart: (player: Player) => void
-  #callback?: (params: PreAction) => void
-  /**
-   * 用户采取行动
-   */
-  #callbackOfAction?: CallbackOfAction
   fail: TexasErrorCallback = (error) => {
     throw error
   }
@@ -309,10 +296,6 @@ export class Player implements GameComponent {
   get rankStrength() {
     return this.#handSession.getShowdownEvalForPlayer(this)?.rankStrength ?? 0
   }
-  onPreAction(callback: (params: PreAction) => void) {
-    this.#callback = callback
-  }
-
   reset() {
     this.resetAction()
     this.resetCurrentStageTotalAmount()
@@ -347,8 +330,16 @@ export class Player implements GameComponent {
     this.#dealerRing.addAction(this)
   }
 
-  async invokeOnActionCallback(isPreFlop?: boolean): Promise<void> {
-    await this.#callbackOfAction?.(this, isPreFlop)
+  notifyActionCommitted(options: {
+    emitPot: boolean
+    isBlindDefault?: boolean
+    suppress?: boolean
+  }): void {
+    if (options.suppress) return
+    this.#handSession.recordPlayerAction(this, {
+      emitPot: options.emitPot,
+      isBlindDefault: options.isBlindDefault
+    })
   }
 
   /** 单步下注落账后：尝试收局 / 进街 / 把控制权交给下一位 */
@@ -364,8 +355,12 @@ export class Player implements GameComponent {
     return executeFold(this)
   }
 
-  async bet(money: number, preFlopDefaultAction = false) {
-    return executeBet(this, money, preFlopDefaultAction)
+  async bet(
+    money: number,
+    preFlopDefaultAction = false,
+    suppressEvents = false
+  ) {
+    return executeBet(this, money, preFlopDefaultAction, suppressEvents)
   }
 
   async raise(money: number) {
@@ -539,13 +534,9 @@ export class Player implements GameComponent {
     if (shouldEndGame) {
       return
     }
-    // 应该是先推送玩家采取了什么行动
-    // 再推送Next-stage事件
-    // 最后才触发onPreAction事件
-
     // 在移交控制权之前, 需要校验游戏是否该进入下个阶段
     const canAdvanceToNextStage =
-      await this.#handSession.tryToAdvanceGameToNextStage()
+      this.#handSession.tryToAdvanceGameToNextStage()
     if (canAdvanceToNextStage) return
 
     // 移交给下一个可以行动的玩家
@@ -557,7 +548,7 @@ export class Player implements GameComponent {
         new TexasError(TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER)
       )
 
-    await this.#handSession.transferControlTo(nextPlayerToGetController)
+    this.#handSession.transferControlTo(nextPlayerToGetController)
   }
 
   __testTakeAction() {
@@ -598,10 +589,6 @@ export class Player implements GameComponent {
     // }
     this.#turnTiming.resumeCountdownIfNeeded()
   }
-  onAction(callback: CallbackOfAction) {
-    this.#callbackOfAction = callback
-  }
-
   pause() {
     this.removeControl()
   }
@@ -632,7 +619,7 @@ export class Player implements GameComponent {
 
   getControl() {
     // 如果余额不够, 则只能下注剩余余额(all-in)
-    // 最大值是好计算的
+    // 最大值是余额
     // 最小值就是跟注的金额
     const allowedActions = this.#getAllowedActions()
     TexasEngineContext.emitTrace({
@@ -644,12 +631,7 @@ export class Player implements GameComponent {
         allowedActions
       }
     })
-    // 行动前校验
-    this.#callback?.({
-      allowedActions,
-      userId: this.#userInfo.id,
-      restrict: this.getRestrict()
-    })
+    this.#handSession.recordTurnOffered(this)
     this.#status = 'active'
 
     this.continue()

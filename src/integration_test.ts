@@ -45,12 +45,12 @@ let errorCount = 0
 const errorInfo: string[] = []
 async function test() {
   texas.setPlayerRoles()
-  texas.onGameEnd(() => {
-    end++
-  })
+  texas.drainDomainEvents()
   while (count < 10) {
     try {
-      await texas.start()
+      texas.start()
+      const ev = texas.drainDomainEvents()
+      if (ev.some((e) => e.type === 'HandEnded')) end++
       await delay(50)
     } catch (error: any) {
       errorCount++

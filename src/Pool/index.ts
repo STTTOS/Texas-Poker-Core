@@ -133,6 +133,22 @@ class Pool implements GameComponent, StreetPotSink<Player> {
   get totalAmount() {
     return this.#totalAmount
   }
+
+  /** 领域事件 `PotUpdated` 用：中央池总额 + 每人累计贡献 */
+  getContributionSnapshot(): {
+    totalAmount: number
+    contributions: Array<{ userId: number; amount: number }>
+  } {
+    return {
+      totalAmount: this.#totalAmount,
+      contributions: Array.from(this.#betRecords.entries()).map(
+        ([player, amount]) => ({
+          userId: player.getUserInfo().id,
+          amount
+        })
+      )
+    }
+  }
   /**
    * @description 计算各个边池
    * 需要给各个玩家支付的金额

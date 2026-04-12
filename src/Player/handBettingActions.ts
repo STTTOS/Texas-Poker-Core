@@ -30,7 +30,7 @@ export async function executeCheck(actor: Player): Promise<void> {
 
   actor.assignCurrentStreetAction({ type: ActionTypeEnum.CHECK })
   actor.notifyDealerActionHistory()
-  await actor.invokeOnActionCallback()
+  actor.notifyActionCommitted({ emitPot: false })
   tracePlayerAction('check', actor)
   await actor.completeBettingTurn()
 }
@@ -44,7 +44,7 @@ export async function executeFold(actor: Player): Promise<void> {
   actor.assignCurrentStreetAction({ type: ActionTypeEnum.FOLD })
   actor.setStatus('out')
   actor.notifyDealerActionHistory()
-  await actor.invokeOnActionCallback()
+  actor.notifyActionCommitted({ emitPot: false })
   tracePlayerAction('fold', actor)
   await actor.completeBettingTurn()
 }
@@ -52,7 +52,8 @@ export async function executeFold(actor: Player): Promise<void> {
 export async function executeBet(
   actor: Player,
   chipAmount: number,
-  preFlopDefaultAction = false
+  preFlopDefaultAction = false,
+  suppressEvents = false
 ): Promise<number | void> {
   if (preFlopDefaultAction === false) actor.checkIfCanAct()
 
@@ -94,7 +95,11 @@ export async function executeBet(
   })
   actor.notifyDealerActionHistory()
 
-  await actor.invokeOnActionCallback(preFlopDefaultAction)
+  actor.notifyActionCommitted({
+    emitPot: true,
+    isBlindDefault: preFlopDefaultAction,
+    suppress: suppressEvents
+  })
   if (!preFlopDefaultAction) await actor.completeBettingTurn()
   return chipAmount
 }
@@ -147,7 +152,7 @@ export async function executeRaise(
     payload: { value: additionalChips }
   })
   actor.notifyDealerActionHistory()
-  await actor.invokeOnActionCallback()
+  actor.notifyActionCommitted({ emitPot: true })
   tracePlayerAction('raise', actor, { money: additionalChips })
   await actor.completeBettingTurn()
 }
@@ -189,7 +194,7 @@ export async function executeCall(actor: Player): Promise<void> {
   })
   actor.appendChipsToPot(chipsToMatch)
   actor.notifyDealerActionHistory()
-  await actor.invokeOnActionCallback()
+  actor.notifyActionCommitted({ emitPot: true })
   tracePlayerAction('call', actor, { moneyShouldPay: chipsToMatch })
   await actor.completeBettingTurn()
 }
@@ -217,7 +222,7 @@ export async function executeAllIn(actor: Player): Promise<number | void> {
   })
   actor.setStatus('allIn')
   actor.notifyDealerActionHistory()
-  await actor.invokeOnActionCallback()
+  actor.notifyActionCommitted({ emitPot: true })
   tracePlayerAction('all_in', actor, {
     moneyShouldPay: chipsToCommit,
     balance: actor.balance

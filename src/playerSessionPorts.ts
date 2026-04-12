@@ -25,8 +25,13 @@ export interface PlayerHandSession<TPlayer = unknown> {
   readonly stage: Stage
   getShowdownEvalForPlayer(player: TPlayer): ShowdownPlayerEval | undefined
   tryToEndGame(): boolean
-  tryToAdvanceGameToNextStage(): Promise<boolean>
-  transferControlTo(player: TPlayer): Promise<void>
+  tryToAdvanceGameToNextStage(): boolean
+  transferControlTo(player: TPlayer): void
+  recordPlayerAction(
+    player: TPlayer,
+    options: { emitPot: boolean; isBlindDefault?: boolean }
+  ): void
+  recordTurnOffered(player: TPlayer): void
 }
 
 /**

@@ -1,5 +1,5 @@
+import Texas from '@/Texas'
 import { StageEnum } from '@/Controller'
-import Texas, { type CardsDealtEvent, type RolesAssignedEvent } from '@/Texas'
 import TexasError, {
   TexasCoreErrorCode,
   isFatalTexasErrorCode
@@ -16,17 +16,13 @@ describe('entery', () => {
     teardownTexas = null
   })
 
-  test('game start and settle successfully', async () => {
+  test('game start and settle successfully', () => {
     const texas = new Texas({
       lowestBetAmount: 500,
       maximumCountOfPlayers: 7,
       initialChips: 5000,
       user: { id: 1, name: 'ycr' }
     })
-    const rolesEvents: RolesAssignedEvent[] = []
-    const dealEvents: CardsDealtEvent[] = []
-    texas.onRolesAssigned((e) => rolesEvents.push(e))
-    texas.onDealCards((e) => dealEvents.push(e))
     const p1 = texas.room.owner
     const p2 = texas.createPlayer({ id: 2, name: 'yt' })
     const p3 = texas.createPlayer({ id: 3, name: 'wyz' })
@@ -38,19 +34,30 @@ describe('entery', () => {
     texas.dealer.setButton(p1)
 
     texas.setPlayerRoles()
-    teardownTexas = texas
-    await texas.start()
-    texas.dealCards()
+    const roleEv = texas.drainDomainEvents()
+    expect(roleEv.length).toBe(1)
+    expect(roleEv[0].type).toBe('RolesAssigned')
+    expect(
+      roleEv[0].type === 'RolesAssigned' && roleEv[0].payload.players.length
+    ).toBeGreaterThanOrEqual(2)
 
-    expect(rolesEvents.length).toBe(1)
-    expect(rolesEvents[0].players.length).toBeGreaterThanOrEqual(2)
-    expect(dealEvents.length).toBe(1)
-    expect(dealEvents[0].players.every((p) => p.handPokes.length === 2)).toBe(
-      true
-    )
+    teardownTexas = texas
+    texas.start()
+    texas.drainDomainEvents()
+
+    texas.dealCards()
+    const dealEv = texas.drainDomainEvents()
+    expect(dealEv.length).toBe(1)
+    expect(dealEv[0].type).toBe('HoleCardsDealt')
+    const hole =
+      dealEv[0].type === 'HoleCardsDealt' ? dealEv[0].payload.byUserId : {}
+    expect(Object.keys(hole).length).toBeGreaterThanOrEqual(2)
+    expect(
+      Object.values(hole).every((h) => Array.isArray(h) && h.length === 2)
+    ).toBe(true)
 
     expect(() => texas.setPlayerRoles()).toThrow('玩家位置已确认,请勿重复设置')
-    expect(texas.start()).rejects.toThrow('游戏已经开始, 请勿重复开始游戏')
+    expect(() => texas.start()).toThrow('游戏已经开始, 请勿重复开始游戏')
 
     texas.controller.end()
     texas.controller.settleRankingsThroughStage(StageEnum.RIVER)

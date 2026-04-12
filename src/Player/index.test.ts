@@ -18,8 +18,8 @@ describe('class Player', () => {
 
   test('function allIn', async () => {
     const dealer = new Dealer(1000)
-    const controller = new Controller(dealer)
     const pool = new Pool()
+    const controller = new Controller(dealer, pool)
     const p1 = new Player({
       user: { id: 1, name: 'ycr' },
       initialChips: 18000,
@@ -59,7 +59,8 @@ describe('class Player', () => {
     // 与旧版 ready 前 setButton(p2) 后再轮换一致：庄家为 p3
     room.initialRoles(p3)
     teardownController = controller
-    await controller.start()
+    controller.start()
+    controller.drainHandEvents()
 
     await p3.call()
     await p1.allIn()
@@ -74,8 +75,8 @@ describe('class Player', () => {
   describe('getRestrict', () => {
     test('多人局翻牌前：首人 min 为补齐到 BB；前位弃牌后下家按与场上最高注的差额', async () => {
       const dealer = new Dealer(200)
-      const controller = new Controller(dealer)
       const pool = new Pool()
+      const controller = new Controller(dealer, pool)
       const p1 = new Player({
         user: { id: 1, name: 'a' },
         initialChips: 5000,
@@ -114,7 +115,8 @@ describe('class Player', () => {
       room.initialRoles(p2)
       dealer.dealCards()
       teardownController = controller
-      await controller.start()
+      controller.start()
+      controller.drainHandEvents()
 
       const firstActor = controller.activePlayer!
       expect(firstActor.getRestrict().min).toBe(200)
@@ -126,8 +128,8 @@ describe('class Player', () => {
 
     test('双人局翻牌前：按钮位（小盲）min 可为补齐差额（100）', async () => {
       const dealer = new Dealer(200)
-      const controller = new Controller(dealer)
       const pool = new Pool()
+      const controller = new Controller(dealer, pool)
       const p1 = new Player({
         user: { id: 1, name: 'a' },
         initialChips: 5000,
@@ -156,7 +158,8 @@ describe('class Player', () => {
       room.initialRoles(p2)
       dealer.dealCards()
       teardownController = controller
-      await controller.start()
+      controller.start()
+      controller.drainHandEvents()
 
       // 双人局按钮位先行动，min 可为补齐到 BB 的差额（100）
       expect(controller.activePlayer!.getRestrict().min).toBe(100)
@@ -164,8 +167,8 @@ describe('class Player', () => {
 
     test('min 为补齐到场上他人最大本轮下注：未下者与最高注之间的差额', () => {
       const dealer = new Dealer(1000)
-      const controller = new Controller(dealer)
       const pool = new Pool()
+      const controller = new Controller(dealer, pool)
       const p1 = new Player({
         user: { id: 1, name: 'a' },
         initialChips: 8000,
@@ -207,8 +210,8 @@ describe('class Player', () => {
 
     test('他人本轮均无正下注时 min 为 lowestBetAmount', () => {
       const dealer = new Dealer(1000)
-      const controller = new Controller(dealer)
       const pool = new Pool()
+      const controller = new Controller(dealer, pool)
       const lowest = dealer.lowestBetAmount
       const p1 = new Player({
         user: { id: 1, name: 'a' },
@@ -239,8 +242,8 @@ describe('class Player', () => {
 
     test('补齐额大于余额时 min 与 max 同为 balance', () => {
       const dealer = new Dealer(500)
-      const controller = new Controller(dealer)
       const pool = new Pool()
+      const controller = new Controller(dealer, pool)
       const p1 = new Player({
         user: { id: 1, name: 'x' },
         initialChips: 350,
@@ -270,8 +273,8 @@ describe('class Player', () => {
 
     test('已部分跟注时 min 为与场上最高注的剩余差额', () => {
       const dealer = new Dealer(1000)
-      const controller = new Controller(dealer)
       const pool = new Pool()
+      const controller = new Controller(dealer, pool)
       const p1 = new Player({
         user: { id: 1, name: 'a' },
         initialChips: 8000,
