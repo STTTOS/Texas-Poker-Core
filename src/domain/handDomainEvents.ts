@@ -80,15 +80,6 @@ export type HandDomainEvent =
       }
     }
   | {
-      type: 'ShowdownEvaluated'
-      payload: {
-        seq: number
-        bestPokes?: Poke[][]
-        bestRankCategory?: RankCategory
-        bestRankStrength?: number
-      }
-    }
-  | {
       type: 'HandEnded'
       payload: {
         seq: number

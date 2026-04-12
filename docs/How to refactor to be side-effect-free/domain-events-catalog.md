@@ -77,29 +77,27 @@
 
 ### 2.6 摊牌评估与终局
 
-| 事件类型            | 何时发出                                           | Payload 要点                                                                                               | 与现状近似对应                                                                  |
-| ------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `ShowdownEvaluated` | 河牌后（或规则规定的摊牌点）牌力已写入本手评估存储 | `snapshot`: 最强组合、`rankCategory`、`rankStrength`、各 `userId` 的 eval 等                               | `HandSettlement` / `onGameEnd` 中展示部分                                       |
-| `PotAwarded`        | 彩池已按赢家分配（栈已增减）                       | `allocations: { userId, amount }[]`, `potTotalAfter`                                                       | `Pool.pay` 前后                                                                 |
-| `HandEnded`         | 本手完全结束，控制器进入可复盘/待下一手            | `outcome`: `'showdown' \| 'fold_win'`, `endStage`, `pokesRevealed`（全公牌累计）, `showHoleCardsPolicy` 等 | `onGameEnd` / `hand_completed`；宜作 **最后一条或倒数几条**，便于解释器统一收尾 |
+| 事件类型     | 何时发出                                | Payload 要点                                                                                            | 与现状近似对应                                                               |
+| ------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `PotAwarded` | 彩池已按赢家分配（栈已增减）            | `allocations: { userId, amount }[]`, `potTotalAfter`                                                    | `Pool.pay` 前后                                                              |
+| `HandEnded`  | 本手完全结束，控制器进入可复盘/待下一手 | `outcome`: `'showdown' \| 'fold_win'`, `endStage`, `pokesRevealed`（全公牌累计）, 摊牌时 `bestPokes` 等 | `onGameEnd` / `hand_completed`；摊牌最强组合与牌型见本事件，宜作收尾或近收尾 |
 
-**顺序建议（摊牌路径）**：多条 `StageAdvanced(runout_reveal)` → `ShowdownEvaluated` → `PotAwarded` → `HandEnded`。  
-若实现上 `ShowdownEvaluated` 与首次摊牌计算严格同时，也可合并为一条，但回放粒度会变粗。
+**顺序建议（摊牌路径）**：多条 `StageAdvanced(runout_reveal)` → `HandEnded`（`outcome: 'showdown'`，含最佳牌信息）→ `PotAwarded`（由 `Texas.settle()` 等触发，可与 `HandEnded` 同批或紧随）。
 
 ---
 
 ## 3. 与当前 `TexasEngineEvent` / callback 的映射（迁移用）
 
-| 当前机制                                      | 建议替代/拆解                                                                                          |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `roles_assigned`                              | `RolesAssigned`                                                                                        |
-| `cards_dealt`                                 | `HoleCardsDealt`                                                                                       |
-| `stage_advanced`                              | `StageAdvanced`（`advanceKind: 'betting_round_complete'`）                                             |
-| `hand_completed`                              | **`HandEnded` + 前置** `StageAdvanced`（跑马多条）/ `ShowdownEvaluated` / `PotAwarded`（按你最终粒度） |
-| `onGameEnd` 单 payload                        | 拆成上表多条事件；兼容期可由 adapter **由 events 再组装**旧 payload                                    |
-| `onNextStage`                                 | `StageAdvanced`                                                                                        |
-| `onAction`                                    | `PlayerActed`（+ 可选 `PotUpdated`）                                                                   |
-| `beforeStageAdvance` / `beforeNextPlayerTurn` | **不对应事件**；迁到解释器 `handlerPacing`，消费 `TurnOffered` / `StageAdvanced` 等                    |
+| 当前机制                                      | 建议替代/拆解                                                                       |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `roles_assigned`                              | `RolesAssigned`                                                                     |
+| `cards_dealt`                                 | `HoleCardsDealt`                                                                    |
+| `stage_advanced`                              | `StageAdvanced`（`advanceKind: 'betting_round_complete'`）                          |
+| `hand_completed`                              | **`HandEnded` + 前置** `StageAdvanced`（跑马多条）/ `PotAwarded`（按你最终粒度）    |
+| `onGameEnd` 单 payload                        | 拆成上表多条事件；兼容期可由 adapter **由 events 再组装**旧 payload                 |
+| `onNextStage`                                 | `StageAdvanced`                                                                     |
+| `onAction`                                    | `PlayerActed`（+ 可选 `PotUpdated`）                                                |
+| `beforeStageAdvance` / `beforeNextPlayerTurn` | **不对应事件**；迁到解释器 `handlerPacing`，消费 `TurnOffered` / `StageAdvanced` 等 |
 
 ---
 
@@ -119,9 +117,8 @@
 3. `StageAdvanced`：`PRE_FLOP → FLOP`，3 张，`advanceKind: 'runout_reveal'`
 4. `StageAdvanced`：`FLOP → TURN`，1 张，`advanceKind: 'runout_reveal'`
 5. `StageAdvanced`：`TURN → RIVER`，1 张，`advanceKind: 'runout_reveal'`
-6. `ShowdownEvaluated`
-7. `PotAwarded`
-8. `HandEnded`（`outcome: 'showdown'`）
+6. `HandEnded`（`outcome: 'showdown'`，含 `bestPokes` / 牌型等）
+7. `PotAwarded`（若本手会调用 `settle()`，可与 6 同批或紧随）
 
 ### 4.3 独家获胜：一人未弃牌
 

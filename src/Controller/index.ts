@@ -276,15 +276,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
 
       const { rankCategory, pokes, rankStrength } =
         this.#hand.settlement.snapshot
-      this.#handEvents.push({
-        type: 'ShowdownEvaluated',
-        payload: {
-          seq: this.#nextSeq(),
-          bestPokes: pokes,
-          bestRankCategory: rankCategory,
-          bestRankStrength: rankStrength
-        }
-      })
 
       const pokesRevealed = this.getCommonPokes(
         StageEnum.PRE_FLOP,
