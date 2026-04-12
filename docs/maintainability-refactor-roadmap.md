@@ -6,7 +6,7 @@
 
 ## 目标
 
-- **单一职责**：发牌、阶段机、下注、摊牌评估、奖池、房间规则边界清晰。
+- **单一职责（SRP）**：**SRP** 即 _Single Responsibility Principle_（单一职责原则）：一个类/模块应主要因**同一类变更理由**而改变；本仓库语境下指发牌、阶段机、下注、摊牌评估、奖池、房间规则边界清晰。
 - **单一数据源**：局面类数据（已发牌、摊牌评估）集中持有，`Player` 尽量只做「参与者身份 + 回合状态 + 对外协作入口」。
 - **可测试、可替换**：纯规则与 I/O 分离；依赖通过窄接口注入，便于单测与后续插件化（不同盲注结构、边池规则等）。
 
@@ -21,6 +21,7 @@
 | **P1** | `Pool.add` 与余额变更收拢为 `Ledger` 或显式「扣款 + 记池」                                                                                        | **已实施**：`Pool/StreetBetLedger` 负责玩家侧扣款；`Pool#recordPotContribution` 负责 `totalAmount` / `betRecords`；`PlayerStreetBetLedger` 见 `playerSessionPorts`                           |
 | **P2** | 显式 `Hand` / `CurrentHand` 聚合根，一手内状态归位                                                                                                | **已实施**：`src/Hand/CurrentHand.ts`；`Controller` 内聚 `#hand` 持有生命周期/街/控制权/盲注记录/`HandSettlement`                                                                            |
 | **P2** | 领域事件 + 读模型，收敛 `Texas` 上零散 callback                                                                                                   | **已实施（渐进）**：`Texas.subscribeEngineEvents` 统一 `roles_assigned` / `cards_dealt` / `hand_completed` / `stage_advanced`；与 `onRolesAssigned` 等并存；`Controller` 回调支持多 listener |
+| **—**  | **`Controller` / `Player` 按 SRP 继续瘦身**（阶段机、`#hand`、玩家侧计时与协作边界再拆）                                                          | **未做**：见下文「未做 / 后续」                                                                                                                                                              |
 
 ---
 
@@ -50,6 +51,14 @@
 
 - **`CurrentHand`**：一手内状态（`status` / `stage` / `boardThroughStage` / `activePlayer` / `defaultBets` / `HandSettlement`）由 `Controller` 的 `#hand` 持有；`reset()` 与 `Controller.reset` 对齐。
 - **领域事件**：`TexasEngineEvent` + `subscribeEngineEvents`；终局与进街与 `controller.onGameEnd` / `onNextStage` 同源 payload。角色与发牌在 `setPlayerRoles` / `dealCards` 内同步发出。历史 `onXxx` callback 仍可用；后续可逐步只保留事件总线或再拆 `PotDistributed` 等细粒度事件。
+
+## 未做 / 后续
+
+### `Controller` 与 `Player` 继续变薄（SRP 持续优化）
+
+- **现状**：`CurrentHand` 已把手牌内状态（生命周期、街、控制权、盲注记录、`HandSettlement`）归位到 `#hand`，但 **`Controller` 仍同时承担**阶段机、控制权转移、与 `#hand` 的编排，类仍偏大、变更面仍多。
+- **`Player`**：仍集中计时、`allowedActions` 上下文、交回控制、会话与池协作等；虽已有 `handBettingActions` / `allowedActions` / `turnTiming` 等抽取，**单文件体量与职责面仍可再拆**。
+- **方向**：按 SRP 把「阶段推进 / 终局路径 / 纯状态持有」的协作边界划清（例如独立模块或更窄的内部类型），**属持续重构**，适合多轮小步 PR，而非与 P0–P2 同级的单次交付。
 
 ---
 

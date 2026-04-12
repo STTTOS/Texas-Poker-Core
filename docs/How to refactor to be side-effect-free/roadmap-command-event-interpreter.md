@@ -34,13 +34,13 @@
 
 **要做的事**
 
-1. 列一张 **Event 草稿表**（不必实现）：例如 `PlayerActed`、`PotUpdated`、`StageAdvanced`、`TurnOffered`、`HandEnded`——粒度可先粗后细。
+1. 评审并定稿 **[领域事件表（草稿）](./domain-events-catalog.md)**：含事件类型、`handId`/`seq` 约定、**Core 真多步跑马**下的 `StageAdvanced` 序列、与现有 `TexasEngineEvent`/callback 的映射及待决问题清单。
 2. 写清 **Core 禁止清单**：`setTimeout`、`sleep`、直接写库、直接 WS，长期都应迁出（当前代码可先标 TODO）。
-3. 约定 **seq / handId**（或等价单调序号）：为以后幂等与回放预留字段。
+3. 约定 **seq / handId**（或等价单调序号）：为以后幂等与回放预留字段（详见事件表 §1）。
 
 **完成标准**：文档评审通过；无需改生产行为。
 
-**与本仓库**：可对照 `Player`、`Controller`、`Texas` 中现有 callback 与 hooks 列一张映射表（事件类型 ← 当前触发点）。
+**与本仓库**：事件表 §3 已给出「事件类型 ← 当前触发点」映射初稿；实现时以定稿后的 `domain-events-catalog.md` 为准。
 
 ---
 
@@ -176,7 +176,8 @@
 ## 11. 推荐阅读顺序
 
 1. [architecture-events-orchestration.md](./architecture-events-orchestration.md) — 问题背景、原则、伪代码。
-2. 本文 — 按阶段落地与验收。
+2. [domain-events-catalog.md](./domain-events-catalog.md) — 领域事件词汇表与跑马序列（阶段 0 评审稿）。
+3. 本文 — 按阶段落地与验收。
 
 ---
 
