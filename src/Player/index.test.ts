@@ -3,6 +3,7 @@ import Pool from '@/Pool'
 import { Player } from '.'
 import Dealer from '@/Dealer'
 import Controller from '@/Controller'
+import { executeCall, executeFold, executeAllIn } from './handBettingActions'
 
 describe('class Player', () => {
   let teardownController: Controller | null = null
@@ -15,7 +16,7 @@ describe('class Player', () => {
     teardownController = null
   })
 
-  test('function allIn', async () => {
+  test('function allIn', () => {
     const dealer = new Dealer(1000)
     const pool = new Pool()
     const controller = new Controller(dealer, pool)
@@ -62,11 +63,11 @@ describe('class Player', () => {
     controller.drainHandEvents()
     controller.drainPendingFlowOpsSync()
 
-    await p3.call()
+    executeCall(p3)
     controller.drainPendingFlowOpsSync()
-    await p1.allIn()
+    executeAllIn(p1)
     controller.drainPendingFlowOpsSync()
-    await p2.allIn()
+    executeAllIn(p2)
     controller.drainPendingFlowOpsSync()
     controller.end()
 
@@ -76,7 +77,7 @@ describe('class Player', () => {
   })
 
   describe('getRestrict', () => {
-    test('多人局翻牌前：首人 min 为补齐到 BB；前位弃牌后下家按与场上最高注的差额', async () => {
+    test('多人局翻牌前：首人 min 为补齐到 BB；前位弃牌后下家按与场上最高注的差额', () => {
       const dealer = new Dealer(200)
       const pool = new Pool()
       const controller = new Controller(dealer, pool)
@@ -126,7 +127,7 @@ describe('class Player', () => {
       expect(firstActor.getRestrict().min).toBe(200)
 
       // 典型顺序：下一位为小盲，已下 100，场上最大仍为 BB 200 → 再补 100
-      await firstActor.fold()
+      executeFold(firstActor)
       expect(controller.activePlayer!.getRestrict().min).toBe(100)
     })
 

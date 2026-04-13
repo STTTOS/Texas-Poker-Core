@@ -180,14 +180,14 @@ describe('entery', () => {
     texas.drainDomainEvents()
 
     const firstPf = texas.controller.activePlayer!
-    await texas.dispatchCommand({
+    texas.dispatchCommand({
       type: 'Call',
       playerId: firstPf.getUserInfo().id
     })
     texas.drainDomainEvents()
     texas.flushAllPendingFlowOps()
     const secondPf = texas.controller.activePlayer!
-    await texas.dispatchCommand({
+    texas.dispatchCommand({
       type: 'Check',
       playerId: secondPf.getUserInfo().id
     })
@@ -198,7 +198,7 @@ describe('entery', () => {
     const firstOnFlop = texas.controller.activePlayer!
     expect(firstOnFlop).toBeDefined()
 
-    await texas.dispatchCommand({
+    texas.dispatchCommand({
       type: 'CheckDueToTimeout',
       playerId: firstOnFlop.getUserInfo().id
     })

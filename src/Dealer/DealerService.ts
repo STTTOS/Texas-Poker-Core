@@ -7,10 +7,15 @@ import Deck from '@/Deck'
 import { getRandomInt } from '@/utils'
 import { formatterPoke } from '@/Deck/core'
 import { DealtBoard } from '@/Deck/DealtBoard'
-import { Role, Player, RoleEnum } from '@/Player'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { roleMap, playerRoleSetMap } from '@/Player/constant'
+import {
+  Role,
+  Player,
+  RoleEnum,
+  isPlayerEligibleForStreetBetting
+} from '@/Player'
 
 /**
  * 荷官侧流程：牌堆、角色分配、发牌、行动历史、桌面日志；依赖 {@link Table} 提供座位环与遍历。
@@ -257,14 +262,14 @@ export class DealerService implements GameComponent {
     let player: Player | null = null
 
     this.#table.loop((p) => {
-      if (!player && p.getStatus() === 'eligible') player = p
+      if (!player && isPlayerEligibleForStreetBetting(p)) player = p
     }, this.#table.button?.getNextPlayer())
     return player
   }
 
   getPlayersCanAct() {
-    return this.#table.filter(
-      (player) => player.getStatus() !== 'out' && player.getStatus() !== 'allIn'
+    return this.#table.filter((player) =>
+      isPlayerEligibleForStreetBetting(player)
     )
   }
 }

@@ -245,6 +245,14 @@ class Texas {
         })
       )
 
+    if (this.room.getPlayerSeatStatus(actor) !== 'on-set') {
+      this.fail(
+        new TexasError(TexasCoreErrorCode.SESSION_DISPATCH_PLAYER_NOT_ON_SET, {
+          playerId
+        })
+      )
+    }
+
     switch (cmd.type) {
       case 'Fold':
         executeFold(actor)

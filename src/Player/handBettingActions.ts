@@ -6,7 +6,7 @@ import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
 /**
  * 街道下注动作的执行细节（校验、记池、荷官历史、trace、回调顺序）。
- * `Player` 对外 API 委托至此，便于单测与扩展盲注/ante 等规则。
+ * `Texas#dispatchCommand` / 仿真路径委托至此；盲注由 Controller 调 `executeBet(..., preFlopDefaultAction)`。
  */
 
 function tracePlayerAction(
@@ -24,7 +24,8 @@ function tracePlayerAction(
 
 export function executeCheck(actor: Player): void {
   actor.checkIfCanAct()
-  if (!actor.getAllowedActions().includes(ActionTypeEnum.CHECK)) {
+  const allowed = actor.getAllowedActions()
+  if (!allowed.includes(ActionTypeEnum.CHECK)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CHECK))
   }
 
@@ -37,7 +38,8 @@ export function executeCheck(actor: Player): void {
 
 export function executeFold(actor: Player): void {
   actor.checkIfCanAct()
-  if (!actor.getAllowedActions().includes(ActionTypeEnum.FOLD)) {
+  const allowed = actor.getAllowedActions()
+  if (!allowed.includes(ActionTypeEnum.FOLD)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_FOLD))
   }
 
@@ -56,13 +58,12 @@ export function executeBet(
   preFlopDefaultAction = false,
   skipDomainEvents = false
 ): number | void {
-  if (preFlopDefaultAction === false) actor.checkIfCanAct()
-
-  if (
-    !actor.getAllowedActions().includes(ActionTypeEnum.BET) &&
-    !preFlopDefaultAction
-  ) {
-    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_BET))
+  if (!preFlopDefaultAction) {
+    actor.checkIfCanAct()
+    const allowed = actor.getAllowedActions()
+    if (!allowed.includes(ActionTypeEnum.BET)) {
+      return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_BET))
+    }
   }
 
   if (!preFlopDefaultAction && chipAmount > actor.balance) {
@@ -114,10 +115,11 @@ export function executeRaise(
   additionalChips: number
 ): void | number | undefined {
   actor.checkIfCanAct()
+  const allowed = actor.getAllowedActions()
 
   const maxOthersStageBet = actor.getMaxOthersStageBet()
 
-  if (!actor.getAllowedActions().includes(ActionTypeEnum.RAISE)) {
+  if (!allowed.includes(ActionTypeEnum.RAISE)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_RAISE))
   }
 
@@ -164,7 +166,8 @@ export function executeRaise(
 
 export function executeCall(actor: Player): void {
   actor.checkIfCanAct()
-  if (!actor.getAllowedActions().includes(ActionTypeEnum.CALL)) {
+  const allowed = actor.getAllowedActions()
+  if (!allowed.includes(ActionTypeEnum.CALL)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CALL))
   }
 
@@ -204,14 +207,20 @@ export function executeCall(actor: Player): void {
   actor.completeBettingTurn()
 }
 
-/** `skipTurnValidation`：与盲注 `executeBet(..., preFlopDefaultAction)` 一致，贴盲阶段 `activePlayer` 尚未就位。 */
+/**
+ * `skipTurnValidation`：与盲注 `executeBet(..., preFlopDefaultAction)` 一致——贴盲阶段 `activePlayer` 尚未就位，
+ * 且 **不得** `completeBettingTurn`（交权由 `takeActionInPreFlop` 末尾统一 `transferControlTo`）。
+ */
 export function executeAllIn(
   actor: Player,
   skipDomainEvents = false,
   skipTurnValidation = false
 ): number | void {
-  if (!skipTurnValidation) actor.checkIfCanAct()
-  if (!actor.getAllowedActions().includes(ActionTypeEnum.ALL_IN)) {
+  if (!skipTurnValidation) {
+    actor.checkIfCanAct()
+  }
+  const allowed = actor.getAllowedActions()
+  if (!allowed.includes(ActionTypeEnum.ALL_IN)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_ALL_IN))
   }
 
@@ -239,6 +248,8 @@ export function executeAllIn(
     moneyShouldPay: chipsToCommit,
     balance: actor.balance
   })
-  actor.completeBettingTurn()
+  if (!skipTurnValidation) {
+    actor.completeBettingTurn()
+  }
   return chipsToCommit
 }

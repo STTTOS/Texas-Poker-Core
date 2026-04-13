@@ -37,14 +37,14 @@ async function test() {
   texas.controller.drainHandEvents()
   texas.controller.drainPendingFlowOpsSync()
 
-  await texas.dispatchCommand({
+  texas.dispatchCommand({
     type: 'Raise',
     playerId: p2.getUserInfo().id,
     additionalAmount: 800
   })
-  await texas.dispatchCommand({ type: 'Call', playerId: p3.getUserInfo().id })
-  await texas.dispatchCommand({ type: 'Call', playerId: p4.getUserInfo().id })
-  await texas.dispatchCommand({ type: 'Call', playerId: p5.getUserInfo().id })
+  texas.dispatchCommand({ type: 'Call', playerId: p3.getUserInfo().id })
+  texas.dispatchCommand({ type: 'Call', playerId: p4.getUserInfo().id })
+  texas.dispatchCommand({ type: 'Call', playerId: p5.getUserInfo().id })
   // texas.controller.end()
 }
 test()

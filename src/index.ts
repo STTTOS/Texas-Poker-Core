@@ -43,7 +43,8 @@ import {
   OnlineStatus,
   ActionTypeEnum,
   type PlayerStatus,
-  default as Player
+  default as Player,
+  isPlayerEligibleForStreetBetting
 } from './Player'
 import TexasError, {
   texasErrorMap,
@@ -114,6 +115,7 @@ export {
   Texas,
   OnlineStatus,
   type PlayerStatus,
+  isPlayerEligibleForStreetBetting,
   type TexasEngineGlobalOptions,
   type TexasSimulationFlags,
   type TexasTraceEvent,

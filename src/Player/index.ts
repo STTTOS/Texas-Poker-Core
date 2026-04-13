@@ -71,7 +71,10 @@ export class Player implements GameComponent {
   #balance = 0
   #status: PlayerStatus = 'eligible'
   /**
-   * `getControl` 已执行且尚未 `removeControl`；用于 `flushPendingTurnHandoff` 幂等及 `TurnEnded` 判定。
+   * `getControl` 已执行且尚未 `removeControl`。
+   * - `resetActivePlayer` / `pause` 据此决定是否记 `TurnEnded`。
+   * - `flushPendingTurnHandoff`：若队里异常出现连续多条 `turn_handoff` 且本席尚未 `removeControl`，避免第二次 `getControl` 重复发 `TurnOffered`。
+   *   业务「多调一次 flush」通常队头已非 `turn_handoff`，靠队列即可挡，不依赖本标记。
    */
   #turnOfferEmitted = false
   /**
@@ -316,42 +319,6 @@ export class Player implements GameComponent {
   }
 
   /**
-   * @deprecated 外部请使用 `Texas#dispatchCommand`。保留供迁移期脚本、旧单测及 Core 内盲注路径。
-   */
-  check() {
-    return executeCheck(this)
-  }
-
-  /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
-  fold() {
-    return executeFold(this)
-  }
-
-  /**
-   * @deprecated 外部请使用 `Texas#dispatchCommand`。盲注仍由 Controller 调 `executeBet`。
-   * @param preFlopDefaultAction 盲注等强制下注的规则分支
-   * @param skipDomainEvents 为 true 时不发 `PlayerActed`/`TurnEnded`/`PotUpdated`（盲注由 `BlindsPosted` 表达）
-   */
-  bet(money: number, preFlopDefaultAction = false, skipDomainEvents = false) {
-    return executeBet(this, money, preFlopDefaultAction, skipDomainEvents)
-  }
-
-  /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
-  raise(money: number) {
-    return executeRaise(this, money)
-  }
-
-  /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
-  call() {
-    return executeCall(this)
-  }
-
-  /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
-  allIn() {
-    return executeAllIn(this)
-  }
-
-  /**
    * 获取其他玩家在当前阶段的最大下注额
    */
   getOthersMaxBetAmountAtCurrentStage() {
@@ -472,7 +439,10 @@ export class Player implements GameComponent {
       return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NOT_IN_HAND))
   }
 
-  /** `flushPendingTurnHandoff` 幂等：`getControl` 已发过 `TurnOffered` 且未 `removeControl` */
+  /**
+   * 本席当前思考权窗口内是否已执行过 `getControl`（已缓冲 `TurnOffered`）且未 `removeControl`。
+   * 主要配合 {@link Controller.flushPendingTurnHandoff} 防止队列重复 `turn_handoff` 时的二次 `getControl`。
+   */
   hasEmittedTurnOffer(): boolean {
     return this.#turnOfferEmitted
   }
@@ -515,12 +485,22 @@ export class Player implements GameComponent {
    * 单步行动后的控制权交接：先 `removeControl`（清 `TurnOffered` 门闩），再按序尝试
    * {@link PlayerHandSession.tryToEndGame}（独赢弃牌 / 河摊牌等）→
    * {@link PlayerHandSession.canDeferBettingRoundStageAdvance} / {@link PlayerHandSession.requestDeferredStageAdvance}（下注轮结束且未到河：只入队 `stage_advance`）→
-   * 否则同街找下一位 `eligible` 玩家，{@link PlayerHandSession.transferControlTo}（入队 `turn_handoff`）。
+   * 否则同街找下一位 {@link isPlayerEligibleForStreetBetting} 玩家，{@link PlayerHandSession.transferControlTo}（入队 `turn_handoff`）。
    * 「应进街」仅由 defer 分支入队；其余情况直接同街交权，不再用同一谓词做第二次进街探测。
    * 事件与队列须由上层 drain + 消费节拍驱动。
+   * 进入本方法时须 `handSession.activePlayer === this`：自愿行动由 `checkIfCanAct` 保证；贴盲经 `executeBet`/`executeAllIn` 的 `skipTurnValidation` **不**调用 `completeBettingTurn`，首攻仅由 `takeActionInPreFlop` 末尾 `transferControlTo`。
    */
   transferControl() {
     this.removeControl()
+
+    if (this.#handSession.activePlayer !== this) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.INTERNAL_TRANSFER_ACTOR_MISMATCH, {
+          actorUserId: this.#userInfo.id,
+          activeUserId: this.#handSession.activePlayer?.getUserInfo().id ?? null
+        })
+      )
+    }
 
     const shouldEndGame = this.#handSession.tryToEndGame()
     if (shouldEndGame) {
@@ -532,10 +512,9 @@ export class Player implements GameComponent {
     }
 
     // 移交给下一个可以行动的玩家
-    const nextPlayerToGetController = this.returnNextPlayerIf((player) => {
-      const s = player.getStatus()
-      return s === 'eligible'
-    })
+    const nextPlayerToGetController = this.returnNextPlayerIf((player) =>
+      isPlayerEligibleForStreetBetting(player)
+    )
     if (!nextPlayerToGetController)
       return this.fail(
         new TexasError(TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER)
@@ -581,19 +560,20 @@ export class Player implements GameComponent {
       this.__testTakeAction()
       return
     }
+    const allowed = this.#getAllowedActions()
     TexasEngineContext.emitTrace({
       channel: 'player',
       name: 'default_action',
       data: {
         userId: this.#userInfo.id,
         name: this.#userInfo.name,
-        allowedActions: this.#getAllowedActions()
+        allowedActions: allowed
       }
     })
-    if (this.#getAllowedActions().includes(ActionTypeEnum.CHECK)) {
-      this.check()
+    if (allowed.includes(ActionTypeEnum.CHECK)) {
+      executeCheck(this)
     } else {
-      this.fold()
+      executeFold(this)
     }
   }
   continue() {
@@ -627,24 +607,20 @@ export class Player implements GameComponent {
   }
 
   getControl() {
-    // 如果余额不够, 则只能下注剩余余额(all-in)
-    // 最大值是余额
-    // 最小值就是跟注的金额
-    const allowedActions = this.#getAllowedActions()
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'got_control',
-      data: {
-        userId: this.#userInfo.id,
-        name: this.#userInfo.name,
-        allowedActions
-      }
-    })
     this.#handSession.recordTurnOffered(this)
     this.#turnOfferEmitted = true
 
     this.continue()
   }
+}
+
+/**
+ * 仍可参与本街思考权轮转（未弃牌、未进入全下终态）。
+ * 与 {@link DealerService.getPlayersCanAct} 语义一致，避免多处手写 `out`/`allIn`。
+ */
+export function isPlayerEligibleForStreetBetting(player: Player): boolean {
+  const s = player.getStatus()
+  return s !== 'out' && s !== 'allIn'
 }
 
 export default Player

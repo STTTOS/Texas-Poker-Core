@@ -1,5 +1,5 @@
 /**
- * 单桌统一意图入口；由 {@link Texas#dispatchCommand} 校验「当前行动方」后委托 `Player` 方法。
+ * 单桌统一意图入口；由 {@link Texas#dispatchCommand} 校验入座与「当前行动方」后委托 `handBettingActions`。
  * 超时等仍应建模为 Command（如 `FoldDueToTimeout` / `CheckDueToTimeout`），由业务在计时到期时下发。
  */
 export type TableCommand =

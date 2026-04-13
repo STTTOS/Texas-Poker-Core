@@ -3,6 +3,7 @@ import Pool from '@/Pool'
 import Dealer from '@/Dealer'
 import { Player } from '@/Player'
 import Controller, { StageEnum } from '.'
+import { executeFold, executeAllIn } from '@/Player/handBettingActions'
 
 describe('class Controller', () => {
   let teardownController: Controller | null = null
@@ -15,7 +16,7 @@ describe('class Controller', () => {
     teardownController = null
   })
 
-  test('function transferControl', async () => {
+  test('function transferControl', () => {
     const dealer = new Dealer(1000)
     const pool = new Pool()
     const controller = new Controller(dealer, pool)
@@ -76,19 +77,19 @@ describe('class Controller', () => {
     room.getDealer().log()
     expect(controller.activePlayer === p3).toBe(true)
     // p1.log()
-    await p3.allIn()
+    executeAllIn(p3)
     controller.drainPendingFlowOpsSync()
     // p1.log()
 
     expect(controller.activePlayer === p4).toBe(true)
     // p2.log()
-    await p4.allIn()
+    executeAllIn(p4)
     controller.drainPendingFlowOpsSync()
     // p2.log()
 
     expect(controller.activePlayer === p1).toBe(true)
     // p3.log()
-    await p1.allIn()
+    executeAllIn(p1)
     controller.drainPendingFlowOpsSync()
 
     controller.end()
@@ -159,7 +160,63 @@ describe('class Controller', () => {
     expect(sbRow?.balance).toBe(0)
   })
 
-  test('tryToEndGame: exclusive fold ends hand and emits HandEnded', async () => {
+  test('SB blind posts all-in stack: no transferControl until takeActionInPreFlop assigns first actor', () => {
+    const dealer = new Dealer(1000)
+    const pool = new Pool()
+    const controller = new Controller(dealer, pool)
+    const p1 = new Player({
+      user: { id: 1, name: 'a' },
+      initialChips: 10_000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const p2 = new Player({
+      user: { id: 2, name: 'b' },
+      initialChips: 10_000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const p3 = new Player({
+      user: { id: 3, name: 'c' },
+      initialChips: 10_000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const room = new Room({
+      dealer,
+      owner: p1,
+      controller,
+      initialChips: 10_000
+    })
+    room.seat(p1)
+    room.join(p2)
+    room.join(p3)
+    room.seat(p2)
+    room.seat(p3)
+    room.initialRoles(p1)
+    dealer.dealCards()
+
+    const button = dealer.button!
+    const sb = button.getNextPlayer()!
+    const bb = sb.getNextPlayer()!
+    const firstToAct = bb.getNextPlayer()!
+    sb.balance = 400
+
+    teardownController = controller
+    controller.start()
+    controller.drainHandEvents()
+
+    expect(controller.activePlayer).toBe(firstToAct)
+    expect(controller.getPendingFlowOps()).toEqual(['turn_handoff'])
+  })
+
+  test('tryToEndGame: exclusive fold ends hand and emits HandEnded', () => {
     const dealer = new Dealer(1000)
     const pool = new Pool()
     const controller = new Controller(dealer, pool)
@@ -195,7 +252,7 @@ describe('class Controller', () => {
     controller.start()
     controller.drainHandEvents()
     controller.drainPendingFlowOpsSync()
-    await controller.activePlayer!.fold()
+    executeFold(controller.activePlayer!)
 
     expect(controller.status).toBe('hand_complete')
     const ev = controller.drainHandEvents()
@@ -208,7 +265,7 @@ describe('class Controller', () => {
     expect(ended!.payload.bestPokes).toBeUndefined()
   })
 
-  test('tryToEndGame: ends immediately when no one can act (all-in)', async () => {
+  test('tryToEndGame: ends immediately when no one can act (all-in)', () => {
     const dealer = new Dealer(1000)
     const pool = new Pool()
     const controller = new Controller(dealer, pool)
@@ -245,7 +302,7 @@ describe('class Controller', () => {
 
     while (controller.activePlayer) {
       controller.drainPendingFlowOpsSync()
-      await controller.activePlayer.allIn()
+      executeAllIn(controller.activePlayer)
     }
     controller.drainPendingFlowOpsSync()
 
@@ -265,7 +322,7 @@ describe('class Controller', () => {
     expect(ended!.payload.bestPokes).toBeDefined()
   })
 
-  test('runout stages consumed by applyPendingStageAdvance', async () => {
+  test('runout stages consumed by applyPendingStageAdvance', () => {
     const dealer = new Dealer(1000)
     const pool = new Pool()
     const controller = new Controller(dealer, pool)
@@ -302,7 +359,7 @@ describe('class Controller', () => {
 
     while (controller.activePlayer) {
       controller.drainPendingFlowOpsSync()
-      await controller.activePlayer.allIn()
+      executeAllIn(controller.activePlayer)
     }
 
     expect(controller.status).toBe('in_hand')

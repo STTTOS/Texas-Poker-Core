@@ -33,6 +33,8 @@ export const TexasCoreErrorCode = {
   SESSION_SET_ROLES_BALANCE_BELOW_BB: 3205,
   /** dispatchCommand：桌上无此 userId */
   SESSION_DISPATCH_PLAYER_NOT_FOUND: 3206,
+  /** dispatchCommand：玩家未在坐席（仍在观战席等） */
+  SESSION_DISPATCH_PLAYER_NOT_ON_SET: 3207,
 
   CTRL_NO_PLAYER: 3300,
   CTRL_DUPLICATE_CONTROL: 3301,
@@ -62,8 +64,6 @@ export const TexasCoreErrorCode = {
   PLAYER_CANNOT_ALL_IN: 3415,
   PLAYER_ALL_IN_INVALID: 3416,
   PLAYER_NOT_IN_HAND: 3417,
-  /** @deprecated Core 已不再抛出；思考权以 `Controller.activePlayer` 为准 */
-  PLAYER_NO_CONTROL: 3418,
   /** dispatchCommand：非当前行动方 */
   PLAYER_DISPATCH_NOT_ACTOR: 3419,
 
@@ -87,7 +87,9 @@ export const TexasCoreErrorCode = {
 
   INTERNAL_NO_NEXT_PLAYER: 3901,
   /** 在 `Controller.start()` 之前产出本手领域事件（不变量损坏） */
-  INTERNAL_NO_ACTIVE_HAND_ID: 3902
+  INTERNAL_NO_ACTIVE_HAND_ID: 3902,
+  /** `transferControl` 时 `activePlayer` 与落账玩家不一致（流程损坏） */
+  INTERNAL_TRANSFER_ACTOR_MISMATCH: 3903
 } as const
 
 export type TexasErrorCode =
@@ -111,6 +113,7 @@ export function getTexasErrorSeverity(
     TexasCoreErrorCode.POOL_PAY_INVALID,
     TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER,
     TexasCoreErrorCode.INTERNAL_NO_ACTIVE_HAND_ID,
+    TexasCoreErrorCode.INTERNAL_TRANSFER_ACTOR_MISMATCH,
     TexasCoreErrorCode.DEALER_BUTTON_HANDOFF_INVALID,
     TexasCoreErrorCode.SESSION_SET_ROLES_BALANCE_BELOW_BB
   ])
@@ -170,6 +173,8 @@ export function formatTexasErrorMessage(
       return `数据异常: 玩家 ${p.userId} 余额(${p.balance})不足大盲(${p.bigBlind}), 无法设置角色`
     case TexasCoreErrorCode.SESSION_DISPATCH_PLAYER_NOT_FOUND:
       return `玩家 ${p.playerId ?? '?'} 不在本桌，无法下发指令`
+    case TexasCoreErrorCode.SESSION_DISPATCH_PLAYER_NOT_ON_SET:
+      return `玩家 ${p.playerId ?? '?'} 未入座，无法下发指令`
 
     case TexasCoreErrorCode.CTRL_NO_PLAYER:
       return '玩家不存在, 无法获得控制权'
@@ -222,8 +227,6 @@ export function formatTexasErrorMessage(
       return `数据异常,请手动下注, try to allIn: ${p.moneyShouldPay}; balance: ${p.balance}`
     case TexasCoreErrorCode.PLAYER_NOT_IN_HAND:
       return '游戏不在进行中, 不可行动'
-    case TexasCoreErrorCode.PLAYER_NO_CONTROL:
-      return '没有控制权, 无法行动'
     case TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR:
       return `当前行动方不是玩家 ${p.playerId ?? '?'}，拒绝指令`
 
@@ -255,6 +258,10 @@ export function formatTexasErrorMessage(
       return '游戏发生异常, 将控制权移交给不存在的玩家'
     case TexasCoreErrorCode.INTERNAL_NO_ACTIVE_HAND_ID:
       return '数据异常: 本手 handId 未就绪却尝试写入领域事件'
+    case TexasCoreErrorCode.INTERNAL_TRANSFER_ACTOR_MISMATCH:
+      return `数据异常: 交权时 activePlayer 与落账玩家不一致 (行动方 ${
+        p.actorUserId ?? '?'
+      }, activePlayer ${p.activeUserId ?? 'null'})`
 
     default:
       return `未知错误 (${code})`

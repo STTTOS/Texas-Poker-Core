@@ -148,14 +148,62 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   recordTurnOffered(player: Player): void {
+    const allowedActions = [...player.getAllowedActions()]
+    const restrict = player.getRestrict()
+    const { id: userId, name } = player.getUserInfo()
+    TexasEngineContext.emitTrace({
+      channel: 'player',
+      name: 'got_control',
+      data: { userId, name }
+    })
     this.#handEvents.push({
       type: 'TurnOffered',
       payload: {
         ...this.#eventMeta(),
-        userId: player.getUserInfo().id,
+        userId,
         street: this.#hand.stage,
-        allowedActions: [...player.getAllowedActions()],
-        restrict: player.getRestrict()
+        allowedActions,
+        restrict
+      }
+    })
+  }
+
+  /** 本轮是否已无人可再行动（下注轮可结束）。 */
+  #everyPlayerNonActionableForRound(): boolean {
+    return this.#dealer.every((pl) => !pl.actionable())
+  }
+
+  /** 河牌摊牌：`settle` + `end` + `HandEnded(showdown)` + trace（与跑马路最后一跳共用）。 */
+  #emitShowdownHandEnded(stageForCurrentPayload: Stage): void {
+    this.#settle()
+    this.end()
+
+    const { rankCategory, pokes, rankStrength } = this.#hand.settlement.snapshot
+
+    const pokesRevealed = this.getCommonPokes(
+      StageEnum.PRE_FLOP,
+      this.#hand.boardThroughStage
+    )
+    this.#handEvents.push({
+      type: 'HandEnded',
+      payload: {
+        ...this.#eventMeta(),
+        outcome: 'showdown',
+        pokesRevealed,
+        currentStage: stageForCurrentPayload,
+        endStage: this.#hand.boardThroughStage,
+        showHandPokes: true,
+        bestPokes: pokes,
+        bestRankCategory: rankCategory,
+        bestRankStrength: rankStrength
+      }
+    })
+    TexasEngineContext.emitTrace({
+      channel: 'controller',
+      name: 'hand_end_showdown',
+      data: {
+        lastActionStage: stageForCurrentPayload,
+        boardThroughStage: this.#hand.boardThroughStage
       }
     })
   }
@@ -274,8 +322,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
    * 为 true 时 {@link Player.transferControl} 会 {@link requestDeferredStageAdvance} 而非同步进街。
    */
   canDeferBettingRoundStageAdvance(): boolean {
-    const canPushToNextStage = this.#dealer.every((pl) => !pl.actionable())
-    if (!canPushToNextStage) return false
+    if (!this.#everyPlayerNonActionableForRound()) return false
     const index = STAGE_ORDER.findIndex((stage) => stage === this.#hand.stage)
     return index >= 0 && index < STAGE_ORDER.length - 1
   }
@@ -306,7 +353,9 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
 
   /**
    * 队头为 `turn_handoff` 时 shift 并 `activePlayer.getControl()`（写入 `TurnOffered`）。
-   * 队头类型不符、或该玩家已执行过 `getControl`（`hasEmittedTurnOffer`）、或 `activePlayer` 缺失时 **静默 return**（不抛错）。
+   * 队头类型不符、或 `activePlayer` 缺失时 **静默 return**（不抛错）。
+   * 若该玩家 {@link Player.hasEmittedTurnOffer} 已为 true，同样静默 return：挡的是队列里多余的连续 `turn_handoff`
+   *（实现 bug、快照/回放错误等），而非「业务重复 flush」——后者第二次调用时队头通常已非 `turn_handoff`。
    */
   flushPendingTurnHandoff(): void {
     if (this.#pendingFlowOps[0] !== 'turn_handoff') return
@@ -320,10 +369,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
    * 下注轮结束后的单步进街：`StageAdvanced(betting_round_complete)`，再 {@link transferControlTo} 首位行动者。
    */
   #performBettingRoundStageAdvance(): void {
-    const canPushToNextStage = this.#dealer.every(
-      (player) => !player.actionable()
-    )
-    if (!canPushToNextStage) {
+    if (!this.#everyPlayerNonActionableForRound()) {
       return this.fail(
         new TexasError(TexasCoreErrorCode.CTRL_FLOW_PENDING_MISMATCH)
       )
@@ -398,42 +444,11 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       }
     })
     if (to === StageEnum.RIVER) {
-      // // 跑马路结束，后续 stage_advance 不得再走 reveal 分支。
+      // 跑马路结束，后续 stage_advance 不得再走 reveal 分支。
       this.#runoutMode = false
       const stageBeforeRunout = this.#runoutStageBefore ?? from
       this.#runoutStageBefore = null
-      this.#settle()
-      this.end()
-
-      const { rankCategory, pokes, rankStrength } =
-        this.#hand.settlement.snapshot
-
-      const pokesRevealed = this.getCommonPokes(
-        StageEnum.PRE_FLOP,
-        this.#hand.boardThroughStage
-      )
-      this.#handEvents.push({
-        type: 'HandEnded',
-        payload: {
-          ...this.#eventMeta(),
-          outcome: 'showdown',
-          pokesRevealed,
-          currentStage: stageBeforeRunout,
-          endStage: this.#hand.boardThroughStage,
-          showHandPokes: true,
-          bestPokes: pokes,
-          bestRankCategory: rankCategory,
-          bestRankStrength: rankStrength
-        }
-      })
-      TexasEngineContext.emitTrace({
-        channel: 'controller',
-        name: 'hand_end_showdown',
-        data: {
-          lastActionStage: stageBeforeRunout,
-          boardThroughStage: this.#hand.boardThroughStage
-        }
-      })
+      this.#emitShowdownHandEnded(stageBeforeRunout)
     }
   }
 
@@ -494,38 +509,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       }
       this.#hand.boardThroughStage = StageEnum.RIVER
 
-      this.#settle()
-      this.end()
-
-      const { rankCategory, pokes, rankStrength } =
-        this.#hand.settlement.snapshot
-
-      const pokesRevealed = this.getCommonPokes(
-        StageEnum.PRE_FLOP,
-        this.#hand.boardThroughStage
-      )
-      this.#handEvents.push({
-        type: 'HandEnded',
-        payload: {
-          ...this.#eventMeta(),
-          outcome: 'showdown',
-          pokesRevealed,
-          currentStage: stageBeforeRunout,
-          endStage: this.#hand.boardThroughStage,
-          showHandPokes: true,
-          bestPokes: pokes,
-          bestRankCategory: rankCategory,
-          bestRankStrength: rankStrength
-        }
-      })
-      TexasEngineContext.emitTrace({
-        channel: 'controller',
-        name: 'hand_end_showdown',
-        data: {
-          lastActionStage: stageBeforeRunout,
-          boardThroughStage: this.#hand.boardThroughStage
-        }
-      })
+      this.#emitShowdownHandEnded(stageBeforeRunout)
       return true
     }
 
