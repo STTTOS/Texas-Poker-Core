@@ -230,8 +230,9 @@ class Texas {
 
   /**
    * 统一指令入口：经 `handBettingActions` 落账并触发 `transferControl` 链。
-   * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**，否则下家无法获得思考权、进街不会展示。
-   * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（内部 `setPendingTurnEndedReason('timeout')`）。
+   * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**；在队头为 `turn_handoff` 时须先
+   * {@link flushPendingTurnHandoff}，否则当前 `activePlayer` 会因 {@link Player.checkIfCanAct} 拒绝自愿指令（防 HTTP 抢跑）。
+   * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（内部 `setPendingTurnEndedReason('timeout')`，且跳过「已开示思考权」校验）。
    */
   dispatchCommand(cmd: TableCommand): void {
     const playerId = cmd.playerId
@@ -259,11 +260,11 @@ class Texas {
         break
       case 'FoldDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
-        executeFold(actor)
+        executeFold(actor, { skipTurnOfferRequirement: true })
         break
       case 'CheckDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
-        executeCheck(actor)
+        executeCheck(actor, { skipTurnOfferRequirement: true })
         break
       case 'Check':
         executeCheck(actor)

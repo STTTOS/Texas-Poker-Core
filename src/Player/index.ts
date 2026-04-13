@@ -424,10 +424,11 @@ export class Player implements GameComponent {
   }
 
   /**
-   * 自愿行动前校验：须为 `handSession.activePlayer === this`、本手 `in_hand`（思考权不镜像为 Player 状态位）。
-   * 与 `Texas#dispatchCommand` 对齐；盲注等结构性下注须跳过本方法（见 `executeBet`/`executeAllIn`）。
+   * 自愿行动前校验：`activePlayer === this`、本手 `in_hand`，且默认须已 `getControl`（`hasEmittedTurnOffer`），
+   * 与业务 `flushPendingTurnHandoff` 对齐，避免 HTTP 在 `TurnOffered` 推送前抢跑。
+   * 盲注等结构性下注须跳过本方法（见 `executeBet`/`executeAllIn`）；超时代指令传 `skipTurnOfferRequirement`。
    */
-  checkIfCanAct() {
+  checkIfCanAct(options?: { skipTurnOfferRequirement?: boolean }) {
     if (this.#handSession.activePlayer !== this) {
       return this.fail(
         new TexasError(TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR, {
@@ -437,6 +438,21 @@ export class Player implements GameComponent {
     }
     if (this.#handSession.status !== 'in_hand')
       return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NOT_IN_HAND))
+    if (!options?.skipTurnOfferRequirement && !this.hasEmittedTurnOffer()) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.PLAYER_DISPATCH_TURN_NOT_OFFERED, {
+          playerId: this.#userInfo.id
+        })
+      )
+    }
+  }
+
+  /**
+   * 仅 {@link Controller.continue}：`pause` 时 `removeControl` 已清门闩，恢复对局后须能再次 `dispatchCommand`，
+   * **不**重复缓冲 `TurnOffered`。
+   */
+  restoreDispatchLatchAfterPause(): void {
+    this.#turnOfferEmitted = true
   }
 
   /**

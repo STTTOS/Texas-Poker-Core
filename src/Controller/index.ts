@@ -618,7 +618,9 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       return this.fail(new TexasError(TexasCoreErrorCode.CTRL_NOT_PAUSED))
 
     this.#hand.status = 'in_hand'
-    this.#hand.activePlayer?.continue()
+    const ap = this.#hand.activePlayer
+    ap?.restoreDispatchLatchAfterPause()
+    ap?.continue()
   }
 
   settleRankingsThroughStage(throughStage: Stage) {

@@ -253,4 +253,45 @@ describe('entery', () => {
       TexasEngineContext.reset()
     }
   })
+
+  test('dispatchCommand rejects voluntary act before flushPendingTurnHandoff (no HTTP抢跑)', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 7,
+      initialChips: 5000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    const p3 = texas.createPlayer({ id: 3, name: 'c' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.join(p3)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
+    texas.dealer.setButton(p1)
+    texas.setPlayerRoles()
+    texas.drainDomainEvents()
+    teardownTexas = texas
+    texas.start()
+    texas.drainDomainEvents()
+    expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
+
+    const ap = texas.controller.activePlayer!
+    let beforeFlushErr: TexasError | undefined
+    try {
+      texas.dispatchCommand({ type: 'Fold', playerId: ap.getUserInfo().id })
+    } catch (e) {
+      beforeFlushErr = e as TexasError
+    }
+    expect(beforeFlushErr?.code).toBe(
+      TexasCoreErrorCode.PLAYER_DISPATCH_TURN_NOT_OFFERED
+    )
+
+    texas.flushPendingTurnHandoff()
+    texas.drainDomainEvents()
+    expect(() =>
+      texas.dispatchCommand({ type: 'Fold', playerId: ap.getUserInfo().id })
+    ).not.toThrow()
+  })
 })

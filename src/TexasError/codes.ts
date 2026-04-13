@@ -66,6 +66,11 @@ export const TexasCoreErrorCode = {
   PLAYER_NOT_IN_HAND: 3417,
   /** dispatchCommand：非当前行动方 */
   PLAYER_DISPATCH_NOT_ACTOR: 3419,
+  /**
+   * 已为 `activePlayer` 但尚未经 `flushPendingTurnHandoff` → `getControl` 开示思考权（缓冲 `TurnOffered`）。
+   * 防止 HTTP 在业务推送/动画前抢跑；`FoldDueToTimeout` / `CheckDueToTimeout` 在 Texas 层跳过该校验。
+   */
+  PLAYER_DISPATCH_TURN_NOT_OFFERED: 3420,
 
   POOL_NEGATIVE_AMOUNT: 3501,
   POOL_INSUFFICIENT_BALANCE: 3502,
@@ -229,6 +234,10 @@ export function formatTexasErrorMessage(
       return '游戏不在进行中, 不可行动'
     case TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR:
       return `当前行动方不是玩家 ${p.playerId ?? '?'}，拒绝指令`
+    case TexasCoreErrorCode.PLAYER_DISPATCH_TURN_NOT_OFFERED:
+      return `思考权尚未开示（须先消费队头 turn_handoff），玩家 ${
+        p.playerId ?? '?'
+      }`
 
     case TexasCoreErrorCode.POOL_NEGATIVE_AMOUNT:
       return '下注金额不可小于零'
