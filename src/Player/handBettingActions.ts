@@ -22,7 +22,7 @@ function tracePlayerAction(
   })
 }
 
-export async function executeCheck(actor: Player): Promise<void> {
+export function executeCheck(actor: Player): void {
   actor.checkIfCanAct()
   if (!actor.getAllowedActions().includes(ActionTypeEnum.CHECK)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CHECK))
@@ -32,10 +32,10 @@ export async function executeCheck(actor: Player): Promise<void> {
   actor.notifyDealerActionHistory()
   actor.notifyActionCommitted({ emitPot: false })
   tracePlayerAction('check', actor)
-  await actor.completeBettingTurn()
+  actor.completeBettingTurn()
 }
 
-export async function executeFold(actor: Player): Promise<void> {
+export function executeFold(actor: Player): void {
   actor.checkIfCanAct()
   if (!actor.getAllowedActions().includes(ActionTypeEnum.FOLD)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_FOLD))
@@ -46,16 +46,16 @@ export async function executeFold(actor: Player): Promise<void> {
   actor.notifyDealerActionHistory()
   actor.notifyActionCommitted({ emitPot: false })
   tracePlayerAction('fold', actor)
-  await actor.completeBettingTurn()
+  actor.completeBettingTurn()
 }
 
 /** `skipDomainEvents`：盲注路径为 true，由 `BlindsPosted` 表达，不发 `PlayerActed`。 */
-export async function executeBet(
+export function executeBet(
   actor: Player,
   chipAmount: number,
   preFlopDefaultAction = false,
   skipDomainEvents = false
-): Promise<number | void> {
+): number | void {
   if (preFlopDefaultAction === false) actor.checkIfCanAct()
 
   if (
@@ -105,14 +105,14 @@ export async function executeBet(
   if (!skipDomainEvents) {
     actor.notifyActionCommitted({ emitPot: true })
   }
-  if (!preFlopDefaultAction) await actor.completeBettingTurn()
+  if (!preFlopDefaultAction) actor.completeBettingTurn()
   return committed
 }
 
-export async function executeRaise(
+export function executeRaise(
   actor: Player,
   additionalChips: number
-): Promise<void | number | undefined> {
+): void | number | undefined {
   actor.checkIfCanAct()
 
   const maxOthersStageBet = actor.getMaxOthersStageBet()
@@ -148,7 +148,7 @@ export async function executeRaise(
     )
   }
   if (additionalChips === actor.balance) {
-    return await executeAllIn(actor)
+    return executeAllIn(actor)
   }
 
   actor.appendChipsToPot(additionalChips)
@@ -159,10 +159,10 @@ export async function executeRaise(
   actor.notifyDealerActionHistory()
   actor.notifyActionCommitted({ emitPot: true })
   tracePlayerAction('raise', actor, { money: additionalChips })
-  await actor.completeBettingTurn()
+  actor.completeBettingTurn()
 }
 
-export async function executeCall(actor: Player): Promise<void> {
+export function executeCall(actor: Player): void {
   actor.checkIfCanAct()
   if (!actor.getAllowedActions().includes(ActionTypeEnum.CALL)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CALL))
@@ -201,15 +201,15 @@ export async function executeCall(actor: Player): Promise<void> {
   actor.notifyDealerActionHistory()
   actor.notifyActionCommitted({ emitPot: true })
   tracePlayerAction('call', actor, { moneyShouldPay: chipsToMatch })
-  await actor.completeBettingTurn()
+  actor.completeBettingTurn()
 }
 
 /** `skipTurnValidation`：与盲注 `executeBet(..., preFlopDefaultAction)` 一致，贴盲阶段 `activePlayer` 尚未就位。 */
-export async function executeAllIn(
+export function executeAllIn(
   actor: Player,
   skipDomainEvents = false,
   skipTurnValidation = false
-): Promise<number | void> {
+): number | void {
   if (!skipTurnValidation) actor.checkIfCanAct()
   if (!actor.getAllowedActions().includes(ActionTypeEnum.ALL_IN)) {
     return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_ALL_IN))
@@ -239,6 +239,6 @@ export async function executeAllIn(
     moneyShouldPay: chipsToCommit,
     balance: actor.balance
   })
-  await actor.completeBettingTurn()
+  actor.completeBettingTurn()
   return chipsToCommit
 }

@@ -134,14 +134,17 @@ describe('entery', () => {
 
     const actor = texas.controller.activePlayer!
     const notActor = texas.dealer.players.find((p) => p !== actor)!
-    await expect(
+    let dispatchErr: TexasError | null = null
+    try {
       texas.dispatchCommand({
         type: 'Fold',
         playerId: notActor.getUserInfo().id
       })
-    ).rejects.toMatchObject({
-      code: TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR
-    })
+    } catch (e) {
+      dispatchErr = e as TexasError
+    }
+    expect(dispatchErr).toBeInstanceOf(TexasError)
+    expect(dispatchErr!.code).toBe(TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR)
 
     texas.controller.end()
     texas.controller.settleRankingsThroughStage(StageEnum.RIVER)

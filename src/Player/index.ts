@@ -311,19 +311,19 @@ export class Player implements GameComponent {
   }
 
   /** 单步下注落账后：尝试收局 / 进街 / 把控制权交给下一位 */
-  async completeBettingTurn(): Promise<void> {
-    await this.transferControl()
+  completeBettingTurn(): void {
+    this.transferControl()
   }
 
   /**
    * @deprecated 外部请使用 `Texas#dispatchCommand`。保留供迁移期脚本、旧单测及 Core 内盲注路径。
    */
-  async check() {
+  check() {
     return executeCheck(this)
   }
 
   /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
-  async fold() {
+  fold() {
     return executeFold(this)
   }
 
@@ -332,26 +332,22 @@ export class Player implements GameComponent {
    * @param preFlopDefaultAction 盲注等强制下注的规则分支
    * @param skipDomainEvents 为 true 时不发 `PlayerActed`/`TurnEnded`/`PotUpdated`（盲注由 `BlindsPosted` 表达）
    */
-  async bet(
-    money: number,
-    preFlopDefaultAction = false,
-    skipDomainEvents = false
-  ) {
+  bet(money: number, preFlopDefaultAction = false, skipDomainEvents = false) {
     return executeBet(this, money, preFlopDefaultAction, skipDomainEvents)
   }
 
   /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
-  async raise(money: number) {
+  raise(money: number) {
     return executeRaise(this, money)
   }
 
   /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
-  async call() {
+  call() {
     return executeCall(this)
   }
 
   /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
-  async allIn() {
+  allIn() {
     return executeAllIn(this)
   }
 
@@ -553,25 +549,25 @@ export class Player implements GameComponent {
     const index = getRandomInt(0, actions.length - 1)
     const act = actions[index]
     const stub = 800
-    void (async () => {
+    void (() => {
       switch (act) {
         case ActionTypeEnum.FOLD:
-          await executeFold(this)
+          executeFold(this)
           break
         case ActionTypeEnum.CHECK:
-          await executeCheck(this)
+          executeCheck(this)
           break
         case ActionTypeEnum.CALL:
-          await executeCall(this)
+          executeCall(this)
           break
         case ActionTypeEnum.BET:
-          await executeBet(this, stub)
+          executeBet(this, stub)
           break
         case ActionTypeEnum.RAISE:
-          await executeRaise(this, stub)
+          executeRaise(this, stub)
           break
         case ActionTypeEnum.ALL_IN:
-          await executeAllIn(this)
+          executeAllIn(this)
           break
         default: {
           const _e: never = act
@@ -580,7 +576,7 @@ export class Player implements GameComponent {
       }
     })()
   }
-  async takeDefaultAction() {
+  takeDefaultAction() {
     if (TexasEngineContext.simulation().randomPickOnDefaultAction) {
       this.__testTakeAction()
       return
@@ -595,9 +591,9 @@ export class Player implements GameComponent {
       }
     })
     if (this.#getAllowedActions().includes(ActionTypeEnum.CHECK)) {
-      await this.check()
+      this.check()
     } else {
-      await this.fold()
+      this.fold()
     }
   }
   continue() {

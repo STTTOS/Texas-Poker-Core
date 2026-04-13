@@ -233,7 +233,7 @@ class Texas {
    * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**，否则下家无法获得思考权、进街不会展示。
    * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（内部 `setPendingTurnEndedReason('timeout')`）。
    */
-  async dispatchCommand(cmd: TableCommand): Promise<void> {
+  dispatchCommand(cmd: TableCommand): void {
     const playerId = cmd.playerId
     const actor = this.dealer.players.find(
       (p) => p.getUserInfo().id === playerId
@@ -247,30 +247,30 @@ class Texas {
 
     switch (cmd.type) {
       case 'Fold':
-        await executeFold(actor)
+        executeFold(actor)
         break
       case 'FoldDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
-        await executeFold(actor)
+        executeFold(actor)
         break
       case 'CheckDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
-        await executeCheck(actor)
+        executeCheck(actor)
         break
       case 'Check':
-        await executeCheck(actor)
+        executeCheck(actor)
         break
       case 'Call':
-        await executeCall(actor)
+        executeCall(actor)
         break
       case 'Bet':
-        await executeBet(actor, cmd.amount)
+        executeBet(actor, cmd.amount)
         break
       case 'Raise':
-        await executeRaise(actor, cmd.additionalAmount)
+        executeRaise(actor, cmd.additionalAmount)
         break
       case 'AllIn':
-        await executeAllIn(actor)
+        executeAllIn(actor)
         break
       default: {
         const _exhaustive: never = cmd
