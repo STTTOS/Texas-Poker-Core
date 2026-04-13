@@ -1,6 +1,7 @@
 import Texas from '@/Texas'
 import { StageEnum } from '@/Controller'
 import { ActionTypeEnum } from '@/Player'
+import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, {
   TexasCoreErrorCode,
   isFatalTexasErrorCode
@@ -44,6 +45,7 @@ describe('entery', () => {
 
     teardownTexas = texas
     texas.start()
+    texas.flushAllPendingFlowOps()
     const afterStart = texas.drainDomainEvents()
     expect(texas.controller.currentHandId).toBe('h1')
     expect(
@@ -126,6 +128,7 @@ describe('entery', () => {
     teardownTexas = texas
     texas.start()
     texas.drainDomainEvents()
+    texas.flushAllPendingFlowOps()
     texas.dealCards()
     texas.drainDomainEvents()
 
@@ -169,6 +172,7 @@ describe('entery', () => {
     teardownTexas = texas
     texas.start()
     texas.drainDomainEvents()
+    texas.flushAllPendingFlowOps()
     texas.dealCards()
     texas.drainDomainEvents()
 
@@ -178,12 +182,14 @@ describe('entery', () => {
       playerId: firstPf.getUserInfo().id
     })
     texas.drainDomainEvents()
+    texas.flushAllPendingFlowOps()
     const secondPf = texas.controller.activePlayer!
     await texas.dispatchCommand({
       type: 'Check',
       playerId: secondPf.getUserInfo().id
     })
     texas.drainDomainEvents()
+    texas.flushAllPendingFlowOps()
 
     expect(texas.controller.stage).toBe(StageEnum.FLOP)
     const firstOnFlop = texas.controller.activePlayer!
@@ -209,5 +215,39 @@ describe('entery', () => {
         e.payload.actionType === ActionTypeEnum.CHECK
     )
     expect(acted).toBeDefined()
+  })
+
+  test('pendingFlowOps: TurnOffered only after flushPendingTurnHandoff', () => {
+    try {
+      const texas = new Texas({
+        lowestBetAmount: 500,
+        maximumCountOfPlayers: 7,
+        initialChips: 5000,
+        user: { id: 1, name: 'ycr' }
+      })
+      const p1 = texas.room.owner
+      const p2 = texas.createPlayer({ id: 2, name: 'yt' })
+      const p3 = texas.createPlayer({ id: 3, name: 'wyz' })
+      texas.room.seat(p1)
+      texas.room.join(p2)
+      texas.room.join(p3)
+      texas.room.seat(p2)
+      texas.room.seat(p3)
+      texas.dealer.setButton(p1)
+      texas.setPlayerRoles()
+      texas.drainDomainEvents()
+      teardownTexas = texas
+      texas.start()
+      const afterStart = texas.drainDomainEvents()
+      expect(afterStart.some((e) => e.type === 'TurnOffered')).toBe(false)
+      expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
+
+      texas.flushPendingTurnHandoff()
+      const afterFlush = texas.drainDomainEvents()
+      expect(afterFlush.some((e) => e.type === 'TurnOffered')).toBe(true)
+      expect(texas.getPendingFlowOps()).toEqual([])
+    } finally {
+      TexasEngineContext.reset()
+    }
   })
 })

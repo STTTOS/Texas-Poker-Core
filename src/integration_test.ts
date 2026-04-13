@@ -49,6 +49,7 @@ async function test() {
   while (count < 10) {
     try {
       texas.start()
+      texas.flushAllPendingFlowOps()
       const ev = texas.drainDomainEvents()
       if (ev.some((e) => e.type === 'HandEnded')) end++
       await delay(50)

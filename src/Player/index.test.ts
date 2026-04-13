@@ -60,10 +60,14 @@ describe('class Player', () => {
     teardownController = controller
     controller.start()
     controller.drainHandEvents()
+    controller.drainPendingFlowOpsSync()
 
     await p3.call()
+    controller.drainPendingFlowOpsSync()
     await p1.allIn()
+    controller.drainPendingFlowOpsSync()
     await p2.allIn()
+    controller.drainPendingFlowOpsSync()
     controller.end()
 
     expect(p1.balance).toEqual(0)
@@ -116,6 +120,7 @@ describe('class Player', () => {
       teardownController = controller
       controller.start()
       controller.drainHandEvents()
+      controller.drainPendingFlowOpsSync()
 
       const firstActor = controller.activePlayer!
       expect(firstActor.getRestrict().min).toBe(200)
@@ -159,6 +164,7 @@ describe('class Player', () => {
       teardownController = controller
       controller.start()
       controller.drainHandEvents()
+      controller.drainPendingFlowOpsSync()
 
       // 双人局按钮位先行动，min 可为补齐到 BB 的差额（100）
       expect(controller.activePlayer!.getRestrict().min).toBe(100)

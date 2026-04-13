@@ -15,6 +15,7 @@ import Pool from '../Pool'
 import Dealer from '../Dealer'
 import { Player } from '../Player'
 import { CurrentHand } from '@/Hand/CurrentHand'
+import { executeBet } from '../Player/handBettingActions'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import { StageEnum, type Stage, STAGE_ORDER } from './stage'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
@@ -22,6 +23,9 @@ import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 export { StageEnum, type Stage } from './stage'
 
 export type { HandLifecycle }
+
+/** 业务节拍队列项：进街一步，或发出一次 `TurnOffered` */
+export type PendingFlowOpKind = 'stage_advance' | 'turn_handoff'
 
 class Controller implements GameComponent, PlayerHandSession<Player> {
   /** 当前一手的状态与摊牌评估 */
@@ -36,6 +40,12 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   #handEvents: HandDomainEvent[] = []
   /** 下一条行动完成时的 `TurnEnded.reason`（如超时弃牌）；由 `consumePendingTurnEndedReason` 消费 */
   #pendingTurnEndedReason: TurnEndedReason | null = null
+  /** 进街 / 交权由业务或 `drainPendingFlowOpsSync` 消费 */
+  #pendingFlowOps: PendingFlowOpKind[] = []
+  /** 跑马路分段进街中；至河牌后结算并发 `HandEnded` */
+  #runoutMode = false
+  /** 进入跑马路时的 `stage`（写入 `HandEnded.currentStage`） */
+  #runoutStageBefore: Stage | null = null
   fail: TexasErrorCallback
 
   constructor(
@@ -226,7 +236,174 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       )
 
     this.#hand.activePlayer = player
-    player.getControl()
+    this.#pendingFlowOps.push('turn_handoff')
+  }
+
+  /**
+   * 无节拍排空 `pendingFlowOps`（单测、脚本在不走业务 drain 时使用）。
+   */
+  drainPendingFlowOpsSync(): void {
+    for (;;) {
+      const ops = this.getPendingFlowOps()
+      if (ops.length === 0) break
+      if (ops[0] === 'stage_advance') this.applyPendingStageAdvance()
+      else this.flushPendingTurnHandoff()
+    }
+  }
+
+  getPendingFlowOps(): PendingFlowOpKind[] {
+    return [...this.#pendingFlowOps]
+  }
+
+  canDeferBettingRoundStageAdvance(): boolean {
+    const canPushToNextStage = this.#dealer.every((pl) => !pl.actionable())
+    if (!canPushToNextStage) return false
+    const index = STAGE_ORDER.findIndex((stage) => stage === this.#hand.stage)
+    return index >= 0 && index < STAGE_ORDER.length - 1
+  }
+
+  requestDeferredStageAdvance(): void {
+    this.#pendingFlowOps.push('stage_advance')
+  }
+
+  /**
+   * 消费队列头的一项 `stage_advance`：执行一轮下注结束后的进街一步，或跑马路中的一步公牌揭示。
+   */
+  applyPendingStageAdvance(): void {
+    if (this.#pendingFlowOps[0] !== 'stage_advance') {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_FLOW_PENDING_MISMATCH)
+      )
+    }
+    this.#pendingFlowOps.shift()
+    if (this.#runoutMode) {
+      this.#applyOneRunoutRevealStep()
+      return
+    }
+    this.#performBettingRoundStageAdvance()
+  }
+
+  /** 队列头为 `turn_handoff` 时消费并发 `getControl` / `TurnOffered`。 */
+  flushPendingTurnHandoff(): void {
+    if (this.#pendingFlowOps[0] !== 'turn_handoff') return
+    this.#pendingFlowOps.shift()
+    const p = this.#hand.activePlayer
+    if (!p || p.getStatus() === 'active') return
+    p.getControl()
+  }
+
+  #performBettingRoundStageAdvance(): void {
+    const canPushToNextStage = this.#dealer.every(
+      (player) => !player.actionable()
+    )
+    if (!canPushToNextStage) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_FLOW_PENDING_MISMATCH)
+      )
+    }
+    const index = STAGE_ORDER.findIndex((stage) => stage === this.#hand.stage)
+    if (index < 0 || index >= STAGE_ORDER.length - 1) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_FLOW_PENDING_MISMATCH)
+      )
+    }
+
+    const currentStage = this.#hand.stage
+    const nextStage = STAGE_ORDER[index + 1]
+
+    this.#hand.stage = nextStage
+    this.#dealer.resetCurrentStageTotalAmount()
+    this.#dealer.resetActionsOfPlayers()
+    this.#dealer.resetActionsHistory()
+
+    const stagePayload = {
+      fromStage: currentStage,
+      toStage: nextStage,
+      pokesRevealedThisStep: this.getCommonPokes(currentStage, nextStage),
+      boardThroughStageAfter: nextStage,
+      advanceKind: 'betting_round_complete' as const
+    }
+    this.#handEvents.push({
+      type: 'StageAdvanced',
+      payload: {
+        ...this.#eventMeta(),
+        ...stagePayload
+      }
+    })
+    TexasEngineContext.emitTrace({
+      channel: 'controller',
+      name: 'stage_changed',
+      data: {
+        from: currentStage,
+        to: nextStage,
+        byUserId: this.#hand.activePlayer?.getUserInfo().id
+      }
+    })
+    this.resetActivePlayer()
+
+    this.transferControlTo(this.#dealer.getTheFirstPlayerToAct())
+  }
+
+  #applyOneRunoutRevealStep(): void {
+    const index = STAGE_ORDER.findIndex((s) => s === this.#hand.stage)
+    if (index < 0 || index >= STAGE_ORDER.length - 1) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_FLOW_PENDING_MISMATCH)
+      )
+    }
+    const from = this.#hand.stage
+    const to = STAGE_ORDER[index + 1]
+    this.#hand.stage = to
+    this.#hand.boardThroughStage = to
+    const pokes = this.getCommonPokes(from, to)
+    this.#handEvents.push({
+      type: 'StageAdvanced',
+      payload: {
+        ...this.#eventMeta(),
+        fromStage: from,
+        toStage: to,
+        pokesRevealedThisStep: pokes,
+        boardThroughStageAfter: to,
+        advanceKind: 'runout_reveal'
+      }
+    })
+    if (to === StageEnum.RIVER) {
+      this.#runoutMode = false
+      const stageBeforeRunout = this.#runoutStageBefore ?? from
+      this.#runoutStageBefore = null
+      this.#settle()
+      this.end()
+
+      const { rankCategory, pokes, rankStrength } =
+        this.#hand.settlement.snapshot
+
+      const pokesRevealed = this.getCommonPokes(
+        StageEnum.PRE_FLOP,
+        this.#hand.boardThroughStage
+      )
+      this.#handEvents.push({
+        type: 'HandEnded',
+        payload: {
+          ...this.#eventMeta(),
+          outcome: 'showdown',
+          pokesRevealed,
+          currentStage: stageBeforeRunout,
+          endStage: this.#hand.boardThroughStage,
+          showHandPokes: true,
+          bestPokes: pokes,
+          bestRankCategory: rankCategory,
+          bestRankStrength: rankStrength
+        }
+      })
+      TexasEngineContext.emitTrace({
+        channel: 'controller',
+        name: 'hand_end_showdown',
+        data: {
+          lastActionStage: stageBeforeRunout,
+          boardThroughStage: this.#hand.boardThroughStage
+        }
+      })
+    }
   }
 
   tryToEndGame() {
@@ -265,30 +442,19 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       const stageBeforeRunout = this.#hand.stage
 
       if (this.#hand.stage !== StageEnum.RIVER) {
+        this.#runoutMode = true
+        this.#runoutStageBefore = stageBeforeRunout
         let from: Stage = this.#hand.stage
         while (from !== StageEnum.RIVER) {
+          this.#pendingFlowOps.push('stage_advance')
           const index = STAGE_ORDER.findIndex((s) => s === from)
           if (index < 0 || index >= STAGE_ORDER.length - 1) break
-          const to = STAGE_ORDER[index + 1]
-          this.#hand.stage = to
-          this.#hand.boardThroughStage = to
-          const pokes = this.getCommonPokes(from, to)
-          this.#handEvents.push({
-            type: 'StageAdvanced',
-            payload: {
-              ...this.#eventMeta(),
-              fromStage: from,
-              toStage: to,
-              pokesRevealedThisStep: pokes,
-              boardThroughStageAfter: to,
-              advanceKind: 'runout_reveal'
-            }
-          })
-          from = to
+          from = STAGE_ORDER[index + 1]
         }
-      } else {
-        this.#hand.boardThroughStage = StageEnum.RIVER
+        this.resetActivePlayer()
+        return true
       }
+      this.#hand.boardThroughStage = StageEnum.RIVER
 
       this.#settle()
       this.end()
@@ -332,47 +498,13 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     const canPushToNextStage = this.#dealer.every(
       (player) => !player.actionable()
     )
-    if (canPushToNextStage) {
-      const index = STAGE_ORDER.findIndex((stage) => stage === this.#hand.stage)
-      if (index < 0 || index >= STAGE_ORDER.length - 1) return false
+    if (!canPushToNextStage) return false
+    const index = STAGE_ORDER.findIndex((stage) => stage === this.#hand.stage)
+    if (index < 0 || index >= STAGE_ORDER.length - 1) return false
 
-      const currentStage = this.#hand.stage
-      const nextStage = STAGE_ORDER[index + 1]
-
-      this.#hand.stage = nextStage
-      this.#dealer.resetCurrentStageTotalAmount()
-      this.#dealer.resetActionsOfPlayers()
-      this.#dealer.resetActionsHistory()
-
-      const stagePayload = {
-        fromStage: currentStage,
-        toStage: nextStage,
-        pokesRevealedThisStep: this.getCommonPokes(currentStage, nextStage),
-        boardThroughStageAfter: nextStage,
-        advanceKind: 'betting_round_complete' as const
-      }
-      this.#handEvents.push({
-        type: 'StageAdvanced',
-        payload: {
-          ...this.#eventMeta(),
-          ...stagePayload
-        }
-      })
-      TexasEngineContext.emitTrace({
-        channel: 'controller',
-        name: 'stage_changed',
-        data: {
-          from: currentStage,
-          to: nextStage,
-          byUserId: this.#hand.activePlayer?.getUserInfo().id
-        }
-      })
-      this.resetActivePlayer()
-
-      this.transferControlTo(this.#dealer.getTheFirstPlayerToAct())
-      return true
-    }
-    return false
+    return this.fail(
+      new TexasError(TexasCoreErrorCode.CTRL_TRY_ADVANCE_USE_APPLY_PENDING)
+    )
   }
 
   getCommonPokes(currentStage: Stage, endStage: Stage) {
@@ -389,7 +521,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   #postBlind(player: Player, requested: number): number {
     const balanceBefore = player.balance
     const posted = Math.min(requested, balanceBefore)
-    player.bet(posted, true, true)
+    void executeBet(player, posted, true, true)
     this.#hand.defaultBets.push({
       userId: player.getUserInfo().id,
       balance: balanceBefore - posted,
@@ -455,6 +587,9 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#handEventSeq = 0
     this.#handEvents = []
     this.#pendingTurnEndedReason = null
+    this.#pendingFlowOps = []
+    this.#runoutMode = false
+    this.#runoutStageBefore = null
     this.#hand.status = 'in_hand'
     this.#hand.stage = StageEnum.PRE_FLOP
     this.#hand.boardThroughStage = StageEnum.PRE_FLOP
@@ -508,6 +643,9 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
 
   reset() {
     this.#pendingTurnEndedReason = null
+    this.#pendingFlowOps = []
+    this.#runoutMode = false
+    this.#runoutStageBefore = null
     const ap = this.#hand.activePlayer
     if (ap) {
       ap.removeControl()

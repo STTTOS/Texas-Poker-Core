@@ -29,6 +29,9 @@ export interface PlayerHandSession<TPlayer = unknown> {
   getShowdownEvalForPlayer(player: TPlayer): ShowdownPlayerEval | undefined
   tryToEndGame(): boolean
   tryToAdvanceGameToNextStage(): boolean
+  /** 下注轮已结束且尚未到河牌时，可推迟进街并由业务调用 `applyPendingStageAdvance` */
+  canDeferBettingRoundStageAdvance(): boolean
+  requestDeferredStageAdvance(): void
   transferControlTo(player: TPlayer): void
   recordPlayerAction(player: TPlayer, options: { emitPot: boolean }): void
   recordTurnOffered(player: TPlayer): void

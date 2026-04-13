@@ -72,20 +72,24 @@ describe('class Controller', () => {
     teardownController = controller
     controller.start()
     controller.drainHandEvents()
+    controller.drainPendingFlowOpsSync()
     room.getDealer().log()
     expect(controller.activePlayer === p3).toBe(true)
     // p1.log()
     await p3.allIn()
+    controller.drainPendingFlowOpsSync()
     // p1.log()
 
     expect(controller.activePlayer === p4).toBe(true)
     // p2.log()
     await p4.allIn()
+    controller.drainPendingFlowOpsSync()
     // p2.log()
 
     expect(controller.activePlayer === p1).toBe(true)
     // p3.log()
     await p1.allIn()
+    controller.drainPendingFlowOpsSync()
 
     controller.end()
     // expect(p1.getBalance()).toEqual(0)
@@ -139,6 +143,7 @@ describe('class Controller', () => {
     teardownController = controller
     controller.start()
     const ev = controller.drainHandEvents()
+    controller.drainPendingFlowOpsSync()
     const blinds = ev.find(
       (e): e is Extract<typeof e, { type: 'BlindsPosted' }> =>
         e.type === 'BlindsPosted'
@@ -189,6 +194,7 @@ describe('class Controller', () => {
     teardownController = controller
     controller.start()
     controller.drainHandEvents()
+    controller.drainPendingFlowOpsSync()
     await controller.activePlayer!.fold()
 
     expect(controller.status).toBe('hand_complete')
@@ -238,8 +244,10 @@ describe('class Controller', () => {
     controller.drainHandEvents()
 
     while (controller.activePlayer) {
+      controller.drainPendingFlowOpsSync()
       await controller.activePlayer.allIn()
     }
+    controller.drainPendingFlowOpsSync()
 
     expect(controller.status).toBe('hand_complete')
     const ev = controller.drainHandEvents()
@@ -255,5 +263,73 @@ describe('class Controller', () => {
     expect(ended).toBeDefined()
     expect(ended!.payload.endStage).toBe(StageEnum.RIVER)
     expect(ended!.payload.bestPokes).toBeDefined()
+  })
+
+  test('runout stages consumed by applyPendingStageAdvance', async () => {
+    const dealer = new Dealer(1000)
+    const pool = new Pool()
+    const controller = new Controller(dealer, pool)
+    const p1 = new Player({
+      user: { id: 1, name: 'a' },
+      initialChips: 10000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const p2 = new Player({
+      user: { id: 2, name: 'b' },
+      initialChips: 10000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const room = new Room({
+      dealer,
+      owner: p1,
+      controller,
+      initialChips: 10000
+    })
+    room.seat(p1)
+    room.join(p2)
+    room.seat(p2)
+    room.initialRoles(p2)
+    dealer.dealCards()
+    teardownController = controller
+    controller.start()
+    controller.drainHandEvents()
+
+    while (controller.activePlayer) {
+      controller.drainPendingFlowOpsSync()
+      await controller.activePlayer.allIn()
+    }
+
+    expect(controller.status).toBe('in_hand')
+    expect(controller.getPendingFlowOps()).toEqual([
+      'stage_advance',
+      'stage_advance',
+      'stage_advance'
+    ])
+
+    controller.applyPendingStageAdvance()
+    expect(
+      controller.drainHandEvents().some((e) => e.type === 'StageAdvanced')
+    ).toBe(true)
+    controller.applyPendingStageAdvance()
+    expect(
+      controller.drainHandEvents().some((e) => e.type === 'StageAdvanced')
+    ).toBe(true)
+    controller.applyPendingStageAdvance()
+    const lastBatch = controller.drainHandEvents()
+    expect(
+      lastBatch.some(
+        (e): e is Extract<typeof e, { type: 'HandEnded' }> =>
+          e.type === 'HandEnded'
+      )
+    ).toBe(true)
+
+    expect(controller.status).toBe('hand_complete')
+    expect(controller.getPendingFlowOps()).toEqual([])
   })
 })

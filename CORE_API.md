@@ -12,6 +12,7 @@
   - `allowSingleSeatedPlayer`（旧 Dealer 仅 1 人环形桌）
   - `ignoreBalanceSetter` / `restoreBalanceOnPlayerReset`
   - `immediateDefaultActionOnTurn` / `randomPickOnDefaultAction`
+- **流程队列（固定行为）**：下注轮结束后的进街与 `transferControlTo` 的交权均进入 **`pendingFlowOps`**（`stage_advance` | `turn_handoff`）；业务按节拍调用 **`Texas#getPendingFlowOps`**、**`applyPendingStageAdvance`**、**`flushPendingTurnHandoff`** 消费。单测/脚本无节拍时可 **`Texas#flushAllPendingFlowOps()`**（内部 `Controller#drainPendingFlowOpsSync`）一次排空。
 
 ### `Texas`
 

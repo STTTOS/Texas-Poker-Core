@@ -42,6 +42,10 @@ export const TexasCoreErrorCode = {
   CTRL_START_NO_ACTIVE: 3306,
   /** tryToEndGame：Dealer 人数不足 2，流程损坏 */
   CTRL_ENDGAME_INVARIANT_DEALER_LT_2: 3307,
+  /** 业务节拍模式：`applyPendingStageAdvance` / `flushPendingTurnHandoff` 与队列头类型不一致 */
+  CTRL_FLOW_PENDING_MISMATCH: 3308,
+  /** 进街须通过 `applyPendingStageAdvance` 消费队列，勿调用 `tryToAdvanceGameToNextStage` */
+  CTRL_TRY_ADVANCE_USE_APPLY_PENDING: 3309,
 
   PLAYER_ACTION_INVALID: 3401,
   PLAYER_CANNOT_CHECK: 3402,
@@ -182,6 +186,10 @@ export function formatTexasErrorMessage(
       return '游戏进程异常'
     case TexasCoreErrorCode.CTRL_ENDGAME_INVARIANT_DEALER_LT_2:
       return `游戏进程异常: 进行中手牌 Dealer 人数不足 (${p.count ?? '?'})`
+    case TexasCoreErrorCode.CTRL_FLOW_PENDING_MISMATCH:
+      return '流程队列与当前操作不匹配（阶段推进 / 交权顺序有误）'
+    case TexasCoreErrorCode.CTRL_TRY_ADVANCE_USE_APPLY_PENDING:
+      return '请使用 applyPendingStageAdvance 消费进街队列，勿调用 tryToAdvanceGameToNextStage'
 
     case TexasCoreErrorCode.PLAYER_ACTION_INVALID:
       return String(p.detail ?? '玩家行为异常')

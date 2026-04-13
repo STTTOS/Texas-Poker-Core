@@ -9,13 +9,21 @@ import type {
 import Pool from '@/Pool'
 import Room from '@/Room'
 import Dealer from '@/Dealer'
-import Controller from '@/Controller'
 import Player, { User } from '@/Player'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
+import Controller, { type PendingFlowOpKind } from '@/Controller'
 import {
   TexasEngineContext,
   type TexasEngineGlobalOptions
 } from '@/TexasEngineContext'
+import {
+  executeBet,
+  executeCall,
+  executeFold,
+  executeAllIn,
+  executeCheck,
+  executeRaise
+} from '@/Player/handBettingActions'
 
 /** 当前引擎角色表最多支持 10 人桌；更大人数需扩展 playerRoleSetMap */
 const SUPPORTED_MAX_TABLE_PLAYERS = 10
@@ -189,9 +197,30 @@ class Texas {
     this.controller.recordPotAwarded(potTotal, allocations)
   }
 
+  /** 队列头为 `turn_handoff` 时消费并发出 `TurnOffered`。 */
+  flushPendingTurnHandoff(): void {
+    this.controller.flushPendingTurnHandoff()
+  }
+
+  /** 窥视当前待消费的流程队列（拷贝）。 */
+  getPendingFlowOps(): PendingFlowOpKind[] {
+    return this.controller.getPendingFlowOps()
+  }
+
+  /** 消费队列头的一项 `stage_advance`（进街一步或跑马路一步）。 */
+  applyPendingStageAdvance(): void {
+    this.controller.applyPendingStageAdvance()
+  }
+
+  /** 无节拍排空流程队列（单测、批处理脚本用）。 */
+  flushAllPendingFlowOps(): void {
+    this.controller.drainPendingFlowOpsSync()
+  }
+
   /**
-   * 统一指令入口：行动合法性由各 `Player` 动作内的 {@link Player.checkIfCanAct} 校验（含 `activePlayer` / `in_hand` / 座位 `active`）。
-   * 超时：弃牌用 `FoldDueToTimeout`，可过牌时用 `CheckDueToTimeout`（均先 `setPendingTurnEndedReason('timeout')`，经 `notifyActionCommitted` 产出 `TurnEnded`）。
+   * 统一指令入口（阶段 5）：规则执行经 `handBettingActions`，不直接依赖 `Player#fold` 等公开方法。
+   * 行动合法性由 `checkIfCanAct` 等校验（含 `activePlayer` / `in_hand` / 座位 `active`）。
+   * 超时：弃牌用 `FoldDueToTimeout`，可过牌时用 `CheckDueToTimeout`（均先 `setPendingTurnEndedReason('timeout')`）。
    */
   async dispatchCommand(cmd: TableCommand): Promise<void> {
     const playerId = cmd.playerId
@@ -207,30 +236,30 @@ class Texas {
 
     switch (cmd.type) {
       case 'Fold':
-        await actor.fold()
+        await executeFold(actor)
         break
       case 'FoldDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
-        await actor.fold()
+        await executeFold(actor)
         break
       case 'CheckDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
-        await actor.check()
+        await executeCheck(actor)
         break
       case 'Check':
-        await actor.check()
+        await executeCheck(actor)
         break
       case 'Call':
-        await actor.call()
+        await executeCall(actor)
         break
       case 'Bet':
-        await actor.bet(cmd.amount)
+        await executeBet(actor, cmd.amount)
         break
       case 'Raise':
-        await actor.raise(cmd.additionalAmount)
+        await executeRaise(actor, cmd.additionalAmount)
         break
       case 'AllIn':
-        await actor.allIn()
+        await executeAllIn(actor)
         break
       default: {
         const _exhaustive: never = cmd

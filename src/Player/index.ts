@@ -320,15 +320,20 @@ export class Player implements GameComponent {
     await this.transferControl()
   }
 
+  /**
+   * @deprecated 外部请使用 `Texas#dispatchCommand`。保留供迁移期脚本、旧单测及 Core 内盲注路径。
+   */
   async check() {
     return executeCheck(this)
   }
 
+  /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
   async fold() {
     return executeFold(this)
   }
 
   /**
+   * @deprecated 外部请使用 `Texas#dispatchCommand`。盲注仍由 Controller 调 `executeBet`。
    * @param preFlopDefaultAction 盲注等强制下注的规则分支
    * @param skipDomainEvents 为 true 时不发 `PlayerActed`/`TurnEnded`/`PotUpdated`（盲注由 `BlindsPosted` 表达）
    */
@@ -340,14 +345,17 @@ export class Player implements GameComponent {
     return executeBet(this, money, preFlopDefaultAction, skipDomainEvents)
   }
 
+  /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
   async raise(money: number) {
     return executeRaise(this, money)
   }
 
+  /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
   async call() {
     return executeCall(this)
   }
 
+  /** @deprecated 外部请使用 `Texas#dispatchCommand`。 */
   async allIn() {
     return executeAllIn(this)
   }
@@ -459,7 +467,7 @@ export class Player implements GameComponent {
 
   /**
    * 自愿行动前校验：须为 `controller.activePlayer`、本手 `in_hand`、且座位 `active`。
-   * 与 {@link Texas.dispatchCommand} 对齐；盲注等结构性下注须跳过本方法（见 `executeBet`/`executeAllIn`）。
+   * 与 `Texas#dispatchCommand` 对齐；盲注等结构性下注须跳过本方法（见 `executeBet`/`executeAllIn`）。
    */
   checkIfCanAct() {
     if (this.#handSession.activePlayer !== this) {
@@ -522,7 +530,10 @@ export class Player implements GameComponent {
     if (shouldEndGame) {
       return
     }
-    // 在移交控制权之前, 需要校验游戏是否该进入下个阶段
+    if (this.#handSession.canDeferBettingRoundStageAdvance()) {
+      this.#handSession.requestDeferredStageAdvance()
+      return
+    }
     const canAdvanceToNextStage =
       this.#handSession.tryToAdvanceGameToNextStage()
     if (canAdvanceToNextStage) return
@@ -542,8 +553,34 @@ export class Player implements GameComponent {
   __testTakeAction() {
     const actions = this.#getAllowedActions()
     const index = getRandomInt(0, actions.length - 1)
-
-    this[actions[index]](800)
+    const act = actions[index]
+    const stub = 800
+    void (async () => {
+      switch (act) {
+        case ActionTypeEnum.FOLD:
+          await executeFold(this)
+          break
+        case ActionTypeEnum.CHECK:
+          await executeCheck(this)
+          break
+        case ActionTypeEnum.CALL:
+          await executeCall(this)
+          break
+        case ActionTypeEnum.BET:
+          await executeBet(this, stub)
+          break
+        case ActionTypeEnum.RAISE:
+          await executeRaise(this, stub)
+          break
+        case ActionTypeEnum.ALL_IN:
+          await executeAllIn(this)
+          break
+        default: {
+          const _e: never = act
+          void _e
+        }
+      }
+    })()
   }
   async takeDefaultAction() {
     if (TexasEngineContext.simulation().randomPickOnDefaultAction) {

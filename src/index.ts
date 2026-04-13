@@ -21,12 +21,6 @@ import {
   PlayerSeatStatus,
   type RoomCreateOptions
 } from './Room'
-import Controller, {
-  Stage,
-  StageEnum,
-  HandLifecycle,
-  type ShowdownPlayerEval
-} from './Controller'
 import {
   User,
   Role,
@@ -37,6 +31,13 @@ import {
   ActionTypeEnum,
   default as Player
 } from './Player'
+import Controller, {
+  Stage,
+  StageEnum,
+  HandLifecycle,
+  type PendingFlowOpKind,
+  type ShowdownPlayerEval
+} from './Controller'
 import {
   TexasEngineContext,
   type TexasTraceEvent,
@@ -78,6 +79,7 @@ export {
   StageEnum,
   HandLifecycle,
   type ShowdownPlayerEval,
+  type PendingFlowOpKind,
   TableStakes,
   type PlayerDealerRing,
   type PlayerHandSession,
