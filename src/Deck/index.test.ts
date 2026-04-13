@@ -11,6 +11,42 @@ import {
   rankCategoryMap
 } from './constant'
 
+/** 标准 52 张牌列表（与 Deck#createDeck 顺序无关，仅用于全集计数） */
+const ALL_POKES: Poke[] = suits.flatMap((s) =>
+  ranks.map((r) => `${s}${r}` as Poke)
+)
+
+/** 5 张牌是否至少存在相同点数（公牌上出现「对子」面） */
+function boardHasPairByRank(cards: Poke[]): boolean {
+  const seen = new Set<string>()
+  for (const c of cards) {
+    const rank = c.slice(1)
+    if (seen.has(rank)) return true
+    seen.add(rank)
+  }
+  return false
+}
+
+/**
+ * 完全随机 5 张（均匀 C(52,5) 等价于本库洗牌后取公牌集合）时，至少一对点数的理论概率。
+ * 1 - C(13,5)*4^5 / C(52,5) ≈ 0.4929
+ */
+const THEORETIC_BOARD_PAIR_OR_BETTER =
+  1 - (combinations(13, 5) * 4 ** 5) / combinations(52, 5)
+
+function combinations(n: number, k: number): number {
+  if (k < 0 || k > n) return 0
+  if (k === 0 || k === n) return 1
+  const kk = Math.min(k, n - k)
+  let num = 1
+  let den = 1
+  for (let i = 1; i <= kk; i++) {
+    num *= n - kk + i
+    den *= i
+  }
+  return num / den
+}
+
 describe('deck', () => {
   test('init deck successfully', () => {
     const deck = new Deck()
@@ -55,6 +91,52 @@ describe('deck', () => {
     const result = equals(origin, shuffled)
     expect(result).toBe(false)
   })
+
+  /**
+   * dealCards：先 #shuffle，再按桌序发 2 圈手牌，烧牌 + flop(3) + 烧牌 + turn(1) + 烧牌 + river(1)。
+   * 等价于在随机排列中固定取若干位置，故每张牌出现在 5 张公牌中的期望次数相同。
+   */
+  test('100k deals: each poke appears in commonPokes (5 board cards) ~uniformly', () => {
+    const playerCount = 2
+    const iterations = 100_000
+    const expectedPerPoke = (iterations * 5) / 52
+
+    const counts = new Map<Poke, number>()
+    for (const p of ALL_POKES) counts.set(p, 0)
+
+    const deck = new Deck()
+    for (let i = 0; i < iterations; i++) {
+      const { commonPokes } = deck.dealCards(playerCount)
+      expect(commonPokes).toHaveLength(5)
+      expect(new Set(commonPokes).size).toBe(5)
+      for (const c of commonPokes) {
+        counts.set(c, counts.get(c)! + 1)
+      }
+    }
+
+    let chiSq = 0
+    for (const p of ALL_POKES) {
+      const o = counts.get(p)!
+      chiSq += (o - expectedPerPoke) ** 2 / expectedPerPoke
+    }
+    // χ²(51)；取宽松上界减少 CI 偶发抖动（均匀 RNG 下统计量期望约 51）
+    expect(chiSq).toBeLessThan(100)
+  }, 120_000)
+
+  test('100k deals: board pair rate matches ~49% (公对常见并非发牌偏置)', () => {
+    const playerCount = 2
+    const iterations = 100_000
+    let pairBoards = 0
+    const deck = new Deck()
+    for (let i = 0; i < iterations; i++) {
+      const { commonPokes } = deck.dealCards(playerCount)
+      if (boardHasPairByRank(commonPokes)) pairBoards++
+    }
+    const pHat = pairBoards / iterations
+    const margin = 0.02
+    expect(pHat).toBeGreaterThan(THEORETIC_BOARD_PAIR_OR_BETTER - margin)
+    expect(pHat).toBeLessThan(THEORETIC_BOARD_PAIR_OR_BETTER + margin)
+  }, 120_000)
 
   // 耗时约 10min，平时不开启此测试
   test.skip('bias in deal probabilities', () => {
