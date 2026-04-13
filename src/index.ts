@@ -21,16 +21,6 @@ import {
   PlayerSeatStatus,
   type RoomCreateOptions
 } from './Room'
-import {
-  User,
-  Role,
-  Action,
-  RoleEnum,
-  ActionType,
-  OnlineStatus,
-  ActionTypeEnum,
-  default as Player
-} from './Player'
 import Controller, {
   Stage,
   StageEnum,
@@ -44,6 +34,17 @@ import {
   type TexasSimulationFlags,
   type TexasEngineGlobalOptions
 } from '@/TexasEngineContext'
+import {
+  User,
+  Role,
+  Action,
+  RoleEnum,
+  ActionType,
+  OnlineStatus,
+  ActionTypeEnum,
+  type PlayerStatus,
+  default as Player
+} from './Player'
 import TexasError, {
   texasErrorMap,
   TexasCoreErrorCode,
@@ -112,6 +113,7 @@ export {
   TexasEngineContext,
   Texas,
   OnlineStatus,
+  type PlayerStatus,
   type TexasEngineGlobalOptions,
   type TexasSimulationFlags,
   type TexasTraceEvent,

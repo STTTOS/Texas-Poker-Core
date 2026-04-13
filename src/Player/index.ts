@@ -25,16 +25,8 @@ import {
 
 export { ActionTypeEnum }
 
-// 玩家的状态
-type PlayerStatus =
-  // 全押
-  | 'allIn'
-  // 轮到该玩家的回合
-  | 'active'
-  // 非玩家回合的状态
-  | 'waiting'
-  // 弃牌出局
-  | 'out'
+/** 参与本手的座位状态；当前思考者仅由 {@link PlayerHandSession.activePlayer} 表示 */
+export type PlayerStatus = 'eligible' | 'allIn' | 'out'
 export type OnlineStatus = 'online' | 'offline'
 export type Action = {
   type: ActionType
@@ -77,7 +69,11 @@ export class Player implements GameComponent {
    * 积分
    */
   #balance = 0
-  #status: PlayerStatus = 'waiting'
+  #status: PlayerStatus = 'eligible'
+  /**
+   * `getControl` 已执行且尚未 `removeControl`；用于 `flushPendingTurnHandoff` 幂等及 `TurnEnded` 判定。
+   */
+  #turnOfferEmitted = false
   /**
    * 默认的思考时间为30s
    */
@@ -275,14 +271,13 @@ export class Player implements GameComponent {
     this.resetCurrentStageTotalAmount()
 
     this.#totalBetAmount = 0
-    this.#status = 'waiting'
+    this.#status = 'eligible'
     this.#wager = 0
+    this.#turnOfferEmitted = false
 
     if (TexasEngineContext.simulation().restoreBalanceOnPlayerReset) {
       this.balance = this.#balance
     }
-
-    this.clearTimer()
   }
 
   setRole(role: Role) {
@@ -466,7 +461,7 @@ export class Player implements GameComponent {
   }
 
   /**
-   * 自愿行动前校验：须为 `controller.activePlayer`、本手 `in_hand`、且座位 `active`。
+   * 自愿行动前校验：须为 `handSession.activePlayer === this`、本手 `in_hand`（思考权不镜像为 Player 状态位）。
    * 与 `Texas#dispatchCommand` 对齐；盲注等结构性下注须跳过本方法（见 `executeBet`/`executeAllIn`）。
    */
   checkIfCanAct() {
@@ -479,8 +474,11 @@ export class Player implements GameComponent {
     }
     if (this.#handSession.status !== 'in_hand')
       return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NOT_IN_HAND))
-    if (this.#status !== 'active')
-      return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NO_CONTROL))
+  }
+
+  /** `flushPendingTurnHandoff` 幂等：`getControl` 已发过 `TurnOffered` 且未 `removeControl` */
+  hasEmittedTurnOffer(): boolean {
+    return this.#turnOfferEmitted
   }
 
   toString() {
@@ -517,21 +515,15 @@ export class Player implements GameComponent {
     this.#currentStageTotalAmount = 0
   }
 
-  clearTimer() {
-    /* 思考计时应由业务层在收到 TurnOffered 后自行调度；Core 不再使用 setTimeout */
-  }
-
-  onStatusChange() {}
   /**
-   * 单步行动后的控制权交接：先清计时/本地控制标记，再按序尝试
+   * 单步行动后的控制权交接：先 `removeControl`（清 `TurnOffered` 门闩），再按序尝试
    * {@link PlayerHandSession.tryToEndGame}（独赢弃牌 / 河摊牌等）→
    * {@link PlayerHandSession.canDeferBettingRoundStageAdvance} / {@link PlayerHandSession.requestDeferredStageAdvance}（下注轮结束且未到河：只入队 `stage_advance`）→
-   * 否则同街找下一位 `waiting`，{@link PlayerHandSession.transferControlTo}（入队 `turn_handoff`）。
+   * 否则同街找下一位 `eligible` 玩家，{@link PlayerHandSession.transferControlTo}（入队 `turn_handoff`）。
    * 「应进街」仅由 defer 分支入队；其余情况直接同街交权，不再用同一谓词做第二次进街探测。
    * 事件与队列须由上层 drain + 消费节拍驱动。
    */
-  async transferControl() {
-    this.clearTimer()
+  transferControl() {
     this.removeControl()
 
     const shouldEndGame = this.#handSession.tryToEndGame()
@@ -544,9 +536,10 @@ export class Player implements GameComponent {
     }
 
     // 移交给下一个可以行动的玩家
-    const nextPlayerToGetController = this.returnNextPlayerIf(
-      (player) => player.getStatus() === 'waiting'
-    )
+    const nextPlayerToGetController = this.returnNextPlayerIf((player) => {
+      const s = player.getStatus()
+      return s === 'eligible'
+    })
     if (!nextPlayerToGetController)
       return this.fail(
         new TexasError(TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER)
@@ -617,10 +610,7 @@ export class Player implements GameComponent {
   }
 
   removeControl() {
-    if (this.#status === 'active') {
-      this.#status = 'waiting'
-    }
-    this.clearTimer()
+    this.#turnOfferEmitted = false
   }
 
   /**
@@ -655,7 +645,7 @@ export class Player implements GameComponent {
       }
     })
     this.#handSession.recordTurnOffered(this)
-    this.#status = 'active'
+    this.#turnOfferEmitted = true
 
     this.continue()
   }

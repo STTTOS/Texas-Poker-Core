@@ -257,7 +257,7 @@ export class DealerService implements GameComponent {
     let player: Player | null = null
 
     this.#table.loop((p) => {
-      if (!player && p.getStatus() === 'waiting') player = p
+      if (!player && p.getStatus() === 'eligible') player = p
     }, this.#table.button?.getNextPlayer())
     return player
   }

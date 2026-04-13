@@ -62,6 +62,7 @@ export const TexasCoreErrorCode = {
   PLAYER_CANNOT_ALL_IN: 3415,
   PLAYER_ALL_IN_INVALID: 3416,
   PLAYER_NOT_IN_HAND: 3417,
+  /** @deprecated Core 已不再抛出；思考权以 `Controller.activePlayer` 为准 */
   PLAYER_NO_CONTROL: 3418,
   /** dispatchCommand：非当前行动方 */
   PLAYER_DISPATCH_NOT_ACTOR: 3419,

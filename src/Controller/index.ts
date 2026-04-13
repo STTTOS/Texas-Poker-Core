@@ -209,8 +209,8 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
 
   /**
    * ② 结束条件（没人还能操作）：
-   * - 场上只剩 out / allIn（无 waiting）=> 直接结束（可能发生在任意街：多人全下）
-   * - 河牌圈且所有仍可行动玩家都不可 actionable（即便 status 仍为 waiting）=> 结束
+   * - 场上只剩 out / allIn（无 eligible）=> 直接结束（可能发生在任意街：多人全下）
+   * - 河牌圈且所有仍可行动玩家都不可 actionable（即便 status 仍为 eligible）=> 结束
    */
   shouldShowDown(): boolean {
     const playersCanAct = this.#dealer.getPlayersCanAct()
@@ -306,13 +306,13 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
 
   /**
    * 队头为 `turn_handoff` 时 shift 并 `activePlayer.getControl()`（写入 `TurnOffered`）。
-   * 队头类型不符、或 `activePlayer` 已为 `active`、或 `activePlayer` 缺失时 **静默 return**（不抛错）。
+   * 队头类型不符、或该玩家已执行过 `getControl`（`hasEmittedTurnOffer`）、或 `activePlayer` 缺失时 **静默 return**（不抛错）。
    */
   flushPendingTurnHandoff(): void {
     if (this.#pendingFlowOps[0] !== 'turn_handoff') return
     this.#pendingFlowOps.shift()
     const p = this.#hand.activePlayer
-    if (!p || p.getStatus() === 'active') return
+    if (!p || p.hasEmittedTurnOffer()) return
     p.getControl()
   }
 
@@ -661,7 +661,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   resetActivePlayer() {
     const ap = this.#hand.activePlayer
     if (ap) {
-      if (ap.getStatus() === 'active') {
+      if (ap.hasEmittedTurnOffer()) {
         this.recordTurnEnded(ap.getUserInfo().id, 'control_cleared')
       }
       ap.removeControl()
@@ -688,7 +688,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   pause() {
     this.#hand.status = 'in_hand_paused'
     const ap = this.activePlayer
-    if (ap && ap.getStatus() === 'active') {
+    if (ap && ap.hasEmittedTurnOffer()) {
       this.recordTurnEnded(ap.getUserInfo().id, 'paused')
     }
     ap?.pause()

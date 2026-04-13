@@ -4,7 +4,8 @@ import { ActionTypeEnum } from './constant'
  * 纯函数：根据桌面公开状态推导当前玩家允许的行动列表（与倒计时、回调无关）。
  */
 export type AllowedActionsContext = {
-  selfStatus: 'allIn' | 'active' | 'waiting' | 'out'
+  /** 仍在底池争胜且可参与下注轮（思考权以 `Controller.activePlayer` 为准，不由状态位表达） */
+  selfStatus: 'allIn' | 'eligible' | 'out'
   selfBalance: number
   selfCurrentStageTotal: number
   dealerActionHistory: readonly {
@@ -24,7 +25,9 @@ export function resolveAllowedActions(
       getStatus(): string
     } | null
   ): ActionTypeEnum[] => {
-    if (ctx.selfStatus === 'allIn' || ctx.selfStatus === 'out') return []
+    if (ctx.selfStatus === 'allIn' || ctx.selfStatus === 'out') {
+      return []
+    }
 
     if (!lastPlayer || !lastPlayer.getAction())
       return [
