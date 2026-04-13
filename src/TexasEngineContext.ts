@@ -2,6 +2,7 @@
  * 进程级引擎配置：trace、仿真开关等。
  * 应用启动时 `configure`，单元测试可 `reset` 或按需 `configure`。
  * 单桌参数（如 maximumCountOfPlayers）仍由 `Texas` / `Room` / `Dealer` 构造传入，不放在此上下文。
+ * 进街/交权节奏不在此开关控制，由 `pendingFlowOps` 与业务消费 API 表达。
  */
 
 export type TexasTraceEvent = {

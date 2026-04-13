@@ -20,6 +20,8 @@ export interface PlayerDealerRing<TPlayer = unknown> {
 /**
  * `Player` 需要的「本手阶段机」视图，避免依赖整个 {@link Controller}。
  * 由 {@link Controller} 实现。
+ * 进街与交权经 `#pendingFlowOps` 入队；{@link transferControlTo} 只更新 `activePlayer` 并入队，不调用 `getControl`；
+ * 实际 `TurnOffered` / 进街展示由业务调用 {@link Texas#flushPendingTurnHandoff} / {@link Texas#applyPendingStageAdvance} 等消费。
  */
 export interface PlayerHandSession<TPlayer = unknown> {
   readonly status: HandLifecycle
@@ -28,7 +30,6 @@ export interface PlayerHandSession<TPlayer = unknown> {
   readonly activePlayer: TPlayer | null
   getShowdownEvalForPlayer(player: TPlayer): ShowdownPlayerEval | undefined
   tryToEndGame(): boolean
-  tryToAdvanceGameToNextStage(): boolean
   /** 下注轮已结束且尚未到河牌时，可推迟进街并由业务调用 `applyPendingStageAdvance` */
   canDeferBettingRoundStageAdvance(): boolean
   requestDeferredStageAdvance(): void

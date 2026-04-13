@@ -17,6 +17,7 @@ export type DomainEventHandler = (
 /**
  * 顺序执行 handler 管道（阶段 2 雏形）。
  * 线上可配置为 `[persist, notify, pacing]`；单测可传 `[]` 或 mock。
+ * 接入方也可不用本函数，改为自己对 `event.type` 做 switch / 路由。
  */
 export async function interpret(
   events: readonly TexasDomainEvent[],

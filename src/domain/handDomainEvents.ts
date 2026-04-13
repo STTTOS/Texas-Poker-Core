@@ -17,6 +17,7 @@ export type HandEventMeta = {
 
 /**
  * 本手内领域事件（无业务 callback；由 {@link Texas#drainDomainEvents} / Controller 缓冲取出）。
+ * 牌局节奏上的「下一步」另由 Controller 的 `pendingFlowOps`（进街 / 交权）表达，与事件 drain 解耦。
  */
 export type HandDomainEvent =
   | {

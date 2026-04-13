@@ -1,4 +1,8 @@
-// 控制游戏的进程
+/**
+ * 控制本手阶段、奖池结算与领域事件缓冲。
+ * 进街与下一位思考权不立即生效：写入 {@link Controller.#pendingFlowOps}，由业务调用
+ * {@link applyPendingStageAdvance} / {@link flushPendingTurnHandoff}（或 {@link drainPendingFlowOpsSync}）消费。
+ */
 import type { ShowdownPlayerEval } from './HandSettlement'
 import type { PlayerHandSession } from '@/playerSessionPorts'
 import type {
@@ -24,7 +28,11 @@ export { StageEnum, type Stage } from './stage'
 
 export type { HandLifecycle }
 
-/** 业务节拍队列项：进街一步，或发出一次 `TurnOffered` */
+/**
+ * 流程队列项（FIFO）。
+ * - `stage_advance`：一轮下注已结束，须再执行一条进街（含 `betting_round_complete` 或跑马路 `runout_reveal`）。
+ * - `turn_handoff`：`activePlayer` 已指向下一位，须 `getControl()` 才会缓冲 `TurnOffered`。
+ */
 export type PendingFlowOpKind = 'stage_advance' | 'turn_handoff'
 
 class Controller implements GameComponent, PlayerHandSession<Player> {
@@ -227,6 +235,10 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return this.getCommonPokes(StageEnum.PRE_FLOP, this.#hand.boardThroughStage)
   }
 
+  /**
+   * 仅设置 `activePlayer` 并入队 `turn_handoff`，**不**调用 `getControl()`。
+   * 下一家的 `TurnOffered` 在 {@link flushPendingTurnHandoff} 成功消费队头后进入缓冲。
+   */
   transferControlTo(player: Player | null) {
     if (!player)
       return this.fail(new TexasError(TexasCoreErrorCode.CTRL_NO_PLAYER))
@@ -240,7 +252,8 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   /**
-   * 无节拍排空 `pendingFlowOps`（单测、脚本在不走业务 drain 时使用）。
+   * 循环：队头为 `stage_advance` 则 {@link applyPendingStageAdvance}，否则 {@link flushPendingTurnHandoff}，直至队列为空。
+   * 单测 / 模拟器「零节拍」跑通一手时使用；生产环境通常由业务在 sleep 之间逐步消费。
    */
   drainPendingFlowOpsSync(): void {
     for (;;) {
@@ -251,10 +264,15 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     }
   }
 
+  /** 返回队列快照，不修改队列。 */
   getPendingFlowOps(): PendingFlowOpKind[] {
     return [...this.#pendingFlowOps]
   }
 
+  /**
+   * 当且仅当：全员本轮不可再行动 **且** 当前街仍可进到下一街（未到河牌）。
+   * 为 true 时 {@link Player.transferControl} 会 {@link requestDeferredStageAdvance} 而非同步进街。
+   */
   canDeferBettingRoundStageAdvance(): boolean {
     const canPushToNextStage = this.#dealer.every((pl) => !pl.actionable())
     if (!canPushToNextStage) return false
@@ -262,12 +280,15 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return index >= 0 && index < STAGE_ORDER.length - 1
   }
 
+  /** 将「待进街」入队；实际推进由 {@link applyPendingStageAdvance} 执行。 */
   requestDeferredStageAdvance(): void {
     this.#pendingFlowOps.push('stage_advance')
   }
 
   /**
-   * 消费队列头的一项 `stage_advance`：执行一轮下注结束后的进街一步，或跑马路中的一步公牌揭示。
+   * 消费队头 `stage_advance`（否则抛 `CTRL_FLOW_PENDING_MISMATCH`）。
+   * - 非跑马路：`#performBettingRoundStageAdvance` → `StageAdvanced(betting_round_complete)` → 再入队首位行动者的 `turn_handoff`。
+   * - `#runoutMode`：`#applyOneRunoutRevealStep` → `StageAdvanced(runout_reveal)`；到河牌时顺带 settle、`HandEnded(showdown)`。
    */
   applyPendingStageAdvance(): void {
     if (this.#pendingFlowOps[0] !== 'stage_advance') {
@@ -283,7 +304,10 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#performBettingRoundStageAdvance()
   }
 
-  /** 队列头为 `turn_handoff` 时消费并发 `getControl` / `TurnOffered`。 */
+  /**
+   * 队头为 `turn_handoff` 时 shift 并 `activePlayer.getControl()`（写入 `TurnOffered`）。
+   * 队头类型不符、或 `activePlayer` 已为 `active`、或 `activePlayer` 缺失时 **静默 return**（不抛错）。
+   */
   flushPendingTurnHandoff(): void {
     if (this.#pendingFlowOps[0] !== 'turn_handoff') return
     this.#pendingFlowOps.shift()
@@ -292,6 +316,9 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     p.getControl()
   }
 
+  /**
+   * 下注轮结束后的单步进街：`StageAdvanced(betting_round_complete)`，再 {@link transferControlTo} 首位行动者。
+   */
   #performBettingRoundStageAdvance(): void {
     const canPushToNextStage = this.#dealer.every(
       (player) => !player.actionable()
@@ -344,6 +371,9 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.transferControlTo(this.#dealer.getTheFirstPlayerToAct())
   }
 
+  /**
+   * 摊牌跑马路一步：推进 `stage`/`boardThroughStage` 并 `StageAdvanced(runout_reveal)`；到河牌则 settle、`HandEnded`。
+   */
   #applyOneRunoutRevealStep(): void {
     const index = STAGE_ORDER.findIndex((s) => s === this.#hand.stage)
     if (index < 0 || index >= STAGE_ORDER.length - 1) {
@@ -368,6 +398,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       }
     })
     if (to === StageEnum.RIVER) {
+      // // 跑马路结束，后续 stage_advance 不得再走 reveal 分支。
       this.#runoutMode = false
       const stageBeforeRunout = this.#runoutStageBefore ?? from
       this.#runoutStageBefore = null
@@ -406,6 +437,12 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     }
   }
 
+  /**
+   * 尝试收局。返回 `true` 表示本方法已处理终局逻辑（或已入队跑马路，不再向下传递控制权）。
+   * - 独赢弃牌：同步 settle + `HandEnded(fold_win)`。
+   * - 摊牌且 **非河牌**：`#runoutMode`、多条 `stage_advance` 入队、`resetActivePlayer`，**无**当场 `HandEnded`。
+   * - 摊牌且 **已在河牌**：同步 settle + `HandEnded(showdown)`。
+   */
   tryToEndGame() {
     if (this.#isWinByExclusiveFold()) {
       this.#hand.boardThroughStage = this.#hand.stage
@@ -445,6 +482,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         this.#runoutMode = true
         this.#runoutStageBefore = stageBeforeRunout
         let from: Stage = this.#hand.stage
+        // 计算pending几次跑马
         while (from !== StageEnum.RIVER) {
           this.#pendingFlowOps.push('stage_advance')
           const index = STAGE_ORDER.findIndex((s) => s === from)
@@ -492,19 +530,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     }
 
     return false
-  }
-
-  tryToAdvanceGameToNextStage(): boolean {
-    const canPushToNextStage = this.#dealer.every(
-      (player) => !player.actionable()
-    )
-    if (!canPushToNextStage) return false
-    const index = STAGE_ORDER.findIndex((stage) => stage === this.#hand.stage)
-    if (index < 0 || index >= STAGE_ORDER.length - 1) return false
-
-    return this.fail(
-      new TexasError(TexasCoreErrorCode.CTRL_TRY_ADVANCE_USE_APPLY_PENDING)
-    )
   }
 
   getCommonPokes(currentStage: Stage, endStage: Stage) {
@@ -581,6 +606,9 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return result
   }
 
+  /**
+   * 新开一手：分配 `handId`、清空事件与 **`pendingFlowOps` / 跑马路状态**，执行贴盲后 `transferControlTo`（首人思考权在队头 `turn_handoff`）。
+   */
   start() {
     this.#handSerial += 1
     this.#activeHandId = `h${this.#handSerial}`

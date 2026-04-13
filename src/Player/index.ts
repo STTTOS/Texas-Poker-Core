@@ -522,6 +522,14 @@ export class Player implements GameComponent {
   }
 
   onStatusChange() {}
+  /**
+   * 单步行动后的控制权交接：先清计时/本地控制标记，再按序尝试
+   * {@link PlayerHandSession.tryToEndGame}（独赢弃牌 / 河摊牌等）→
+   * {@link PlayerHandSession.canDeferBettingRoundStageAdvance} / {@link PlayerHandSession.requestDeferredStageAdvance}（下注轮结束且未到河：只入队 `stage_advance`）→
+   * 否则同街找下一位 `waiting`，{@link PlayerHandSession.transferControlTo}（入队 `turn_handoff`）。
+   * 「应进街」仅由 defer 分支入队；其余情况直接同街交权，不再用同一谓词做第二次进街探测。
+   * 事件与队列须由上层 drain + 消费节拍驱动。
+   */
   async transferControl() {
     this.clearTimer()
     this.removeControl()
@@ -534,9 +542,6 @@ export class Player implements GameComponent {
       this.#handSession.requestDeferredStageAdvance()
       return
     }
-    const canAdvanceToNextStage =
-      this.#handSession.tryToAdvanceGameToNextStage()
-    if (canAdvanceToNextStage) return
 
     // 移交给下一个可以行动的玩家
     const nextPlayerToGetController = this.returnNextPlayerIf(
