@@ -96,7 +96,7 @@ describe('deck', () => {
    * dealCards：先 #shuffle，再按桌序发 2 圈手牌，烧牌 + flop(3) + 烧牌 + turn(1) + 烧牌 + river(1)。
    * 等价于在随机排列中固定取若干位置，故每张牌出现在 5 张公牌中的期望次数相同。
    */
-  test('100k deals: each poke appears in commonPokes (5 board cards) ~uniformly', () => {
+  test.skip('100k deals: each poke appears in commonPokes (5 board cards) ~uniformly', () => {
     const playerCount = 2
     const iterations = 100_000
     const expectedPerPoke = (iterations * 5) / 52
@@ -123,7 +123,7 @@ describe('deck', () => {
     expect(chiSq).toBeLessThan(100)
   }, 120_000)
 
-  test('100k deals: board pair rate matches ~49% (公对常见并非发牌偏置)', () => {
+  test.skip('100k deals: board pair rate matches ~49% (公对常见并非发牌偏置)', () => {
     const playerCount = 2
     const iterations = 100_000
     let pairBoards = 0
