@@ -29,7 +29,7 @@ npm install texas-poker-core
 | `Dealer`     | 盲注、庄家、角色顺序、发牌、行动历史（通常不直接给业务大量调用，多经 `Texas` / `Room`）                     |
 | `Controller` | 一手牌生命周期 `HandLifecycle`、当前街 `stage`、活跃玩家 `activePlayer`、阶段推进与终局                     |
 | `Pool`       | 奖池与支付（`texas.settle()` 时 `pool.pay()`）                                                              |
-| `Player`     | 单个座位的筹码、手牌、行动 `check` / `bet` / `call` / `raise` / `fold` / `allIn`、思考计时与 `getControl`   |
+| `Player`     | 单个座位的筹码、手牌、行动 `check` / `bet` / `call` / `raise` / `fold` / `allIn` 与 `getControl`            |
 
 ---
 
@@ -64,7 +64,6 @@ const texas = new Texas({
   lowestBetAmount: 20,
   maximumCountOfPlayers: 9,
   initialChips: 2000,
-  thinkingTime: 30,
   // 可选：与 WS/动画对齐
   beforeNextPlayerTurn: async () => {
     /* await sleep(...) */

@@ -1,5 +1,9 @@
 import type { TableStakes } from '@/TableStakes'
-import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
+import type {
+  GameComponent,
+  HandLifecycle,
+  TexasErrorCallback
+} from '@/gameContracts'
 import type {
   StreetPotSink,
   PlayerDealerRing,
@@ -7,7 +11,6 @@ import type {
 } from '@/playerSessionPorts'
 
 import { getRandomInt } from '@/utils'
-import { defaultThinkingTime } from '@/config'
 import { StageEnum } from '@/Controller/stage'
 import { resolveAllowedActions } from './allowedActions'
 import { TexasEngineContext } from '@/TexasEngineContext'
@@ -77,10 +80,6 @@ export class Player implements GameComponent {
    *   业务「多调一次 flush」通常队头已非 `turn_handoff`，靠队列即可挡，不依赖本标记。
    */
   #turnOfferEmitted = false
-  /**
-   * 默认的思考时间为30s
-   */
-  #thinkingTime: number
   #action?: Action
   #stakes: TableStakes
   /**
@@ -113,7 +112,6 @@ export class Player implements GameComponent {
     pot: StreetPotSink<Player>
     dealerRing: PlayerDealerRing<Player>
     isOwner?: boolean
-    thinkingTime?: number
     handSession: PlayerHandSession<Player>
     stakes: TableStakes
     lastPlayer?: Player | null
@@ -129,7 +127,6 @@ export class Player implements GameComponent {
       dealerRing,
       pot,
       initialChips = 100,
-      thinkingTime = defaultThinkingTime,
       fail
     } = options
     this.#balance = initialChips
@@ -141,7 +138,6 @@ export class Player implements GameComponent {
     if (fail) this.fail = fail
     this.#lastPlayer = lastPlayer
     this.#nextPlayer = nextPlayer
-    this.#thinkingTime = thinkingTime
     this.#stakes = stakes
   }
   get balance() {
@@ -176,9 +172,6 @@ export class Player implements GameComponent {
 
   get lowestBetAmount() {
     return this.#stakes.bigBlind
-  }
-  get thinkingTime() {
-    return this.#thinkingTime
   }
   /**
    * 翻牌前大盲的「选项」: 已下大盲且无人加注, 轮到大盲选择过牌/加注/弃牌(无需再跟注)
@@ -217,13 +210,6 @@ export class Player implements GameComponent {
       }
     })
     return maxOthersStageBet
-  }
-
-  /**
-   * 建议思考窗口秒数（创建玩家时的配置）；实际倒计时由业务在消费 `TurnOffered` 后自行维护。
-   */
-  getRemainThinkTime() {
-    return this.#thinkingTime
   }
 
   /** 摊牌评估存于 {@link HandSettlement}，经控制器按 userId 解析 */
@@ -311,6 +297,24 @@ export class Player implements GameComponent {
       this.getUserInfo().id,
       turnReason ?? 'acted'
     )
+  }
+
+  /** 本手在控制器中的生命周期（供 `handBettingActions` 等做离场等分支） */
+  get handLifecycle(): HandLifecycle {
+    return this.#handSession.status
+  }
+
+  /**
+   * 非当前行动方离场弃牌：只记 `PlayerActed` + `TurnEnded(reason: leave)`，不经 `consumePendingTurnEndedReason`。
+   */
+  notifyPassiveFoldLeaveCommitted(): void {
+    this.#handSession.recordPlayerAction(this, { emitPot: false })
+    this.#handSession.recordTurnEnded(this.getUserInfo().id, 'leave')
+  }
+
+  /** 在不经 `completeBettingTurn` 的落账后尝试收局（如独赢弃牌） */
+  tryHandSessionEndGame(): boolean {
+    return this.#handSession.tryToEndGame()
   }
 
   /** 单步下注落账后：尝试收局 / 进街 / 把控制权交给下一位 */
