@@ -9,7 +9,7 @@ import type {
 import Pool from '@/Pool'
 import Room from '@/Room'
 import Dealer from '@/Dealer'
-import Player, { User } from '@/Player'
+import Player, { User, ActionTypeEnum } from '@/Player'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import Controller, { type PendingFlowOpKind } from '@/Controller'
 import {
@@ -22,7 +22,8 @@ import {
   executeFold,
   executeAllIn,
   executeCheck,
-  executeRaise
+  executeRaise,
+  executeFoldDueToLeavePassive
 } from '@/Player/handBettingActions'
 
 /** 当前引擎角色表最多支持 10 人桌；更大人数需扩展 playerRoleSetMap */
@@ -34,7 +35,6 @@ export interface CreateRoomInputArgs {
   maximumCountOfPlayers: number
   initialChips: number
   user: User
-  thinkingTime?: number
 }
 
 export type { TexasDomainEvent, HandDomainEvent, SessionDomainEvent }
@@ -56,7 +56,6 @@ class Texas {
 
   constructor({
     user,
-    thinkingTime,
     lowestBetAmount,
     maximumCountOfPlayers,
     initialChips
@@ -80,7 +79,6 @@ class Texas {
       pot: pool,
       dealerRing: dealer,
       handSession: controller,
-      thinkingTime,
       stakes: dealer.stakes,
       fail: this.fail
     })
@@ -255,10 +253,34 @@ class Texas {
   }
 
   /**
+   * 当前是否可对 `userId` 下发 `{ type: 'FoldDueToLeave', playerId: userId }` 并成功改变牌局
+   *（不落账、不抛错）。已 `out` 为 `false`（再调为幂等空操作）；非 `in_hand`（含暂停）为 `false`。
+   * 当前行动方还须 {@link Player.getAllowedActions} 含 `FOLD`（与 `executeFold` 一致）。
+   */
+  canFoldDueToLeave(userId: number): boolean {
+    const actor = this.dealer.players.find((p) => p.getUserInfo().id === userId)
+    if (!actor) return false
+    if (this.room.getPlayerSeatStatus(actor) !== 'on-set') return false
+    if (this.controller.status !== 'in_hand') return false
+
+    const st = actor.getStatus()
+    if (st === 'out' || st === 'allIn') return false
+    // 防御性校验：仅 `eligible` 可离场
+    if (st !== 'eligible') return false
+
+    if (this.controller.activePlayer !== actor) {
+      return true
+    }
+
+    return actor.getAllowedActions().includes(ActionTypeEnum.FOLD)
+  }
+
+  /**
    * 统一指令入口：经 `handBettingActions` 落账并触发 `transferControl` 链。
-   * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**；在队头为 `turn_handoff` 时须先
-   * {@link flushPendingTurnHandoff}，否则当前 `activePlayer` 会因 {@link Player.checkIfCanAct} 拒绝自愿指令（防 HTTP 抢跑）。
-   * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（内部 `setPendingTurnEndedReason('timeout')`，且跳过「已开示思考权」校验）；
+   * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**；自愿行动在队头为 `turn_handoff` 时须先
+   * {@link flushPendingTurnHandoff}，否则当前 `activePlayer` 会因 {@link Player.checkIfCanAct} 拒绝指令（防 HTTP 抢跑）。
+   * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（须为当前行动方；`setPendingTurnEndedReason('timeout')` + 跳过思考权门闩）。
+   * 离场：`FoldDueToLeave`（**可非当前行动方**；当前方时 `TurnEnded.reason` 为 `leave`）；可先 {@link canFoldDueToLeave}。
    * 入座大盲：`PostBigBlind`（见 {@link Controller.postBigBlindForJoiningPlayer}）。
    */
   dispatchCommand(cmd: TableCommand): void {
@@ -288,6 +310,14 @@ class Texas {
       case 'FoldDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
         executeFold(actor, { skipTurnOfferRequirement: true })
+        break
+      case 'FoldDueToLeave':
+        if (this.controller.activePlayer === actor) {
+          this.controller.setPendingTurnEndedReason('leave')
+          executeFold(actor, { skipTurnOfferRequirement: true })
+        } else {
+          executeFoldDueToLeavePassive(actor)
+        }
         break
       case 'CheckDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
@@ -346,7 +376,6 @@ class Texas {
       pot: this.pool,
       dealerRing: this.dealer,
       handSession: this.controller,
-      thinkingTime: this.room.owner.thinkingTime,
       stakes: this.dealer.stakes,
       fail: this.fail
     })

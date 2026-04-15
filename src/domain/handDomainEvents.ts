@@ -3,8 +3,16 @@ import type { Stage } from '@/Controller/stage'
 import type { ActionTypeEnum } from '@/Player/constant'
 import type { Poke, RankCategory } from '@/Deck/constant'
 
-/** 思考权结束原因（计时由业务层负责时，`timeout` 在收到超时 Command 后由 Core 标记） */
-export type TurnEndedReason = 'acted' | 'control_cleared' | 'paused' | 'timeout'
+/**
+ * 思考权结束原因（计时由业务层负责时，`timeout` 在收到超时 Command 后由 Core 标记；
+ * `leave`：`FoldDueToLeave` 且为本席思考窗内离场时标记）。
+ */
+export type TurnEndedReason =
+  | 'acted'
+  | 'control_cleared'
+  | 'paused'
+  | 'timeout'
+  | 'leave'
 
 /**
  * 本手内每条领域事件均携带同一 `handId`（`Controller.start()` 分配）与单调 `seq`，

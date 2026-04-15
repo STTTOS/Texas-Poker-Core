@@ -1,6 +1,7 @@
 /**
- * 单桌统一意图入口；由 {@link Texas#dispatchCommand} 校验入座与「当前行动方」后委托 `handBettingActions`。
- * 超时等仍应建模为 Command（如 `FoldDueToTimeout` / `CheckDueToTimeout`），由业务在计时到期时下发。
+ * 单桌统一意图入口；由 {@link Texas#dispatchCommand} 校验入座后委托 `handBettingActions`。
+ * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（**仍须为当前行动方**）。
+ * 离场：`FoldDueToLeave`（**可非当前行动方**，立即弃牌；当前方时 `TurnEnded.reason` 为 `leave`）。
  */
 export type TableCommand =
   | { type: 'Fold'; playerId: number }
@@ -9,8 +10,13 @@ export type TableCommand =
   | { type: 'Bet'; playerId: number; amount: number }
   | { type: 'Raise'; playerId: number; additionalAmount: number }
   | { type: 'AllIn'; playerId: number }
-  /** 业务层计时到期：等价于弃牌，`TurnEnded.reason` 为 `timeout` */
+  /** 业务层计时到期：等价于弃牌，`TurnEnded.reason` 为 `timeout`（须为当前行动方） */
   | { type: 'FoldDueToTimeout'; playerId: number }
+  /**
+   * 玩家离开游戏：立即弃牌，**不要求**为当前行动方；非当前方不交权链，仅标记 `out` 并尝试收局。
+   * 当前方时等价于带 `skipTurnOfferRequirement` 的弃牌，`TurnEnded.reason` 为 `leave`。
+   */
+  | { type: 'FoldDueToLeave'; playerId: number }
   /** 业务层计时到期：仅当可过牌时下发，等价于过牌，`TurnEnded.reason` 为 `timeout` */
   | { type: 'CheckDueToTimeout'; playerId: number }
   /**

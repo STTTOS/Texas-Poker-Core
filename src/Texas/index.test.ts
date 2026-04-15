@@ -110,7 +110,7 @@ describe('entery', () => {
     teardownTexas = texas
   })
 
-  test('setPlayerRoles(\'rearrange\') after initial still emits RolesAssigned', () => {
+  test("setPlayerRoles('rearrange') after initial still emits RolesAssigned", () => {
     const texas = new Texas({
       lowestBetAmount: 500,
       maximumCountOfPlayers: 7,
@@ -232,6 +232,162 @@ describe('entery', () => {
       err = e as TexasError
     }
     expect(err?.code).toBe(TexasCoreErrorCode.CTRL_POST_BB_IS_ACTIVE_PLAYER)
+    teardownTexas = texas
+  })
+
+  test('FoldDueToLeave: non-active player folds out without advancing turn chain', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 9,
+      initialChips: 10_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    const p3 = texas.createPlayer({ id: 3, name: 'c' })
+    const p4 = texas.createPlayer({ id: 4, name: 'd' })
+    texas.room.join(p2)
+    texas.room.join(p3)
+    texas.room.join(p4)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
+    texas.room.seat(p4)
+    texas.setPlayerRoles('initial')
+    texas.drainDomainEvents()
+    texas.dealCards()
+    texas.drainDomainEvents()
+    texas.start()
+    texas.flushAllPendingFlowOps()
+    texas.drainDomainEvents()
+
+    const ap = texas.controller.activePlayer!
+    const leaver = texas.dealer.players.find((p) => p !== ap)!
+    expect(leaver.getStatus()).toBe('eligible')
+    texas.dispatchCommand({
+      type: 'FoldDueToLeave',
+      playerId: leaver.getUserInfo().id
+    })
+    const ev = texas.drainDomainEvents()
+    expect(leaver.getStatus()).toBe('out')
+    expect(texas.controller.status).toBe('in_hand')
+    expect(ev.some((e) => e.type === 'PlayerActed')).toBe(true)
+    expect(ev.some((e) => e.type === 'TurnEnded')).toBe(true)
+    const te = ev.find((e) => e.type === 'TurnEnded')
+    expect(
+      te &&
+        te.type === 'TurnEnded' &&
+        te.payload.userId === leaver.getUserInfo().id &&
+        te.payload.reason === 'leave'
+    ).toBe(true)
+    teardownTexas = texas
+  })
+
+  test('FoldDueToLeave: active player yields TurnEnded reason leave', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 9,
+      initialChips: 10_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    const p3 = texas.createPlayer({ id: 3, name: 'c' })
+    texas.room.join(p2)
+    texas.room.join(p3)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
+    texas.setPlayerRoles('initial')
+    texas.drainDomainEvents()
+    texas.dealCards()
+    texas.drainDomainEvents()
+    texas.start()
+    texas.flushAllPendingFlowOps()
+    texas.drainDomainEvents()
+    const ap = texas.controller.activePlayer!
+    texas.dispatchCommand({
+      type: 'FoldDueToLeave',
+      playerId: ap.getUserInfo().id
+    })
+    texas.flushAllPendingFlowOps()
+    const ev = texas.drainDomainEvents()
+    const ended = ev.find((e) => e.type === 'TurnEnded')
+    expect(
+      ended &&
+        ended.type === 'TurnEnded' &&
+        ended.payload.userId === ap.getUserInfo().id &&
+        ended.payload.reason === 'leave'
+    ).toBe(true)
+    teardownTexas = texas
+  })
+
+  test('FoldDueToLeave: heads-up non-active folds ends hand (fold_win)', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 9,
+      initialChips: 10_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.join(p2)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.setPlayerRoles('initial')
+    texas.drainDomainEvents()
+    texas.dealCards()
+    texas.drainDomainEvents()
+    texas.start()
+    texas.flushAllPendingFlowOps()
+    texas.drainDomainEvents()
+    const ap = texas.controller.activePlayer!
+    const other = texas.dealer.players.find((p) => p !== ap)!
+    texas.dispatchCommand({
+      type: 'FoldDueToLeave',
+      playerId: other.getUserInfo().id
+    })
+    const ev = texas.drainDomainEvents()
+    expect(texas.controller.status).toBe('between_hands')
+    expect(ev.some((e) => e.type === 'HandEnded')).toBe(true)
+    teardownTexas = texas
+  })
+
+  test('canFoldDueToLeave mirrors FoldDueToLeave preconditions', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 9,
+      initialChips: 10_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    const p3 = texas.createPlayer({ id: 3, name: 'c' })
+    const p4 = texas.createPlayer({ id: 4, name: 'd' })
+    texas.room.join(p2)
+    texas.room.join(p3)
+    texas.room.join(p4)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
+    texas.room.seat(p4)
+    texas.setPlayerRoles('initial')
+    texas.drainDomainEvents()
+    expect(texas.canFoldDueToLeave(99999)).toBe(false)
+    expect(texas.canFoldDueToLeave(texas.room.owner.getUserInfo().id)).toBe(
+      false
+    )
+    texas.dealCards()
+    texas.drainDomainEvents()
+    texas.start()
+    texas.flushAllPendingFlowOps()
+    texas.drainDomainEvents()
+    const ap = texas.controller.activePlayer!
+    const passive = texas.dealer.players.find((p) => p !== ap)!
+    expect(texas.canFoldDueToLeave(ap.getUserInfo().id)).toBe(true)
+    expect(texas.canFoldDueToLeave(passive.getUserInfo().id)).toBe(true)
+    texas.dispatchCommand({
+      type: 'FoldDueToLeave',
+      playerId: passive.getUserInfo().id
+    })
+    texas.drainDomainEvents()
+    expect(texas.canFoldDueToLeave(passive.getUserInfo().id)).toBe(false)
     teardownTexas = texas
   })
 

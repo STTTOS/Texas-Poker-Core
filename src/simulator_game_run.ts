@@ -9,8 +9,7 @@ const texas = new Texas({
   lowestBetAmount: 500,
   maximumCountOfPlayers: 5,
   initialChips: 10000,
-  user: { id: 1, name: 'ycr' },
-  thinkingTime: 1
+  user: { id: 1, name: 'ycr' }
 })
 const p1 = texas.room.owner
 

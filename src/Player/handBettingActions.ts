@@ -56,6 +56,30 @@ export function executeFold(actor: Player, act?: ActValidationOptions): void {
   actor.completeBettingTurn()
 }
 
+/**
+ * 非当前行动方离场弃牌：不交 `completeBettingTurn`；随后 `tryHandSessionEndGame()` 以捕捉独赢等。
+ */
+export function executeFoldDueToLeavePassive(actor: Player): void {
+  if (actor.handLifecycle !== 'in_hand') {
+    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_NOT_IN_HAND))
+  }
+  const st = actor.getStatus()
+  if (st === 'out') {
+    return
+  }
+  if (st === 'allIn') {
+    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_FOLD))
+  }
+
+  actor.assignCurrentStreetAction({ type: ActionTypeEnum.FOLD })
+  actor.setStatus('out')
+  actor.notifyDealerActionHistory()
+  actor.notifyPassiveFoldLeaveCommitted()
+  tracePlayerAction('fold_leave_passive', actor)
+
+  void actor.tryHandSessionEndGame()
+}
+
 /** `skipDomainEvents`：盲注路径为 true，由 `BlindsPosted` 表达，不发 `PlayerActed`。 */
 export function executeBet(
   actor: Player,
