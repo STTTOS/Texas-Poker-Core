@@ -158,6 +158,14 @@ class Texas {
     })
   }
 
+  /**
+   * 按当前庄位与环上人数重算 SB/BB/UTG…（委托 {@link Dealer.reArrangeRoles}）。
+   * `Dealer.join` / `remove` 在环变化后**已**各自调用一次；业务可在批量 `seat`/`remove` 后再调本方法，与最后一次入/离座效果一致，便于**统一向客户端推送角色**（本方法**不**写入 `RolesAssigned` 会话事件，需自行读 `dealer` / `setPlayerRoles` 式快照）。
+   */
+  reArrangeRoles(): void {
+    this.dealer.reArrangeRoles()
+  }
+
   /** 发手牌并缓冲 `HoleCardsDealt`（会话级事件）。 */
   dealCards() {
     this.dealer.dealCards()

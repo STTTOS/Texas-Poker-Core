@@ -94,6 +94,7 @@ texas.room.seat(p2)
 texas.setPlayerRoles('initial') // 或 'rotate' 新一轮
 texas.dealCards()
 // 上述会触发 onRolesAssigned / onDealCards（若已注册）
+// 批量 seat/remove 后：入座/离环时 Dealer 已各调过 reArrangeRoles；若仍希望「最后一次再推角色」，可再调 texas.reArrangeRoles()（不写入 RolesAssigned 缓冲，需自行读 dealer 上各席 role）
 ```
 
 ### 4. 开始本手

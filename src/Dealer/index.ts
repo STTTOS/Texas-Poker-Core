@@ -123,8 +123,20 @@ class Dealer implements GameComponent, PlayerDealerRing<Player> {
     }
   }
 
-  join(player: Player): void {
-    this.#table.join(player)
+  /**
+   * @param options.insertAfter 若给定，则新座位插在**该玩家顺时针下家**一侧（房规：插在 **BB 之后** 时传大盲位玩家）。
+   */
+  join(
+    player: Player,
+    options?: {
+      insertAfter: Player
+    }
+  ): void {
+    if (options?.insertAfter) {
+      this.#table.joinAfter(options.insertAfter, player)
+    } else {
+      this.#table.join(player)
+    }
     if (this.#table.button) this.#service.reArrangeRoles()
   }
 

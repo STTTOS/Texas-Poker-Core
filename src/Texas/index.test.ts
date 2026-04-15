@@ -93,6 +93,23 @@ describe('entery', () => {
     expect(ev.some((e) => e.type === 'RolesAssigned')).toBe(true)
   })
 
+  test('Texas.reArrangeRoles delegates to dealer', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 7,
+      initialChips: 5000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.join(p2)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.setPlayerRoles()
+    texas.drainDomainEvents()
+    expect(() => texas.reArrangeRoles()).not.toThrow()
+    teardownTexas = texas
+  })
+
   test('dispatchCommand rejects non-actor; settle emits PotAwarded', async () => {
     const texas = new Texas({
       lowestBetAmount: 500,

@@ -2,7 +2,7 @@ import type { TableStakes } from '@/TableStakes'
 import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 
 import Dealer from '@/Dealer'
-import { Player } from '@/Player'
+import { Player, RoleEnum } from '@/Player'
 import TexasError, {
   TexasCoreErrorCode,
   type TexasErrorCode
@@ -234,7 +234,8 @@ class Room implements GameComponent {
     return this.getPlayerSeatStatus(player)
   }
   /**
-   * @description 将观战席的玩家入座（须 `seats_open`）
+   * 将观战席的玩家入座（须 `seats_open`）。
+   * 若桌上已有大盲位（`RoleEnum.BB`），则插在 **大盲顺时针下家**（原 BB→UTG 弧上），便于 post BB 与第一手 UTG 叙事；否则退化为环尾追加。
    */
   seat(player?: Player) {
     this.#assertSeatsOpen(TexasCoreErrorCode.ROOM_SEATS_LOCKED_FOR_MUTATION)
@@ -247,7 +248,12 @@ class Room implements GameComponent {
 
     this.#playersHang.delete(player)
     this.#playersOnSet.add(player)
-    this.#dealer.join(player)
+    const bigBlind = this.#dealer.find((p) => p.getRole() === RoleEnum.BB)
+    if (bigBlind) {
+      this.#dealer.join(player, { insertAfter: bigBlind })
+    } else {
+      this.#dealer.join(player)
+    }
   }
 
   seatById(userId: number) {

@@ -18,6 +18,7 @@
 
 ### `Texas`
 
+- **`reArrangeRoles()`**：委托 `dealer.reArrangeRoles()`，按当前庄与人数重算角色；`Dealer.join` / `remove` 在环变化后**已**各调一次；业务可在批量 `seat`/`remove` 后**再**显式调用以便统一向客户端推角色（**不**缓冲 `RolesAssigned` 会话事件，与 `setPlayerRoles` 不同）。
 - **constructor**：`maximumCountOfPlayers` 会与引擎支持上限（当前角色表 **2–10**）取 `min`；`Dealer` / `Room` 共用该上限。`Room` 上表示 **房间内总人数上限**（`hang` + `on-set`），在 **`join`** 时校验。
 - **不再**校验 `initialChips` vs 大盲（由业务层保证）。
 - 房主需业务层自行 `seat`。

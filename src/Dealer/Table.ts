@@ -68,6 +68,45 @@ export class Table {
     this.#last = player
   }
 
+  /**
+   * 将 `player` 顺时针插在 `predecessor` 与其原 `next` 之间（用于新玩家插在 **大盲下家** 一侧，与 post BB 叙事一致）。
+   * `predecessor` 须在环上且已有合法 `next`（至少两人环）。
+   */
+  joinAfter(predecessor: Player, player: Player): void {
+    if (this.has(player)) {
+      return this.#fail(
+        new TexasError(TexasCoreErrorCode.DEALER_TABLE_JOIN_DUPLICATE, {
+          userId: player.id
+        })
+      )
+    }
+
+    if (!this.has(predecessor)) {
+      return this.#fail(
+        new TexasError(TexasCoreErrorCode.DEALER_TABLE_JOIN_AFTER_INVALID, {
+          anchorUserId: predecessor.id
+        })
+      )
+    }
+
+    const succ = predecessor.getNextPlayer()
+    if (!succ) {
+      return this.#fail(
+        new TexasError(TexasCoreErrorCode.DEALER_TABLE_JOIN_AFTER_INVALID, {
+          anchorUserId: predecessor.id
+        })
+      )
+    }
+
+    player.setLastPlayer(predecessor)
+    player.setNextPlayer(succ)
+    predecessor.setNextPlayer(player)
+    succ.setLastPlayer(player)
+
+    this.#count++
+    this.#last = player
+  }
+
   remove(player: Player): void {
     if (!this.has(player)) {
       return this.#fail(

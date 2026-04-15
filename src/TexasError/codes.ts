@@ -99,6 +99,8 @@ export const TexasCoreErrorCode = {
   DEALER_TABLE_JOIN_DUPLICATE: 3607,
   /** 玩家不在环形座位中，无法 remove */
   DEALER_TABLE_REMOVE_NOT_SEATED: 3608,
+  /** `Table.joinAfter`：锚点不在环上，或环上无法解析其下家 */
+  DEALER_TABLE_JOIN_AFTER_INVALID: 3609,
 
   INTERNAL_NO_NEXT_PLAYER: 3901,
   /** 在 `Controller.start()` 之前产出本手领域事件（不变量损坏） */
@@ -276,6 +278,10 @@ export function formatTexasErrorMessage(
       return `数据异常: 玩家 ${p.userId ?? '?'} 已在座位环中, 不可重复入座`
     case TexasCoreErrorCode.DEALER_TABLE_REMOVE_NOT_SEATED:
       return `数据异常: 玩家 ${p.userId ?? '?'} 不在座位环中, 无法离座`
+    case TexasCoreErrorCode.DEALER_TABLE_JOIN_AFTER_INVALID:
+      return `数据异常: 无法在指定玩家后插入座位（锚点 userId=${
+        p.anchorUserId ?? '?'
+      }）`
 
     case TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER:
       return '游戏发生异常, 将控制权移交给不存在的玩家'
