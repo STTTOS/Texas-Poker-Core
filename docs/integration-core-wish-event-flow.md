@@ -59,7 +59,7 @@ Core 提供的统一行动入口为 **`Texas#dispatchCommand(TableCommand)`**；
   - `texas.settle()`、必要时 **`flushEventsAfterSettle`** 消费嵌套的 `PotAwarded` 等；
   - 更新 `match` / `playerMatchRecord`；
   - **showdown** 时在落库与组好 overview 之后 **`sleep(stageChangedDelayMs)`**，再 **`notifyGameEndPerViewer`**（仅推送节奏延迟，规则状态已在 Core 内结束）；
-  - 房间状态改为 `between_hands`、`controller.reset()`、触发局间倒计时等。
+  - `controller` 进入 `between_hands`（复盘窗口）；随后业务 **`texas.reset()`** 将控制器回 `idle` 并 **`room.unlockSeats()`**；触发局间倒计时等。
 
 ---
 

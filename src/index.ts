@@ -19,6 +19,7 @@ import {
   RoomStatus,
   default as Room,
   PlayerSeatStatus,
+  type RoomMemberCounts,
   type RoomCreateOptions
 } from './Room'
 import Controller, {
@@ -100,6 +101,7 @@ export {
   RoomStatus,
   PlayerSeatStatus,
   type RoomCreateOptions,
+  type RoomMemberCounts,
   formatterPoke,
   TexasError,
   TexasErrorCode,

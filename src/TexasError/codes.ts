@@ -14,22 +14,32 @@ export const TexasCoreErrorCode = {
   ROOM_ALREADY_LOCKED: 3102,
   ROOM_OWNER_REQUIRED: 3103,
   ROOM_DUPLICATE_JOIN: 3104,
+  /** @deprecated 座位变更已改由 `ROOM_SEATS_LOCKED_FOR_MUTATION`（`seats_locked`）表达 */
   ROOM_SEAT_NOT_IDLE: 3105,
   ROOM_SEAT_NOT_MEMBER: 3106,
   ROOM_SEAT_ALREADY: 3107,
   ROOM_SEAT_FULL: 3108,
+  /** `join`：房间内人数（`hang` + `on-set`）已达 `maximumCountOfPlayers` */
+  ROOM_JOIN_FULL: 3117,
+  /** @deprecated 座位变更已改由 `ROOM_SEATS_LOCKED_FOR_MUTATION`（`seats_locked`）表达 */
   ROOM_WATCH_NOT_IDLE: 3109,
   ROOM_WATCH_NOT_MEMBER: 3110,
   ROOM_WATCH_ALREADY_HANG: 3111,
   ROOM_LEAVE_NOT_MEMBER: 3112,
   ROOM_OWNER_LEAVE_BLOCKED: 3113,
   ROOM_LEAVE_GAME_ACTIVE: 3114,
+  /** `seat` / `watch` / `remove` 等座位结构变更要求 `Room.status === 'seats_open'`（通常一手收尾 `Texas.reset()` 后解锁） */
+  ROOM_SEATS_LOCKED_FOR_MUTATION: 3115,
 
   SESSION_START_MIN_SEATED: 3201,
   SESSION_START_SEATS_OPEN: 3202,
   SESSION_START_NOT_IDLE: 3203,
+  /** @deprecated 请依赖 {@link Controller.end} 抛出的 `CTRL_END_NOT_IN_HAND`（`Texas.end` 已直委托，不再单独预检） */
   SESSION_END_NOT_STARTED: 3204,
-  /** 设置/轮换角色时桌上玩家筹码低于大盲（数据异常） */
+  /**
+   * 已由废弃的 `Texas` 预检使用；`setPlayerRoles` 不再触发。业务若自行调用旧预检仍可能抛出。
+   * @deprecated
+   */
   SESSION_SET_ROLES_BALANCE_BELOW_BB: 3205,
   /** dispatchCommand：桌上无此 userId */
   SESSION_DISPATCH_PLAYER_NOT_FOUND: 3206,
@@ -153,6 +163,8 @@ export function formatTexasErrorMessage(
       return '您已在坐席中,请勿重复操作'
     case TexasCoreErrorCode.ROOM_SEAT_FULL:
       return '位置已满,无法加入坐席'
+    case TexasCoreErrorCode.ROOM_JOIN_FULL:
+      return `房间人数已满（上限 ${p.max ?? '?'} 人），无法加入`
     case TexasCoreErrorCode.ROOM_WATCH_NOT_IDLE:
       return '游戏正在进行中, 无法加入观战席'
     case TexasCoreErrorCode.ROOM_WATCH_NOT_MEMBER:
@@ -165,6 +177,8 @@ export function formatTexasErrorMessage(
       return '房主不可退出,请先转移房主'
     case TexasCoreErrorCode.ROOM_LEAVE_GAME_ACTIVE:
       return '游戏进行中, 不可退出'
+    case TexasCoreErrorCode.ROOM_SEATS_LOCKED_FOR_MUTATION:
+      return '座位已锁定, 请在本局/本手收尾并解锁后再入座、离座或调整观战'
 
     case TexasCoreErrorCode.SESSION_START_MIN_SEATED:
       return '玩家数量不足, 无法开始游戏'

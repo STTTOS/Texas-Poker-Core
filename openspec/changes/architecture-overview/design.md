@@ -92,7 +92,7 @@ sequenceDiagram
 
 ### Controller
 
-- `HandLifecycle`: `idle` → `in_hand` → `hand_complete`（可选：`in_hand_paused`，预留：`aborted`）
+- `HandLifecycle`: `idle` → `in_hand` → `between_hands`（可选：`in_hand_paused`，预留：`aborted`）
 - `StageEnum`: `PRE_FLOP` → `FLOP` → `TURN` → `RIVER`
 
 关键点：

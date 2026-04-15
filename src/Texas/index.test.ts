@@ -2,10 +2,7 @@ import Texas from '@/Texas'
 import { StageEnum } from '@/Controller'
 import { ActionTypeEnum } from '@/Player'
 import { TexasEngineContext } from '@/TexasEngineContext'
-import TexasError, {
-  TexasCoreErrorCode,
-  isFatalTexasErrorCode
-} from '@/TexasError'
+import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
 describe('entery', () => {
   let teardownTexas: Texas | null = null
@@ -77,7 +74,7 @@ describe('entery', () => {
     expect(p1.balance + p2.balance + p3.balance).toEqual(15_000)
   })
 
-  test('setPlayerRoles throws fatal when a seated player balance is below big blind', () => {
+  test('setPlayerRoles allows short stack below big blind (NL short stack)', () => {
     const texas = new Texas({
       lowestBetAmount: 500,
       maximumCountOfPlayers: 7,
@@ -91,20 +88,9 @@ describe('entery', () => {
     texas.dealer.setButton(texas.room.owner)
     p2.balance = 400
 
-    let err: TexasError | undefined
-    try {
-      texas.setPlayerRoles()
-    } catch (e) {
-      err = e as TexasError
-    }
-    expect(err).toBeInstanceOf(TexasError)
-    expect(err!.message).toBe(
-      '数据异常: 玩家 2 余额(400)不足大盲(500), 无法设置角色'
-    )
-    expect(err!.code).toBe(
-      TexasCoreErrorCode.SESSION_SET_ROLES_BALANCE_BELOW_BB
-    )
-    expect(isFatalTexasErrorCode(err!.code)).toBe(true)
+    texas.setPlayerRoles()
+    const ev = texas.drainDomainEvents()
+    expect(ev.some((e) => e.type === 'RolesAssigned')).toBe(true)
   })
 
   test('dispatchCommand rejects non-actor; settle emits PotAwarded', async () => {

@@ -632,7 +632,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     if (this.status !== 'in_hand')
       return this.fail(new TexasError(TexasCoreErrorCode.CTRL_END_NOT_IN_HAND))
 
-    this.#hand.status = 'hand_complete'
+    this.#hand.status = 'between_hands'
     this.resetActivePlayer()
   }
 

@@ -101,7 +101,6 @@ describe('class pool', () => {
     const room = new Room({
       dealer,
       owner: p1,
-      controller,
       initialChips: 5000
     })
     room.seat(p1)

@@ -30,6 +30,7 @@ const SUPPORTED_MAX_TABLE_PLAYERS = 10
 
 export interface CreateRoomInputArgs {
   lowestBetAmount: number
+  /** 房间内最大人数（观战 + 入座），与引擎上桌人数上限取 min */
   maximumCountOfPlayers: number
   initialChips: number
   user: User
@@ -86,7 +87,6 @@ class Texas {
     const room = new Room({
       dealer,
       owner,
-      controller,
       initialChips,
       maximumCountOfPlayers: cappedMaxPlayers,
       fail: this.fail
@@ -112,7 +112,11 @@ class Texas {
     return this.#sessionSeq
   }
 
-  #assertDealerPlayersMeetBigBlind() {
+  /**
+   * @deprecated 无限德州（NL）仅表示下注无上限，**允许短码**；全员筹码 ≥ 大盲属于产品/风控策略。
+   * `setPlayerRoles` **不再**调用；若业务仍要在开桌前强制校验，可在 `setPlayerRoles` 前自行调用。
+   */
+  assertSeatedPlayersMeetBigBlind(): void {
     const bigBlind = this.dealer.lowestBetAmount
     for (const player of this.dealer.players) {
       if (player.balance < bigBlind) {
@@ -130,10 +134,11 @@ class Texas {
     }
   }
 
-  /** 轮换/初始角色并缓冲 `RolesAssigned`（会话级事件）。 */
+  /**
+   * 轮换/初始角色并缓冲 `RolesAssigned`（会话级事件）。
+   * 不在此校验「全员 ≥ 大盲」；短码上桌见 {@link assertSeatedPlayersMeetBigBlind}（已废弃，仅业务自选）。
+   */
   setPlayerRoles(type: 'initial' | 'rotate' = 'initial') {
-    this.#assertDealerPlayersMeetBigBlind()
-
     if (type === 'initial') {
       this.room.initialRoles()
     } else {
@@ -166,6 +171,10 @@ class Texas {
     })
   }
 
+  lockSeats() {
+    this.room.lockSeats()
+  }
+
   unlockSeats() {
     this.room.unlockSeats()
   }
@@ -191,10 +200,8 @@ class Texas {
     this.controller.start()
   }
 
+  /** 强制结束本手到 `between_hands`；状态校验由 {@link Controller.end} 负责（非 `in_hand` 时 `CTRL_END_NOT_IN_HAND`）。 */
   end() {
-    if (this.controller.status === 'idle')
-      this.fail(new TexasError(TexasCoreErrorCode.SESSION_END_NOT_STARTED))
-
     this.controller.end()
   }
 
@@ -288,10 +295,15 @@ class Texas {
     }
   }
 
+  /**
+   * 清理奖池、荷官与本手控制器状态；并将房间 {@link Room.unlockSeats}，
+   * 以便在下一手 `setPlayerRoles` 之前可 `seat` / `watch` / `remove`。
+   */
   reset() {
     this.pool.reset()
     this.controller.reset()
     this.dealer.reset()
+    this.room.unlockSeats()
     this.#sessionSeq = 0
     this.#sessionEvents = []
   }

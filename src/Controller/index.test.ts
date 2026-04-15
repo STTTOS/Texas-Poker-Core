@@ -31,7 +31,6 @@ describe('class Controller', () => {
     const room = new Room({
       dealer,
       owner: p1,
-      controller,
       initialChips: 5000
     })
     room.seat(p1)
@@ -129,7 +128,6 @@ describe('class Controller', () => {
     const room = new Room({
       dealer,
       owner: p1,
-      controller,
       initialChips: 10_000
     })
     room.seat(p1)
@@ -191,7 +189,6 @@ describe('class Controller', () => {
     const room = new Room({
       dealer,
       owner: p1,
-      controller,
       initialChips: 10_000
     })
     room.seat(p1)
@@ -239,7 +236,6 @@ describe('class Controller', () => {
     const room = new Room({
       dealer,
       owner: p1,
-      controller,
       initialChips: 10000
     })
     room.seat(p1)
@@ -254,7 +250,7 @@ describe('class Controller', () => {
     controller.drainPendingFlowOpsSync()
     executeFold(controller.activePlayer!)
 
-    expect(controller.status).toBe('hand_complete')
+    expect(controller.status).toBe('between_hands')
     const ev = controller.drainHandEvents()
     const ended = ev.find(
       (e): e is Extract<typeof e, { type: 'HandEnded' }> =>
@@ -288,7 +284,6 @@ describe('class Controller', () => {
     const room = new Room({
       dealer,
       owner: p1,
-      controller,
       initialChips: 10000
     })
     room.seat(p1)
@@ -306,7 +301,7 @@ describe('class Controller', () => {
     }
     controller.drainPendingFlowOpsSync()
 
-    expect(controller.status).toBe('hand_complete')
+    expect(controller.status).toBe('between_hands')
     const ev = controller.drainHandEvents()
     const runouts = ev.filter(
       (e) =>
@@ -345,7 +340,6 @@ describe('class Controller', () => {
     const room = new Room({
       dealer,
       owner: p1,
-      controller,
       initialChips: 10000
     })
     room.seat(p1)
@@ -386,7 +380,7 @@ describe('class Controller', () => {
       )
     ).toBe(true)
 
-    expect(controller.status).toBe('hand_complete')
+    expect(controller.status).toBe('between_hands')
     expect(controller.getPendingFlowOps()).toEqual([])
   })
 })

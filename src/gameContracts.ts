@@ -29,5 +29,6 @@ export type HandLifecycle =
   | 'idle'
   | 'in_hand'
   | 'in_hand_paused'
-  | 'hand_complete'
+  /** 本手已结束、尚未 `reset`；可结算展示；下一手前通常经 `Texas.reset()` 回到 `idle` 并解锁座位 */
+  | 'between_hands'
   | 'aborted'

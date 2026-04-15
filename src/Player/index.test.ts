@@ -47,7 +47,6 @@ describe('class Player', () => {
     const room = new Room({
       dealer,
       owner: p1,
-      controller,
       initialChips: 18000
     })
     room.seat(p1)
@@ -108,7 +107,6 @@ describe('class Player', () => {
       const room = new Room({
         dealer,
         owner: p1,
-        controller,
         initialChips: 5000
       })
       room.seat(p1)
@@ -154,7 +152,6 @@ describe('class Player', () => {
       const room = new Room({
         dealer,
         owner: p1,
-        controller,
         initialChips: 5000
       })
       room.seat(p1)

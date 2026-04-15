@@ -42,11 +42,11 @@ npm install texas-poker-core
 | `idle`           | 无进行中的手牌；**上一手已 `reset` 后**、下一手 `start` 前 |
 | `in_hand`        | 本手进行中                                                 |
 | `in_hand_paused` | 暂停                                                       |
-| `hand_complete`  | 本手已结束，**尚未** `reset`；可做摊牌展示、结算入库等     |
+| `between_hands`  | 本手已结束，**尚未** `reset`；可做摊牌展示、结算入库等     |
 | `aborted`        | 预留                                                       |
 
 **开下一手**：`Texas.start()` 要求 `controller.status === 'idle'`，因此本手结束后需先 `texas.settle()`（按需）、再 `texas.reset()`（或 `resetBeforeGameStart()`），再 `rotateRoles`（若需轮换庄家）、发牌、`start()`。  
-**离座**：`Room.remove` 在 `idle` 或 `hand_complete` 时允许非房主离开；进行中会拒绝。
+**离座 / 入座**：`Room.seat` / `watch` / `remove` 仅在 `Room.status === 'seats_open'` 时允许（`initialRoles` / `rotateRoles` 会锁座；**`Texas.reset()` 收尾后会 `unlockSeats()`**）。
 
 ---
 
@@ -85,7 +85,7 @@ texas.onError((err) => {
 const p2 = texas.createPlayer({ id: 2, name: '玩家2' })
 texas.room.join(p2)
 texas.room.seat(p2)
-// join = 进房（默认观战席）；seat = 上桌，且要求 controller 为 idle
+// join = 进房（默认观战席）；seat = 上桌，且要求房间 seats_open（一手收尾 reset 后）
 ```
 
 ### 3. 锁座、分配角色、发牌
@@ -121,7 +121,7 @@ await texas.start()
 ```ts
 texas.settle() // pool.pay()，按引擎规则分配边池
 texas.reset() // pool + dealer + controller 清理，controller → idle
-// 下一手：unlockSeats（若业务要开放换座）→ rotateRoles / initialRoles → dealCards → start()
+// 下一手：`Texas.reset()` 已内含 unlockSeats → rotateRoles / initialRoles → dealCards → start()
 ```
 
 ---
@@ -145,12 +145,13 @@ texas.reset() // pool + dealer + controller 清理，controller → idle
 
 ## Room 常用 API
 
-- `join` / `joinMany`：进房（观战席）
-- `seat` / `seatById`：上桌（需 `controller.status === 'idle'`）
-- `watch` / `watchById`：回观战（需 `idle`）
-- `remove` / `removeById`：离房（`idle` 或 `hand_complete`，且**房主需业务先 `setOwner` 再 remove**）
-- `initialRoles` / `rotateRoles`：分配或轮换盲注位与庄家（内部校验入座人数等）
-- `unlockSeats` / `setOwner` / `setOwnerById` / `getBaseInfo` / `getPlayerById` / `getPlayersBySeatStatus` 等
+- `join` / `joinMany`：进房（观战席）；人数达 `maximumCountOfPlayers`（`hang`+`on-set` 合计）时拒绝
+- `seat` / `seatById`：上桌（须 `seats_open`）
+- `watch` / `watchById`：回观战（须 `seats_open`）
+- `remove` / `removeById`：离房；**仅观战（`hang`）锁座时也可离房**；**已入座**须 `seats_open`（**房主需业务先 `setOwner` 再 remove**）
+- `initialRoles` / `rotateRoles`：分配或轮换盲注位与庄家，并 **lockSeats**
+- `lockSeats` / `unlockSeats`：显式锁/解锁（`Texas.reset()` 会在一手收尾后 `unlockSeats`）
+- `setOwner` / `setOwnerById` / `getBaseInfo` / `getPlayerById` / `getPlayersBySeatStatus` 等
 
 ---
 

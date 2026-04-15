@@ -18,7 +18,7 @@
 
 ### `Texas`
 
-- **constructor**：`maximumCountOfPlayers` 会与引擎支持上限（当前角色表 **2–10**）取 `min`；`Dealer` / `Room` 共用该上限。
+- **constructor**：`maximumCountOfPlayers` 会与引擎支持上限（当前角色表 **2–10**）取 `min`；`Dealer` / `Room` 共用该上限。`Room` 上表示 **房间内总人数上限**（`hang` + `on-set`），在 **`join`** 时校验。
 - **不再**校验 `initialChips` vs 大盲（由业务层保证）。
 - 房主需业务层自行 `seat`。
 - **`start()`**：仍校验 **至少 2 人入座**、**座位已锁定**、**controller 为 idle**（规则引擎不变量，避免状态机进入非法组合）。
@@ -46,6 +46,6 @@
 
 ### Core 保留哪些校验？
 
-- **不变量**（不满足则引擎无法继续或会坏状态）：如一手至少 2 人在座才能 `start`、`ready` 至少 2 人、`controller.status` 与 `seat/watch/remove` 的互斥等。
+- **不变量**（不满足则引擎无法继续或会坏状态）：如一手至少 2 人在座才能 `start`、`ready` 至少 2 人；**`seat` / `watch` 与已入座者的 `remove` 须 `seats_open`**；**仅观战（`hang`）`remove` 不受锁座限制**（与 `Controller` 解耦；`Texas.reset()` 会解锁）。
 - **规则合法性**：下注/加注/跟注/过牌是否在允许集合、余额是否够等。
 - **已交给业务**：开桌筹码下限、是否允许观战、邀请与踢人等 **产品策略** 不在 core 前置校验。
