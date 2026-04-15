@@ -31,6 +31,16 @@ export type HandDomainEvent =
       }
     }
   | {
+      type: 'PostedBigBlind'
+      payload: HandEventMeta & {
+        userId: number
+        /** 实际入池（短码时为 `min(requested, balance)`） */
+        amount: number
+        /** 桌级大盲规定额 */
+        requested: number
+      }
+    }
+  | {
       type: 'PlayerActed'
       payload: HandEventMeta & {
         userId: number

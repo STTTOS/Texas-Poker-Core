@@ -110,6 +110,131 @@ describe('entery', () => {
     teardownTexas = texas
   })
 
+  test('setPlayerRoles(\'rearrange\') after initial still emits RolesAssigned', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 7,
+      initialChips: 5000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.join(p2)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.setPlayerRoles('initial')
+    texas.drainDomainEvents()
+    texas.setPlayerRoles('rearrange')
+    const ev = texas.drainDomainEvents()
+    expect(ev.length).toBe(1)
+    expect(ev[0].type).toBe('RolesAssigned')
+    teardownTexas = texas
+  })
+
+  test('rotateRolesForNewHand after reset moves dealer button (2-handed)', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 7,
+      initialChips: 5000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.join(p2)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.setPlayerRoles('initial')
+    texas.drainDomainEvents()
+    const beforeId = texas.dealer.button!.getUserInfo().id
+    texas.reset()
+    texas.rotateRolesForNewHand()
+    expect(texas.room.status).toBe('seats_locked')
+    expect(texas.dealer.button!.getUserInfo().id).not.toBe(beforeId)
+    teardownTexas = texas
+  })
+
+  test('PostBigBlind posts table BB for eligible non-actor with zero preflop contribution', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 9,
+      initialChips: 10_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    const p3 = texas.createPlayer({ id: 3, name: 'c' })
+    const p4 = texas.createPlayer({ id: 4, name: 'd' })
+    texas.room.join(p2)
+    texas.room.join(p3)
+    texas.room.join(p4)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
+    texas.room.seat(p4)
+    texas.setPlayerRoles('initial')
+    texas.drainDomainEvents()
+    texas.dealCards()
+    texas.drainDomainEvents()
+    texas.start()
+    texas.flushAllPendingFlowOps()
+    texas.drainDomainEvents()
+
+    const ap = texas.controller.activePlayer!
+    const subject = texas.dealer.players.find(
+      (p) => p !== ap && p.currentStageTotalAmount === 0
+    )
+    expect(subject).toBeDefined()
+    const potBefore = texas.pool.totalAmount
+    texas.dispatchCommand({
+      type: 'PostBigBlind',
+      playerId: subject!.getUserInfo().id
+    })
+    const handEv = texas.drainDomainEvents()
+    const postedEv = handEv.find((e) => e.type === 'PostedBigBlind')
+    expect(postedEv?.type).toBe('PostedBigBlind')
+    if (postedEv?.type === 'PostedBigBlind') {
+      expect(postedEv.payload.amount).toBe(500)
+      expect(postedEv.payload.requested).toBe(500)
+    }
+    expect(texas.pool.totalAmount).toBe(potBefore + 500)
+    teardownTexas = texas
+  })
+
+  test('PostBigBlind rejects for current activePlayer', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 9,
+      initialChips: 10_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    const p3 = texas.createPlayer({ id: 3, name: 'c' })
+    const p4 = texas.createPlayer({ id: 4, name: 'd' })
+    texas.room.join(p2)
+    texas.room.join(p3)
+    texas.room.join(p4)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
+    texas.room.seat(p4)
+    texas.setPlayerRoles('initial')
+    texas.drainDomainEvents()
+    texas.dealCards()
+    texas.drainDomainEvents()
+    texas.start()
+    texas.flushAllPendingFlowOps()
+    texas.drainDomainEvents()
+    const ap = texas.controller.activePlayer!
+    let err: TexasError | null = null
+    try {
+      texas.dispatchCommand({
+        type: 'PostBigBlind',
+        playerId: ap.getUserInfo().id
+      })
+    } catch (e) {
+      err = e as TexasError
+    }
+    expect(err?.code).toBe(TexasCoreErrorCode.CTRL_POST_BB_IS_ACTIVE_PLAYER)
+    teardownTexas = texas
+  })
+
   test('dispatchCommand rejects non-actor; settle emits PotAwarded', async () => {
     const texas = new Texas({
       lowestBetAmount: 500,

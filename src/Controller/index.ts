@@ -539,6 +539,58 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return posted
   }
 
+  /**
+   * 中途入座贴大盲：翻前、非当前 `activePlayer`、本街 `currentStageTotalAmount === 0`、且玩家仍为 `eligible`。
+   * 入池额 `min(桌大盲, 余额)`，与开局盲注路径一致；**不**调用 `completeBettingTurn`、不改变当前思考权。
+   */
+  postBigBlindForJoiningPlayer(player: Player): void {
+    if (this.#hand.status !== 'in_hand') {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_POST_BB_NOT_IN_HAND)
+      )
+    }
+    if (this.#hand.stage !== StageEnum.PRE_FLOP) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_POST_BB_NOT_PREFLOP)
+      )
+    }
+    if (this.#hand.activePlayer === player) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_POST_BB_IS_ACTIVE_PLAYER)
+      )
+    }
+    if (player.getStatus() !== 'eligible') {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_POST_BB_PLAYER_INELIGIBLE)
+      )
+    }
+    if (player.currentStageTotalAmount !== 0) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_POST_BB_ALREADY_CONTRIBUTED)
+      )
+    }
+
+    const requested = this.#dealer.stakes.bigBlind
+    const balanceBefore = player.balance
+    if (balanceBefore <= 0) {
+      return this.fail(new TexasError(TexasCoreErrorCode.CTRL_POST_BB_NO_CHIPS))
+    }
+
+    // `requested > 0`（TableStakes）且余额已正 ⇒ `#postBlind` 入池额必为正
+    const posted = this.#postBlind(player, requested)
+
+    this.#handEvents.push({
+      type: 'PostedBigBlind',
+      payload: {
+        ...this.#eventMeta(),
+        userId: player.getUserInfo().id,
+        amount: posted,
+        requested
+      }
+    })
+    this.recordPotUpdated()
+  }
+
   takeActionInPreFlop() {
     this.#handEvents.push({
       type: 'HandStarted',

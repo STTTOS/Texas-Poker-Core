@@ -56,6 +56,18 @@ export const TexasCoreErrorCode = {
   CTRL_ENDGAME_INVARIANT_DEALER_LT_2: 3307,
   /** 业务节拍模式：`applyPendingStageAdvance` / `flushPendingTurnHandoff` 与队列头类型不一致 */
   CTRL_FLOW_PENDING_MISMATCH: 3308,
+  /** `PostBigBlind`：非本手进行中 */
+  CTRL_POST_BB_NOT_IN_HAND: 3309,
+  /** `PostBigBlind`：仅翻牌前允许 */
+  CTRL_POST_BB_NOT_PREFLOP: 3310,
+  /** `PostBigBlind`：当前思考方应走自愿行动，不可用本指令绕过 */
+  CTRL_POST_BB_IS_ACTIVE_PLAYER: 3311,
+  /** `PostBigBlind`：本街已入池（含已贴盲），不可重复贴入座大盲 */
+  CTRL_POST_BB_ALREADY_CONTRIBUTED: 3312,
+  /** `PostBigBlind`：余额为 0，无法贴盲 */
+  CTRL_POST_BB_NO_CHIPS: 3313,
+  /** `PostBigBlind`：玩家已出局或全下，无法贴盲 */
+  CTRL_POST_BB_PLAYER_INELIGIBLE: 3314,
 
   PLAYER_ACTION_INVALID: 3401,
   PLAYER_CANNOT_CHECK: 3402,
@@ -213,6 +225,18 @@ export function formatTexasErrorMessage(
       return `游戏进程异常: 进行中手牌 Dealer 人数不足 (${p.count ?? '?'})`
     case TexasCoreErrorCode.CTRL_FLOW_PENDING_MISMATCH:
       return '流程队列与当前操作不匹配（阶段推进 / 交权顺序有误）'
+    case TexasCoreErrorCode.CTRL_POST_BB_NOT_IN_HAND:
+      return '本手未进行中，无法贴入座大盲'
+    case TexasCoreErrorCode.CTRL_POST_BB_NOT_PREFLOP:
+      return '仅翻牌前允许贴入座大盲'
+    case TexasCoreErrorCode.CTRL_POST_BB_IS_ACTIVE_PLAYER:
+      return '当前轮到该玩家行动，请使用正常下注指令，不可用贴入座大盲'
+    case TexasCoreErrorCode.CTRL_POST_BB_ALREADY_CONTRIBUTED:
+      return '该玩家本街已入池，无法重复贴入座大盲'
+    case TexasCoreErrorCode.CTRL_POST_BB_NO_CHIPS:
+      return '余额不足，无法贴入座大盲'
+    case TexasCoreErrorCode.CTRL_POST_BB_PLAYER_INELIGIBLE:
+      return '玩家已出局或全下，无法贴入座大盲'
 
     case TexasCoreErrorCode.PLAYER_ACTION_INVALID:
       return String(p.detail ?? '玩家行为异常')

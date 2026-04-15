@@ -135,14 +135,17 @@ class Texas {
   }
 
   /**
-   * 轮换/初始角色并缓冲 `RolesAssigned`（会话级事件）。
+   * 分配角色并缓冲 `RolesAssigned`（会话级事件）。
+   * - **`initial`**：仅 `Room.initialRoles`（荷官 `setButton` + `setOthers`，定庄 + 锁座）；**不**再调 {@link reArrangeRoles}。
+   * - **`rearrange`**：仅 {@link reArrangeRoles}（须已有庄位）；按人数表重算 SB/BB/UTG…
+   * **移庄**：请局末在 `reset()` 解锁后显式 {@link rotateRolesForNewHand}，不再通过本方法 `rotate` 分支。
    * 不在此校验「全员 ≥ 大盲」；短码上桌见 {@link assertSeatedPlayersMeetBigBlind}（已废弃，仅业务自选）。
    */
-  setPlayerRoles(type: 'initial' | 'rotate' = 'initial') {
+  setPlayerRoles(type: 'initial' | 'rearrange' = 'initial') {
     if (type === 'initial') {
       this.room.initialRoles()
     } else {
-      this.room.rotateRoles()
+      this.reArrangeRoles()
     }
     const players = this.dealer
       .getPlayersByActionSequence()
@@ -164,6 +167,14 @@ class Texas {
    */
   reArrangeRoles(): void {
     this.dealer.reArrangeRoles()
+  }
+
+  /**
+   * 局末/局间**移庄**并锁座（委托 {@link Room.rotateRoles} → `Dealer.rotateRolesForNewHand`）。
+   * 须在 **`Texas.reset()` 等已 `unlockSeats`** 且 `Room.status === 'seats_open'` 时调用；**不**经 `setPlayerRoles`。
+   */
+  rotateRolesForNewHand(): void {
+    this.room.rotateRoles()
   }
 
   /** 发手牌并缓冲 `HoleCardsDealt`（会话级事件）。 */
@@ -247,7 +258,8 @@ class Texas {
    * 统一指令入口：经 `handBettingActions` 落账并触发 `transferControl` 链。
    * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**；在队头为 `turn_handoff` 时须先
    * {@link flushPendingTurnHandoff}，否则当前 `activePlayer` 会因 {@link Player.checkIfCanAct} 拒绝自愿指令（防 HTTP 抢跑）。
-   * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（内部 `setPendingTurnEndedReason('timeout')`，且跳过「已开示思考权」校验）。
+   * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（内部 `setPendingTurnEndedReason('timeout')`，且跳过「已开示思考权」校验）；
+   * 入座大盲：`PostBigBlind`（见 {@link Controller.postBigBlindForJoiningPlayer}）。
    */
   dispatchCommand(cmd: TableCommand): void {
     const playerId = cmd.playerId
@@ -296,6 +308,9 @@ class Texas {
       case 'AllIn':
         executeAllIn(actor)
         break
+      case 'PostBigBlind':
+        this.controller.postBigBlindForJoiningPlayer(actor)
+        break
       default: {
         const _exhaustive: never = cmd
         return _exhaustive
@@ -305,7 +320,7 @@ class Texas {
 
   /**
    * 清理奖池、荷官与本手控制器状态；并将房间 {@link Room.unlockSeats}，
-   * 以便在下一手 `setPlayerRoles` 之前可 `seat` / `watch` / `remove`。
+   * 以便局间可 `seat` / `watch` / `remove`，并可按需 {@link rotateRolesForNewHand} 后再 `setPlayerRoles`。
    */
   reset() {
     this.pool.reset()

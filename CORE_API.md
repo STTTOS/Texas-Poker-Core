@@ -18,7 +18,10 @@
 
 ### `Texas`
 
+- **`setPlayerRoles(type)`**：`type === 'initial'` 时仅 `Room.initialRoles`（定庄 + `setOthers` + 锁座），**不**调 `reArrangeRoles`；`type === 'rearrange'` 时仅 `reArrangeRoles()`（须已有庄位）；二者都会缓冲 **`RolesAssigned`**。局末移庄请用 **`rotateRolesForNewHand()`**（委托 `Room.rotateRoles`）。
+- **`rotateRolesForNewHand()`**：`reset` 解锁后、下一手起手前按需调用；移庄并再次锁座。
 - **`reArrangeRoles()`**：委托 `dealer.reArrangeRoles()`，按当前庄与人数重算角色；`Dealer.join` / `remove` 在环变化后**已**各调一次；业务可在批量 `seat`/`remove` 后**再**显式调用以便统一向客户端推角色（**不**缓冲 `RolesAssigned` 会话事件，与 `setPlayerRoles` 不同）。
+- **`dispatchCommand({ type: 'PostBigBlind', playerId })`**：翻前、非当前 `activePlayer`、本街 `currentStageTotalAmount === 0` 且 `eligible` 时，按 `stakes.bigBlind` 贴盲（`min(BB, 余额)`），缓冲 **`PostedBigBlind`** + **`PotUpdated`**；不交权、金额不由业务传参。
 - **constructor**：`maximumCountOfPlayers` 会与引擎支持上限（当前角色表 **2–10**）取 `min`；`Dealer` / `Room` 共用该上限。`Room` 上表示 **房间内总人数上限**（`hang` + `on-set`），在 **`join`** 时校验。
 - **不再**校验 `initialChips` vs 大盲（由业务层保证）。
 - 房主需业务层自行 `seat`。

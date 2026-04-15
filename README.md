@@ -45,7 +45,7 @@ npm install texas-poker-core
 | `between_hands`  | 本手已结束，**尚未** `reset`；可做摊牌展示、结算入库等     |
 | `aborted`        | 预留                                                       |
 
-**开下一手**：`Texas.start()` 要求 `controller.status === 'idle'`，因此本手结束后需先 `texas.settle()`（按需）、再 `texas.reset()`（或 `resetBeforeGameStart()`），再 `rotateRoles`（若需轮换庄家）、发牌、`start()`。  
+**开下一手**：`Texas.start()` 要求 `controller.status === 'idle'`，因此本手结束后需先 `texas.settle()`（按需）、再 `texas.reset()`（或 `resetBeforeGameStart()`，会 `unlockSeats`），再按需 `texas.rotateRolesForNewHand()`（移庄并锁座）、`texas.setPlayerRoles('initial' | 'rearrange')`、`dealCards()`、`start()`。  
 **离座 / 入座**：`Room.seat` / `watch` / `remove` 仅在 `Room.status === 'seats_open'` 时允许（`initialRoles` / `rotateRoles` 会锁座；**`Texas.reset()` 收尾后会 `unlockSeats()`**）。
 
 ---
@@ -91,7 +91,7 @@ texas.room.seat(p2)
 ### 3. 锁座、分配角色、发牌
 
 ```ts
-texas.setPlayerRoles('initial') // 或 'rotate' 新一轮
+texas.setPlayerRoles('initial') // 首局：Room.initialRoles（定庄+setOthers+锁座）；或 'rearrange'（仅 reArrangeRoles，须已有庄）
 texas.dealCards()
 // 上述会触发 onRolesAssigned / onDealCards（若已注册）
 // 批量 seat/remove 后：入座/离环时 Dealer 已各调过 reArrangeRoles；若仍希望「最后一次再推角色」，可再调 texas.reArrangeRoles()（不写入 RolesAssigned 缓冲，需自行读 dealer 上各席 role）
@@ -121,8 +121,8 @@ await texas.start()
 
 ```ts
 texas.settle() // pool.pay()，按引擎规则分配边池
-texas.reset() // pool + dealer + controller 清理，controller → idle
-// 下一手：`Texas.reset()` 已内含 unlockSeats → rotateRoles / initialRoles → dealCards → start()
+texas.reset() // pool + dealer + controller 清理，controller → idle，并 unlockSeats
+// 下一手（示意）：rotateRolesForNewHand（若需移庄）→ setPlayerRoles('initial'|'rearrange') → dealCards → start()
 ```
 
 ---
