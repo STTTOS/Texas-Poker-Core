@@ -18,7 +18,12 @@ export default [
       '@typescript-eslint/no-explicit-any': 'error',
       'no-undef': 'off',
       'linebreak-style': ['error', 'unix'],
-      quotes: ['error', 'single'],
+      // 与 Prettier 一致：串内含 `'` 时允许用 `"..."` 避免 `\'`，否则与 singleQuote 格式化冲突
+      quotes: [
+        'error',
+        'single',
+        { avoidEscape: true, allowTemplateLiterals: true }
+      ],
       semi: ['error', 'never'],
       'no-else-return': 'error',
       'comma-spacing': 'error',
