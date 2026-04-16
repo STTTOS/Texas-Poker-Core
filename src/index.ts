@@ -141,11 +141,17 @@ export type {
   DomainEventHandler
 } from './orchestration/interpret'
 export { interpret } from './orchestration/interpret'
+export {
+  createDefaultPipelineHandlers,
+  defaultPipelineOrdered
+} from './orchestration/defaultPipeline'
 
 export {
   dispatchCommandAndInterpret,
   interpretTableEvents,
-  flushAllPendingFlowOpsAndInterpret
+  flushAllPendingFlowOpsAndInterpret,
+  captureTableSnapshot
 } from './engine'
+export type { TableSnapshot, TablePlayerSnapshot } from './engine'
 
 export type { PreAction } from './gameContracts'
