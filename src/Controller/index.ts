@@ -603,13 +603,14 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
           amount: posted,
           kind
         })
+        // 细粒度 PotUpdated：与自愿下注一致，每次入池一条（盲注用 skipDomainEvents，此处补发）。
+        this.recordPotUpdated()
       }
     })
     this.#handEvents.push({
       type: 'BlindsPosted',
       payload: { ...this.#eventMeta(), posts }
     })
-    this.recordPotUpdated()
 
     const [, bigBlind] = takeDefaultActionPlayers
     const activePlayer = bigBlind?.getNextPlayer()

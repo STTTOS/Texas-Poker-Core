@@ -105,6 +105,82 @@ describe('class Controller', () => {
     expect(controller.status).toBe('idle')
   })
 
+  test('takeActionInPreFlop emits PotUpdated after each blind (fine granularity)', () => {
+    const dealer = new Dealer(1000)
+    const pool = new Pool()
+    const controller = new Controller(dealer, pool)
+    const p1 = new Player({
+      user: { id: 1, name: 'a' },
+      initialChips: 10_000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const p2 = new Player({
+      user: { id: 2, name: 'b' },
+      initialChips: 10_000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const p3 = new Player({
+      user: { id: 3, name: 'c' },
+      initialChips: 10_000,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const room = new Room({
+      dealer,
+      owner: p1,
+      initialChips: 10_000
+    })
+    room.seat(p1)
+    room.join(p2)
+    room.join(p3)
+    room.seat(p2)
+    room.seat(p3)
+    room.initialRoles(p1)
+    dealer.dealCards()
+
+    teardownController = controller
+    controller.start()
+    const ev = controller.drainHandEvents()
+
+    const blindsIdx = ev.findIndex((e) => e.type === 'BlindsPosted')
+    expect(blindsIdx).toBeGreaterThanOrEqual(0)
+    const potBeforeBlinds = ev.filter(
+      (e, i) => e.type === 'PotUpdated' && i < blindsIdx
+    )
+    expect(potBeforeBlinds.length).toBe(2)
+    expect(
+      potBeforeBlinds.every(
+        (e) =>
+          e.type === 'PotUpdated' &&
+          e.payload.totalAmount > 0 &&
+          e.payload.contributions.length > 0
+      )
+    ).toBe(true)
+    expect(
+      (
+        potBeforeBlinds[1] as {
+          type: 'PotUpdated'
+          payload: { totalAmount: number }
+        }
+      ).payload.totalAmount
+    ).toBeGreaterThanOrEqual(
+      (
+        potBeforeBlinds[0] as {
+          type: 'PotUpdated'
+          payload: { totalAmount: number }
+        }
+      ).payload.totalAmount
+    )
+  })
+
   test('short stack blind posts min(requested, balance)', () => {
     const dealer = new Dealer(1000)
     const pool = new Pool()

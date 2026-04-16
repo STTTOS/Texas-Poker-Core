@@ -80,7 +80,7 @@ export function executeFoldDueToLeavePassive(actor: Player): void {
   void actor.tryHandSessionEndGame()
 }
 
-/** `skipDomainEvents`：盲注路径为 true，由 `BlindsPosted` 表达，不发 `PlayerActed`。 */
+/** `skipDomainEvents`：盲注路径为 true，不发 `PlayerActed`；池面由 `Controller` 在每次 `#postBlind` 后发 `PotUpdated`（细粒度），再以 `BlindsPosted` 汇总。 */
 export function executeBet(
   actor: Player,
   chipAmount: number,
