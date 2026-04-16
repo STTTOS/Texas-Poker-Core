@@ -7,7 +7,7 @@ import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 export type OrchestrationCtx = Record<string, unknown>
 
 /**
- * 消费 {@link Texas#drainDomainEvents} 产出的一条领域事件。
+ * 消费 {@link Texas#dispatchCommand} / `start` / `flush*` 等同步返回的领域事件，或 {@link Texas#drainDomainEvents} 取出的缓冲。
  */
 export type DomainEventHandler = (
   ctx: OrchestrationCtx,

@@ -142,4 +142,10 @@ export type {
 } from './orchestration/interpret'
 export { interpret } from './orchestration/interpret'
 
+export {
+  dispatchCommandAndInterpret,
+  interpretTableEvents,
+  flushAllPendingFlowOpsAndInterpret
+} from './engine'
+
 export type { PreAction } from './gameContracts'

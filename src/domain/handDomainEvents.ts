@@ -24,8 +24,13 @@ export type HandEventMeta = {
 }
 
 /**
- * 本手内领域事件（无业务 callback；由 {@link Texas#drainDomainEvents} / Controller 缓冲取出）。
+ * 本手内领域事件（无业务 callback；由 {@link Texas#dispatchCommand} 等同步返回，或 {@link Texas#drainDomainEvents} / Controller 缓冲取出）。
  * 牌局节奏上的「下一步」另由 Controller 的 `pendingFlowOps`（进街 / 交权）表达，与事件 drain 解耦。
+ *
+ * **顺序约定（终极目标 / 回放友好）**
+ * - 自愿下注：`PlayerActed` 与同一次入池后的 **`PotUpdated` 紧邻**，且 **`PlayerActed` 在前**（见 `Controller.recordPlayerAction`）。
+ * - 盲注：每次 `#postBlind` 入池后各一条 **`PotUpdated`**（细粒度），再以 **`BlindsPosted`** 汇总；不发 `PlayerActed`。
+ * - `seq` 在 {@link HandEventMeta} 中本手单调递增，与 `handId` 联用做幂等与重放键。
  */
 export type HandDomainEvent =
   | {

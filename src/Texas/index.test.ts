@@ -32,8 +32,7 @@ describe('entery', () => {
     texas.room.seat(p3)
     texas.dealer.setButton(p1)
 
-    texas.setPlayerRoles()
-    const roleEv = texas.drainDomainEvents()
+    const roleEv = texas.setPlayerRoles()
     expect(roleEv.length).toBe(1)
     expect(roleEv[0].type).toBe('RolesAssigned')
     expect(
@@ -41,9 +40,7 @@ describe('entery', () => {
     ).toBeGreaterThanOrEqual(2)
 
     teardownTexas = texas
-    texas.start()
-    texas.flushAllPendingFlowOps()
-    const afterStart = texas.drainDomainEvents()
+    const afterStart = [...texas.start(), ...texas.flushAllPendingFlowOps()]
     expect(texas.controller.currentHandId).toBe('h1')
     expect(
       afterStart.some(
@@ -53,8 +50,7 @@ describe('entery', () => {
       )
     ).toBe(true)
 
-    texas.dealCards()
-    const dealEv = texas.drainDomainEvents()
+    const dealEv = texas.dealCards()
     expect(dealEv.length).toBe(1)
     expect(dealEv[0].type).toBe('HoleCardsDealt')
     const hole =
@@ -88,8 +84,7 @@ describe('entery', () => {
     texas.dealer.setButton(texas.room.owner)
     p2.balance = 400
 
-    texas.setPlayerRoles()
-    const ev = texas.drainDomainEvents()
+    const ev = texas.setPlayerRoles()
     expect(ev.some((e) => e.type === 'RolesAssigned')).toBe(true)
   })
 
@@ -105,7 +100,6 @@ describe('entery', () => {
     texas.room.seat(texas.room.owner)
     texas.room.seat(p2)
     texas.setPlayerRoles()
-    texas.drainDomainEvents()
     expect(() => texas.reArrangeRoles()).not.toThrow()
     teardownTexas = texas
   })
@@ -122,9 +116,7 @@ describe('entery', () => {
     texas.room.seat(texas.room.owner)
     texas.room.seat(p2)
     texas.setPlayerRoles('initial')
-    texas.drainDomainEvents()
-    texas.setPlayerRoles('rearrange')
-    const ev = texas.drainDomainEvents()
+    const ev = texas.setPlayerRoles('rearrange')
     expect(ev.length).toBe(1)
     expect(ev[0].type).toBe('RolesAssigned')
     teardownTexas = texas
@@ -142,7 +134,6 @@ describe('entery', () => {
     texas.room.seat(texas.room.owner)
     texas.room.seat(p2)
     texas.setPlayerRoles('initial')
-    texas.drainDomainEvents()
     const beforeId = texas.dealer.button!.getUserInfo().id
     texas.reset()
     texas.rotateRolesForNewHand()
@@ -169,12 +160,8 @@ describe('entery', () => {
     texas.room.seat(p3)
     texas.room.seat(p4)
     texas.setPlayerRoles('initial')
-    texas.drainDomainEvents()
     texas.dealCards()
-    texas.drainDomainEvents()
-    texas.start()
-    texas.flushAllPendingFlowOps()
-    texas.drainDomainEvents()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const ap = texas.controller.activePlayer!
     const subject = texas.dealer.players.find(
@@ -182,11 +169,10 @@ describe('entery', () => {
     )
     expect(subject).toBeDefined()
     const potBefore = texas.pool.totalAmount
-    texas.dispatchCommand({
+    const handEv = texas.dispatchCommand({
       type: 'PostBigBlind',
       playerId: subject!.getUserInfo().id
     })
-    const handEv = texas.drainDomainEvents()
     const postedEv = handEv.find((e) => e.type === 'PostedBigBlind')
     expect(postedEv?.type).toBe('PostedBigBlind')
     if (postedEv?.type === 'PostedBigBlind') {
@@ -215,12 +201,8 @@ describe('entery', () => {
     texas.room.seat(p3)
     texas.room.seat(p4)
     texas.setPlayerRoles('initial')
-    texas.drainDomainEvents()
     texas.dealCards()
-    texas.drainDomainEvents()
-    texas.start()
-    texas.flushAllPendingFlowOps()
-    texas.drainDomainEvents()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     const ap = texas.controller.activePlayer!
     let err: TexasError | null = null
     try {
@@ -253,21 +235,16 @@ describe('entery', () => {
     texas.room.seat(p3)
     texas.room.seat(p4)
     texas.setPlayerRoles('initial')
-    texas.drainDomainEvents()
     texas.dealCards()
-    texas.drainDomainEvents()
-    texas.start()
-    texas.flushAllPendingFlowOps()
-    texas.drainDomainEvents()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const ap = texas.controller.activePlayer!
     const leaver = texas.dealer.players.find((p) => p !== ap)!
     expect(leaver.getStatus()).toBe('eligible')
-    texas.dispatchCommand({
+    const ev = texas.dispatchCommand({
       type: 'FoldDueToLeave',
       playerId: leaver.getUserInfo().id
     })
-    const ev = texas.drainDomainEvents()
     expect(leaver.getStatus()).toBe('out')
     expect(texas.controller.status).toBe('in_hand')
     expect(ev.some((e) => e.type === 'PlayerActed')).toBe(true)
@@ -297,19 +274,16 @@ describe('entery', () => {
     texas.room.seat(p2)
     texas.room.seat(p3)
     texas.setPlayerRoles('initial')
-    texas.drainDomainEvents()
     texas.dealCards()
-    texas.drainDomainEvents()
-    texas.start()
-    texas.flushAllPendingFlowOps()
-    texas.drainDomainEvents()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     const ap = texas.controller.activePlayer!
-    texas.dispatchCommand({
-      type: 'FoldDueToLeave',
-      playerId: ap.getUserInfo().id
-    })
-    texas.flushAllPendingFlowOps()
-    const ev = texas.drainDomainEvents()
+    const ev = [
+      ...texas.dispatchCommand({
+        type: 'FoldDueToLeave',
+        playerId: ap.getUserInfo().id
+      }),
+      ...texas.flushAllPendingFlowOps()
+    ]
     const ended = ev.find((e) => e.type === 'TurnEnded')
     expect(
       ended &&
@@ -332,19 +306,14 @@ describe('entery', () => {
     texas.room.seat(texas.room.owner)
     texas.room.seat(p2)
     texas.setPlayerRoles('initial')
-    texas.drainDomainEvents()
     texas.dealCards()
-    texas.drainDomainEvents()
-    texas.start()
-    texas.flushAllPendingFlowOps()
-    texas.drainDomainEvents()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     const ap = texas.controller.activePlayer!
     const other = texas.dealer.players.find((p) => p !== ap)!
-    texas.dispatchCommand({
+    const ev = texas.dispatchCommand({
       type: 'FoldDueToLeave',
       playerId: other.getUserInfo().id
     })
-    const ev = texas.drainDomainEvents()
     expect(texas.controller.status).toBe('between_hands')
     expect(ev.some((e) => e.type === 'HandEnded')).toBe(true)
     teardownTexas = texas
@@ -368,25 +337,20 @@ describe('entery', () => {
     texas.room.seat(p3)
     texas.room.seat(p4)
     texas.setPlayerRoles('initial')
-    texas.drainDomainEvents()
     expect(texas.canFoldDueToLeave(99999)).toBe(false)
     expect(texas.canFoldDueToLeave(texas.room.owner.getUserInfo().id)).toBe(
       false
     )
     texas.dealCards()
-    texas.drainDomainEvents()
-    texas.start()
-    texas.flushAllPendingFlowOps()
-    texas.drainDomainEvents()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     const ap = texas.controller.activePlayer!
     const passive = texas.dealer.players.find((p) => p !== ap)!
     expect(texas.canFoldDueToLeave(ap.getUserInfo().id)).toBe(true)
     expect(texas.canFoldDueToLeave(passive.getUserInfo().id)).toBe(true)
-    texas.dispatchCommand({
+    void texas.dispatchCommand({
       type: 'FoldDueToLeave',
       playerId: passive.getUserInfo().id
     })
-    texas.drainDomainEvents()
     expect(texas.canFoldDueToLeave(passive.getUserInfo().id)).toBe(false)
     teardownTexas = texas
   })
@@ -408,13 +372,9 @@ describe('entery', () => {
     texas.room.seat(p3)
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
-    texas.drainDomainEvents()
     teardownTexas = texas
-    texas.start()
-    texas.drainDomainEvents()
-    texas.flushAllPendingFlowOps()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
-    texas.drainDomainEvents()
 
     const actor = texas.controller.activePlayer!
     const notActor = texas.dealer.players.find((p) => p !== actor)!
@@ -432,8 +392,7 @@ describe('entery', () => {
 
     texas.controller.end()
     texas.controller.settleRankingsThroughStage(StageEnum.RIVER)
-    texas.settle()
-    const payEv = texas.drainDomainEvents()
+    const payEv = texas.settle()
     expect(payEv.some((e) => e.type === 'PotAwarded')).toBe(true)
     const pot = payEv.find((e) => e.type === 'PotAwarded')
     expect(
@@ -455,39 +414,32 @@ describe('entery', () => {
     texas.room.seat(p2)
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
-    texas.drainDomainEvents()
     teardownTexas = texas
-    texas.start()
-    texas.drainDomainEvents()
-    texas.flushAllPendingFlowOps()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
-    texas.drainDomainEvents()
 
     const firstPf = texas.controller.activePlayer!
-    texas.dispatchCommand({
+    void texas.dispatchCommand({
       type: 'Call',
       playerId: firstPf.getUserInfo().id
     })
-    texas.drainDomainEvents()
-    texas.flushAllPendingFlowOps()
+    void texas.flushAllPendingFlowOps()
     const secondPf = texas.controller.activePlayer!
-    texas.dispatchCommand({
+    void texas.dispatchCommand({
       type: 'Check',
       playerId: secondPf.getUserInfo().id
     })
-    texas.drainDomainEvents()
-    texas.flushAllPendingFlowOps()
+    void texas.flushAllPendingFlowOps()
 
     expect(texas.controller.stage).toBe(StageEnum.FLOP)
     const firstOnFlop = texas.controller.activePlayer!
     expect(firstOnFlop).toBeDefined()
 
-    texas.dispatchCommand({
-      type: 'CheckDueToTimeout',
-      playerId: firstOnFlop.getUserInfo().id
-    })
     const uid = firstOnFlop.getUserInfo().id
-    const ev = texas.drainDomainEvents()
+    const ev = texas.dispatchCommand({
+      type: 'CheckDueToTimeout',
+      playerId: uid
+    })
     const turnEnded = ev.find(
       (e) =>
         e.type === 'TurnEnded' &&
@@ -522,15 +474,12 @@ describe('entery', () => {
       texas.room.seat(p3)
       texas.dealer.setButton(p1)
       texas.setPlayerRoles()
-      texas.drainDomainEvents()
       teardownTexas = texas
-      texas.start()
-      const afterStart = texas.drainDomainEvents()
+      const afterStart = texas.start()
       expect(afterStart.some((e) => e.type === 'TurnOffered')).toBe(false)
       expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
 
-      texas.flushPendingTurnHandoff()
-      const afterFlush = texas.drainDomainEvents()
+      const afterFlush = texas.flushPendingTurnHandoff()
       expect(afterFlush.some((e) => e.type === 'TurnOffered')).toBe(true)
       expect(texas.getPendingFlowOps()).toEqual([])
     } finally {
@@ -555,10 +504,8 @@ describe('entery', () => {
     texas.room.seat(p3)
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
-    texas.drainDomainEvents()
     teardownTexas = texas
-    texas.start()
-    texas.drainDomainEvents()
+    void texas.start()
     expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
 
     const ap = texas.controller.activePlayer!
@@ -572,8 +519,7 @@ describe('entery', () => {
       TexasCoreErrorCode.PLAYER_DISPATCH_TURN_NOT_OFFERED
     )
 
-    texas.flushPendingTurnHandoff()
-    texas.drainDomainEvents()
+    void texas.flushPendingTurnHandoff()
     expect(() =>
       texas.dispatchCommand({ type: 'Fold', playerId: ap.getUserInfo().id })
     ).not.toThrow()

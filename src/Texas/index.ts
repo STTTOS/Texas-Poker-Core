@@ -42,7 +42,9 @@ export type { TableCommand } from '@/domain/tableCommand'
 
 /**
  * 单桌会话：房间、奖池、荷官与 {@link Controller}。
- * 玩家行动走 {@link dispatchCommand}；规则产出经 {@link drainDomainEvents} 取出，进街/交权节奏由 {@link getPendingFlowOps} 队列 + 业务消费 API 驱动。
+ * 规则入口（{@link dispatchCommand}、`start`、`dealCards`、队列消费等）**同步返回**本步产生的
+ * {@link TexasDomainEvent}，与文档中 `apply → events[]` 形态对齐；仍可用 {@link drainDomainEvents} 取出
+ * 未经上述 API 消费的缓冲（少见）。进街/交权节奏由 {@link getPendingFlowOps} + `flush*` / `apply*` 驱动。
  */
 class Texas {
   pool: Pool
@@ -139,7 +141,9 @@ class Texas {
    * **移庄**：请局末在 `reset()` 解锁后显式 {@link rotateRolesForNewHand}，不再通过本方法 `rotate` 分支。
    * 不在此校验「全员 ≥ 大盲」；短码上桌见 {@link assertSeatedPlayersMeetBigBlind}（已废弃，仅业务自选）。
    */
-  setPlayerRoles(type: 'initial' | 'rearrange' = 'initial') {
+  setPlayerRoles(
+    type: 'initial' | 'rearrange' = 'initial'
+  ): TexasDomainEvent[] {
     if (type === 'initial') {
       this.room.initialRoles()
     } else {
@@ -157,6 +161,7 @@ class Texas {
       type: 'RolesAssigned',
       payload: { seq: this.#nextSessionSeq(), players }
     })
+    return this.drainDomainEvents()
   }
 
   /**
@@ -176,7 +181,7 @@ class Texas {
   }
 
   /** 发手牌并缓冲 `HoleCardsDealt`（会话级事件）。 */
-  dealCards() {
+  dealCards(): TexasDomainEvent[] {
     this.dealer.dealCards()
     const byUserId: Record<number, Poke[]> = {}
     for (const p of this.dealer.players) {
@@ -186,6 +191,7 @@ class Texas {
       type: 'HoleCardsDealt',
       payload: { seq: this.#nextSessionSeq(), byUserId }
     })
+    return this.drainDomainEvents()
   }
 
   lockSeats() {
@@ -200,7 +206,7 @@ class Texas {
    * 开始本手：`HandStarted` / 盲注等事件进入缓冲，且队列入队首人 `turn_handoff`。
    * 须随后 drain 并消费队列，首条 `TurnOffered` 才会出现。
    */
-  start() {
+  start(): TexasDomainEvent[] {
     if (this.room.getPlayersBySeatStatus('on-set').length < 2)
       this.fail(
         new TexasError(TexasCoreErrorCode.SESSION_START_MIN_SEATED, {
@@ -215,26 +221,30 @@ class Texas {
       this.fail(new TexasError(TexasCoreErrorCode.SESSION_START_NOT_IDLE))
 
     this.controller.start()
+    return this.drainDomainEvents()
   }
 
   /** 强制结束本手到 `between_hands`；状态校验由 {@link Controller.end} 负责（非 `in_hand` 时 `CTRL_END_NOT_IN_HAND`）。 */
-  end() {
+  end(): TexasDomainEvent[] {
     this.controller.end()
+    return this.drainDomainEvents()
   }
 
   /** 中央池分配给赢家并缓冲 `PotAwarded`（通常在解释 `HandEnded` 时调用）。 */
-  settle() {
+  settle(): TexasDomainEvent[] {
     const potTotal = this.pool.totalAmount
     this.pool.pay()
     const allocations = Array.from(this.pool.bills.entries()).map(
       ([userId, amount]) => ({ userId, amount })
     )
     this.controller.recordPotAwarded(potTotal, allocations)
+    return this.drainDomainEvents()
   }
 
   /** 委托 {@link Controller.flushPendingTurnHandoff}；队头非 `turn_handoff` 时 Controller 侧静默 no-op。 */
-  flushPendingTurnHandoff(): void {
+  flushPendingTurnHandoff(): TexasDomainEvent[] {
     this.controller.flushPendingTurnHandoff()
+    return this.drainDomainEvents()
   }
 
   /** 流程队列快照（`stage_advance` | `turn_handoff`），不改变状态。 */
@@ -243,13 +253,15 @@ class Texas {
   }
 
   /** 委托 {@link Controller.applyPendingStageAdvance}；队头错误时抛 `CTRL_FLOW_PENDING_MISMATCH`。 */
-  applyPendingStageAdvance(): void {
+  applyPendingStageAdvance(): TexasDomainEvent[] {
     this.controller.applyPendingStageAdvance()
+    return this.drainDomainEvents()
   }
 
   /** 委托 {@link Controller.drainPendingFlowOpsSync}；无 sleep，直至队列为空。 */
-  flushAllPendingFlowOps(): void {
+  flushAllPendingFlowOps(): TexasDomainEvent[] {
     this.controller.drainPendingFlowOpsSync()
+    return this.drainDomainEvents()
   }
 
   /**
@@ -283,7 +295,7 @@ class Texas {
    * 离场：`FoldDueToLeave`（**可非当前行动方**；当前方时 `TurnEnded.reason` 为 `leave`）；可先 {@link canFoldDueToLeave}。
    * 入座大盲：`PostBigBlind`（见 {@link Controller.postBigBlindForJoiningPlayer}）。
    */
-  dispatchCommand(cmd: TableCommand): void {
+  dispatchCommand(cmd: TableCommand): TexasDomainEvent[] {
     const playerId = cmd.playerId
     const actor = this.dealer.players.find(
       (p) => p.getUserInfo().id === playerId
@@ -346,6 +358,7 @@ class Texas {
         return _exhaustive
       }
     }
+    return this.drainDomainEvents()
   }
 
   /**
