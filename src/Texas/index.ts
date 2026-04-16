@@ -168,8 +168,8 @@ class Texas {
   }
 
   /**
-   * 局末/局间**移庄**并锁座（委托 {@link Room.rotateRoles} → `Dealer.rotateRolesForNewHand`）。
-   * 须在 **`Texas.reset()` 等已 `unlockSeats`** 且 `Room.status === 'seats_open'` 时调用；**不**经 `setPlayerRoles`。
+   * 局末/局间**移庄**（委托 {@link Room.rotateRoles} → `Dealer.rotateRolesForNewHand`），**不**改变 `Room.status`。
+   * 须在 **`Texas.reset()` 等已 `unlockSeats`**、`Room.status === 'seats_open'` 时调用；下一手开盘前由业务再 {@link lockSeats}。
    */
   rotateRolesForNewHand(): void {
     this.room.rotateRoles()
@@ -350,7 +350,7 @@ class Texas {
 
   /**
    * 清理奖池、荷官与本手控制器状态；并将房间 {@link Room.unlockSeats}，
-   * 以便局间可 `seat` / `watch` / `remove`，并可按需 {@link rotateRolesForNewHand} 后再 `setPlayerRoles`。
+   * 以便局间可 `seat` / `watch` / `remove`，并可按需 {@link rotateRolesForNewHand}、`reArrangeRoles`；下一手 `start()` 前须再由业务 {@link lockSeats}。
    */
   reset() {
     this.pool.reset()

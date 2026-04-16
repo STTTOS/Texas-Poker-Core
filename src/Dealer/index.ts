@@ -109,13 +109,6 @@ class Dealer implements GameComponent, PlayerDealerRing<Player> {
     this.#service.rotateRolesForNewHand()
   }
 
-  /**
-   * @deprecated 请使用 {@link Dealer.initialRoles}
-   */
-  setRoles() {
-    this.#service.setRoles()
-  }
-
   remove(player: Player): void {
     this.#table.remove(player)
     if (this.#table.count > 0 && this.#table.button) {

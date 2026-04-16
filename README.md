@@ -22,14 +22,14 @@ npm install texas-poker-core
 
 ## 核心对象一览
 
-| 对象         | 职责                                                                                                        |
-| ------------ | ----------------------------------------------------------------------------------------------------------- |
-| `Texas`      | 创建一桌、注册监听、`setPlayerRoles` / `dealCards` / `start` / `settle` / `reset` 等会话流程                |
-| `Room`       | 成员加入/观战/入座/离座、`initialRoles` / `rotateRoles`、房间 `RoomStatus`（`seats_open` / `seats_locked`） |
-| `Dealer`     | 盲注、庄家、角色顺序、发牌、行动历史（通常不直接给业务大量调用，多经 `Texas` / `Room`）                     |
-| `Controller` | 一手牌生命周期 `HandLifecycle`、当前街 `stage`、活跃玩家 `activePlayer`、阶段推进与终局                     |
-| `Pool`       | 奖池与支付（`texas.settle()` 时 `pool.pay()`）                                                              |
-| `Player`     | 单个座位的筹码、手牌、行动 `check` / `bet` / `call` / `raise` / `fold` / `allIn` 与 `getControl`            |
+| 对象         | 职责                                                                                                                              |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `Texas`      | 创建一桌、注册监听、`setPlayerRoles` / `dealCards` / `start` / `settle` / `reset` 等会话流程                                      |
+| `Room`       | 成员加入/观战/入座/离座、`initialRoles`（末 `lockSeats`）/ `rotateRoles`（不锁座）、`RoomStatus`（`seats_open` / `seats_locked`） |
+| `Dealer`     | 盲注、庄家、角色顺序、发牌、行动历史（通常不直接给业务大量调用，多经 `Texas` / `Room`）                                           |
+| `Controller` | 一手牌生命周期 `HandLifecycle`、当前街 `stage`、活跃玩家 `activePlayer`、阶段推进与终局                                           |
+| `Pool`       | 奖池与支付（`texas.settle()` 时 `pool.pay()`）                                                                                    |
+| `Player`     | 单个座位的筹码、手牌、行动 `check` / `bet` / `call` / `raise` / `fold` / `allIn` 与 `getControl`                                  |
 
 ---
 
@@ -45,8 +45,8 @@ npm install texas-poker-core
 | `between_hands`  | 本手已结束，**尚未** `reset`；可做摊牌展示、结算入库等     |
 | `aborted`        | 预留                                                       |
 
-**开下一手**：`Texas.start()` 要求 `controller.status === 'idle'`，因此本手结束后需先 `texas.settle()`（按需）、再 `texas.reset()`（或 `resetBeforeGameStart()`，会 `unlockSeats`），再按需 `texas.rotateRolesForNewHand()`（移庄并锁座）、`texas.setPlayerRoles('initial' | 'rearrange')`、`dealCards()`、`start()`。  
-**离座 / 入座**：`Room.seat` / `watch` / `remove` 仅在 `Room.status === 'seats_open'` 时允许（`initialRoles` / `rotateRoles` 会锁座；**`Texas.reset()` 收尾后会 `unlockSeats()`**）。
+**开下一手**：`Texas.start()` 要求 `controller.status === 'idle'` 且 **`Room.status === 'seats_locked'`**，因此本手结束后需先 `texas.settle()`（按需）、再 `texas.reset()`（会 `unlockSeats`），再按需 `texas.rotateRolesForNewHand()`（**仅移庄、不锁座**）；局间可 `seat`/`remove` 并 `reArrangeRoles()`；**下一手开盘前**（如倒计时 2s）由业务 `texas.lockSeats()`，再 `setPlayerRoles('rearrange')`（若需 `RolesAssigned`）、`dealCards()`、`start()`。  
+**离座 / 入座**：`Room.seat` / `watch` / `remove`（已入座者）仅在 `Room.status === 'seats_open'` 时允许（**`initialRoles` 末会锁座**；**`rotateRoles` 不锁座**；**`Texas.reset()` 会 `unlockSeats()`**；下一手前再由业务 **`lockSeats()`**）。
 
 ---
 
@@ -121,7 +121,7 @@ await texas.start()
 ```ts
 texas.settle() // pool.pay()，按引擎规则分配边池
 texas.reset() // pool + dealer + controller 清理，controller → idle，并 unlockSeats
-// 下一手（示意）：rotateRolesForNewHand（若需移庄）→ setPlayerRoles('initial'|'rearrange') → dealCards → start()
+// 下一手（示意）：reset(unlock) → rotateRolesForNewHand(移庄) → …局间 seat/reArrange… → lockSeats → setPlayerRoles('rearrange')? → dealCards → start()
 ```
 
 ---
@@ -149,7 +149,7 @@ texas.reset() // pool + dealer + controller 清理，controller → idle，并 u
 - `seat` / `seatById`：上桌（须 `seats_open`）
 - `watch` / `watchById`：回观战（须 `seats_open`）
 - `remove` / `removeById`：离房；**仅观战（`hang`）锁座时也可离房**；**已入座**须 `seats_open`（**房主需业务先 `setOwner` 再 remove**）
-- `initialRoles` / `rotateRoles`：分配或轮换盲注位与庄家，并 **lockSeats**
+- `initialRoles`：定庄 + 盲位并 **lockSeats**；`rotateRoles`：局间移庄，**不** lock（下一手前由业务 `lockSeats`）
 - `lockSeats` / `unlockSeats`：显式锁/解锁（`Texas.reset()` 会在一手收尾后 `unlockSeats`）
 - `setOwner` / `setOwnerById` / `getBaseInfo` / `getPlayerById` / `getPlayersBySeatStatus` 等
 

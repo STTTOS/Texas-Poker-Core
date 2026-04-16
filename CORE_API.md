@@ -19,7 +19,7 @@
 ### `Texas`
 
 - **`setPlayerRoles(type)`**：`type === 'initial'` 时仅 `Room.initialRoles`（定庄 + `setOthers` + 锁座），**不**调 `reArrangeRoles`；`type === 'rearrange'` 时仅 `reArrangeRoles()`（须已有庄位）；二者都会缓冲 **`RolesAssigned`**。局末移庄请用 **`rotateRolesForNewHand()`**（委托 `Room.rotateRoles`）。
-- **`rotateRolesForNewHand()`**：`reset` 解锁后、下一手起手前按需调用；移庄并再次锁座。
+- **`rotateRolesForNewHand()`**：`reset` 解锁后、局间按需调用；**仅移庄**（`Dealer.rotateRolesForNewHand`），**不** `lockSeats`。下一手开盘前（如倒计时末）由业务调用 **`lockSeats()`**。
 - **`reArrangeRoles()`**：委托 `dealer.reArrangeRoles()`，按当前庄与人数重算角色；`Dealer.join` / `remove` 在环变化后**已**各调一次；业务可在批量 `seat`/`remove` 后**再**显式调用以便统一向客户端推角色（**不**缓冲 `RolesAssigned` 会话事件，与 `setPlayerRoles` 不同）。
 - **`dispatchCommand({ type: 'PostBigBlind', playerId })`**：翻前、非当前 `activePlayer`、本街 `currentStageTotalAmount === 0` 且 `eligible` 时，按 `stakes.bigBlind` 贴盲（`min(BB, 余额)`），缓冲 **`PostedBigBlind`** + **`PotUpdated`**；不交权、金额不由业务传参。
 - **`dispatchCommand({ type: 'FoldDueToLeave', playerId })`**：离场立即弃牌。**非当前行动方**时不走 `completeBettingTurn`，只标记 `out` 并 `tryToEndGame`（如 HU 对方独赢）；**当前行动方**时等同带 `skipTurnOfferRequirement` 的弃牌，`TurnEnded.reason` 为 **`leave`**（与超时 `timeout` 区分）。已 `out` 时幂等无操作。`allIn` 不可弃（`PLAYER_CANNOT_FOLD`）。

@@ -8,7 +8,7 @@ import TexasError, {
   type TexasErrorCode
 } from '@/TexasError'
 
-/** 座位/角色是否已由 `initialRoles` / `rotateRoles` 锁定；与 {@link Controller} 生命周期解耦 */
+/** 座位变更是否允许：`seats_locked` 在 {@link Room.initialRoles} 末尾设置；`rotateRoles` 不锁座。与 {@link Controller} 生命周期解耦 */
 export type RoomStatus = 'seats_locked' | 'seats_open'
 export type PlayerSeatStatus = 'hang' | 'on-set'
 
@@ -104,10 +104,9 @@ class Room implements GameComponent {
   rotateRoles() {
     this.#beforeSetRoles()
     this.#dealer.rotateRolesForNewHand()
-    this.lockSeats()
   }
 
-  /** 与 `unlockSeats` 成对；`initialRoles` / `rotateRoles` 内部也会调用 */
+  /** 与 `unlockSeats` 成对；`initialRoles` 末尾会调用；局间移庄见 {@link Room.rotateRoles}（不调用本方法） */
   lockSeats() {
     this.#status = 'seats_locked'
   }

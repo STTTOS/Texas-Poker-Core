@@ -146,7 +146,7 @@ describe('entery', () => {
     const beforeId = texas.dealer.button!.getUserInfo().id
     texas.reset()
     texas.rotateRolesForNewHand()
-    expect(texas.room.status).toBe('seats_locked')
+    expect(texas.room.status).toBe('seats_open')
     expect(texas.dealer.button!.getUserInfo().id).not.toBe(beforeId)
     teardownTexas = texas
   })

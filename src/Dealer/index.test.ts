@@ -77,7 +77,7 @@ describe('dealer', () => {
         pot: pool
       })
     )
-    dealer.setRoles()
+    dealer.initialRoles()
     dealer.dealCards()
     controller.settleRankingsThroughStage(StageEnum.RIVER)
 
