@@ -1,30 +1,16 @@
 import type { Player } from './index'
 
 import { ActionTypeEnum } from './constant'
-import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
 /**
- * 街道下注动作的执行细节（校验、记池、荷官历史、trace、回调顺序）。
+ * 街道下注动作的执行细节（校验、记池、荷官行动历史、领域事件顺序）。
  * `Texas#dispatchCommand` / 仿真路径委托至此；盲注由 Controller 调 `executeBet(..., preFlopDefaultAction)`。
  */
 
 /** 透传至 {@link Player.checkIfCanAct}；仅超时代指令需 `skipTurnOfferRequirement`。 */
 export type ActValidationOptions = {
   skipTurnOfferRequirement?: boolean
-}
-
-function tracePlayerAction(
-  name: string,
-  actor: Player,
-  extra?: Record<string, unknown>
-) {
-  const { id, name: userName } = actor.getUserInfo()
-  TexasEngineContext.emitTrace({
-    channel: 'player',
-    name,
-    data: { userId: id, name: userName, ...extra }
-  })
 }
 
 export function executeCheck(actor: Player, act?: ActValidationOptions): void {
@@ -37,7 +23,6 @@ export function executeCheck(actor: Player, act?: ActValidationOptions): void {
   actor.assignCurrentStreetAction({ type: ActionTypeEnum.CHECK })
   actor.notifyDealerActionHistory()
   actor.notifyActionCommitted({ emitPot: false })
-  tracePlayerAction('check', actor)
   actor.completeBettingTurn()
 }
 
@@ -52,7 +37,6 @@ export function executeFold(actor: Player, act?: ActValidationOptions): void {
   actor.setStatus('out')
   actor.notifyDealerActionHistory()
   actor.notifyActionCommitted({ emitPot: false })
-  tracePlayerAction('fold', actor)
   actor.completeBettingTurn()
 }
 
@@ -75,8 +59,6 @@ export function executeFoldDueToLeavePassive(actor: Player): void {
   actor.setStatus('out')
   actor.notifyDealerActionHistory()
   actor.notifyPassiveFoldLeaveCommitted()
-  tracePlayerAction('fold_leave_passive', actor)
-
   void actor.tryHandSessionEndGame()
 }
 
@@ -127,10 +109,6 @@ export function executeBet(
     payload: { value: committed }
   })
   actor.appendChipsToPot(committed)
-  tracePlayerAction('bet', actor, {
-    money: committed,
-    balance: actor.balance
-  })
   actor.notifyDealerActionHistory()
 
   if (!skipDomainEvents) {
@@ -191,7 +169,6 @@ export function executeRaise(
   })
   actor.notifyDealerActionHistory()
   actor.notifyActionCommitted({ emitPot: true })
-  tracePlayerAction('raise', actor, { money: additionalChips })
   actor.completeBettingTurn()
 }
 
@@ -234,7 +211,6 @@ export function executeCall(actor: Player, act?: ActValidationOptions): void {
   actor.appendChipsToPot(chipsToMatch)
   actor.notifyDealerActionHistory()
   actor.notifyActionCommitted({ emitPot: true })
-  tracePlayerAction('call', actor, { moneyShouldPay: chipsToMatch })
   actor.completeBettingTurn()
 }
 
@@ -276,10 +252,6 @@ export function executeAllIn(
   if (!skipDomainEvents) {
     actor.notifyActionCommitted({ emitPot: true })
   }
-  tracePlayerAction('all_in', actor, {
-    moneyShouldPay: chipsToCommit,
-    balance: actor.balance
-  })
   if (!skipTurnValidation) {
     actor.completeBettingTurn()
   }

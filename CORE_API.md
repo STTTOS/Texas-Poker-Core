@@ -6,9 +6,8 @@
 
 ### 进程级配置 `TexasEngineContext` / `Texas.configureEngine`
 
-- **`Texas.configureEngine(patch)`**（等同 `TexasEngineContext.configure`）：应用启动时注册 **trace**、**simulation** 等。
+- **`Texas.configureEngine(patch)`**（等同 `TexasEngineContext.configure`）：应用启动时注册 **simulation** 等（**不含**库内 trace；观测请对领域事件或指令在业务层落库/打日志）。
 - **`Texas.resetEngineContext()`**（等同 `TexasEngineContext.reset`）：单测中恢复默认（`jest.setup.ts` 已 `beforeEach` 调用）。
-- **`trace?: (e: TexasTraceEvent) => void`**：替代库内 `console.log`，由应用自行写日志。
 - **`simulation`**：对齐旧 `PROJECT_ENV=dev` 的可选行为，例如：
   - `resetDealerBeforeHandStart`（旧 Controller dev 开局前 `dealer.reset`）
   - `allowSingleSeatedPlayer`（旧 Dealer 仅 1 人环形桌）

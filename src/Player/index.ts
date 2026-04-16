@@ -472,12 +472,9 @@ export class Player implements GameComponent {
       this.#userInfo.name || this.#userInfo.id
     };balance: ${this.balance}`
   }
+  /** 调试用字符串；观测请用业务层对领域事件或指令的日志。 */
   log(prefix: string = '') {
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'log',
-      data: { line: prefix + this.toString() }
-    })
+    void prefix
   }
 
   /** 手牌唯一存于荷官侧快照，经 {@link Dealer.getHoleCardsForPlayer} 按座位解析 */
@@ -488,12 +485,6 @@ export class Player implements GameComponent {
   earn(money: number) {
     this.#balance += money
     this.#wager = money - this.totalBetAmount
-
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'earn',
-      data: { userId: this.#userInfo.id, name: this.#userInfo.name, money }
-    })
   }
 
   // 游戏推进到下个阶段后, 需要将此字段清空
@@ -581,15 +572,6 @@ export class Player implements GameComponent {
       return
     }
     const allowed = this.#getAllowedActions()
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'default_action',
-      data: {
-        userId: this.#userInfo.id,
-        name: this.#userInfo.name,
-        allowedActions: allowed
-      }
-    })
     if (allowed.includes(ActionTypeEnum.CHECK)) {
       executeCheck(this)
     } else {

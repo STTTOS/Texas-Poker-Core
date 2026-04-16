@@ -71,15 +71,6 @@ export class DealerService implements GameComponent {
     if (!this.#table.button)
       return this.fail(new TexasError(TexasCoreErrorCode.DEALER_NO_BUTTON))
 
-    TexasEngineContext.emitTrace({
-      channel: 'dealer',
-      name: 'deal_cards_players',
-      data: {
-        players: this.#table.map(
-          (player) => roleMap.get(player.getRole()!) + ': ' + player.toString()
-        )
-      }
-    })
     const snapshot = this.#deck.dealCards(this.#table.count)
     this.#dealtBoard.capture(snapshot)
   }
@@ -159,11 +150,6 @@ export class DealerService implements GameComponent {
           role ? roleMap.get(role) : 'unSettled'
         }:  ${player.toString()}; 手牌: ${formatterPoke(player.getHandPokes())}`
       )
-    })
-    TexasEngineContext.emitTrace({
-      channel: 'dealer',
-      name: 'table_snapshot',
-      data: { lines }
     })
   }
 

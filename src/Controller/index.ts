@@ -147,12 +147,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   recordTurnOffered(player: Player): void {
     const allowedActions = [...player.getAllowedActions()]
     const restrict = player.getRestrict()
-    const { id: userId, name } = player.getUserInfo()
-    TexasEngineContext.emitTrace({
-      channel: 'player',
-      name: 'got_control',
-      data: { userId, name }
-    })
+    const { id: userId } = player.getUserInfo()
     this.#handEvents.push({
       type: 'TurnOffered',
       payload: {
@@ -170,7 +165,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return this.#dealer.every((pl) => !pl.actionable())
   }
 
-  /** 河牌摊牌：`settle` + `end` + `HandEnded(showdown)` + trace（与跑马路最后一跳共用）。 */
+  /** 河牌摊牌：`settle` + `end` + `HandEnded(showdown)`（与跑马路最后一跳共用）。 */
   #emitShowdownHandEnded(stageForCurrentPayload: Stage): void {
     this.#settle()
     this.end()
@@ -191,14 +186,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         bestPokes: pokes,
         bestRankCategory: rankCategory,
         bestRankStrength: rankStrength
-      }
-    })
-    TexasEngineContext.emitTrace({
-      channel: 'controller',
-      name: 'hand_end_showdown',
-      data: {
-        lastActionStage: stageForCurrentPayload,
-        endStage
       }
     })
   }
@@ -393,15 +380,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         ...stagePayload
       }
     })
-    TexasEngineContext.emitTrace({
-      channel: 'controller',
-      name: 'stage_changed',
-      data: {
-        from: currentStage,
-        to: nextStage,
-        byUserId: this.#hand.activePlayer?.getUserInfo().id
-      }
-    })
     this.resetActivePlayer()
 
     this.transferControlTo(this.#dealer.getTheFirstPlayerToAct())
@@ -463,14 +441,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
           currentStage: endStage,
           endStage,
           showHandPokes: false
-        }
-      })
-      TexasEngineContext.emitTrace({
-        channel: 'controller',
-        name: 'hand_end_fold_win',
-        data: {
-          lastActionStage: endStage,
-          endStage
         }
       })
       return true

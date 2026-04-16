@@ -1,8 +1,6 @@
 import { Player } from '@/Player'
-import { TexasEngineContext } from '@/TexasEngineContext'
 import { Poke, RankCategory, RankSignature } from '@/Deck/constant'
 import {
-  formatterPoke,
   getBestFiveCards,
   getFiveCardsRankSignature,
   getStrengthFromRankSignature
@@ -92,13 +90,5 @@ export class HandSettlement {
     })
 
     this.#snapshot = this.#snapshotFromShowdownPlayers(playersStillInShowdown)
-
-    TexasEngineContext.emitTrace({
-      channel: 'dealer',
-      name: 'settle_common_pokes',
-      data: {
-        commonPokes: formatterPoke(commonPokes)
-      }
-    })
   }
 }

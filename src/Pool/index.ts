@@ -6,10 +6,8 @@ import { equals } from 'ramda'
 import { Player } from '@/Player'
 import { sum, filterMap } from '@/utils'
 import { getWinners } from './getWinners'
-import { formatterPoke } from '@/Deck/core'
 import { StreetBetLedger } from './StreetBetLedger'
 import allocatePoolByInt from './allocatePoolByInt'
-import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
 class Pool implements GameComponent, StreetPotSink<Player> {
@@ -155,30 +153,6 @@ class Pool implements GameComponent, StreetPotSink<Player> {
    */
   settle() {
     this.calculate()
-
-    TexasEngineContext.emitTrace({
-      channel: 'pool',
-      name: 'settle_rankings',
-      data: {
-        players: Array.from(this.#players).map((player) => ({
-          name: player.getUserInfo().name,
-          rankSignature: player.rankSignature,
-          hand: formatterPoke(player.getHandPokes())
-        }))
-      }
-    })
-    TexasEngineContext.emitTrace({
-      channel: 'pool',
-      name: 'settle_pots',
-      data: {
-        pots: Array.from(this.#pots.entries()).map(
-          ([players, amount]) =>
-            `(${Array.from(players)
-              .map((player) => player.getUserInfo().name)
-              .join(',')})` + amount
-        )
-      }
-    })
 
     // 记录需要给每个玩家支付多少Money
     const result: Map<Player, number> = new Map()

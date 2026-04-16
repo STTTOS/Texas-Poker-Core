@@ -16,6 +16,11 @@ import { StreetBetLedger } from './Pool/StreetBetLedger'
 import { roleMap, ActionTypeMap } from './Player/constant'
 import { DealtBoard, type DealSnapshot } from './Deck/DealtBoard'
 import {
+  TexasEngineContext,
+  type TexasSimulationFlags,
+  type TexasEngineGlobalOptions
+} from '@/TexasEngineContext'
+import {
   RoomStatus,
   default as Room,
   PlayerSeatStatus,
@@ -29,12 +34,6 @@ import Controller, {
   type PendingFlowOpKind,
   type ShowdownPlayerEval
 } from './Controller'
-import {
-  TexasEngineContext,
-  type TexasTraceEvent,
-  type TexasSimulationFlags,
-  type TexasEngineGlobalOptions
-} from '@/TexasEngineContext'
 import {
   User,
   Role,
@@ -120,7 +119,6 @@ export {
   isPlayerEligibleForStreetBetting,
   type TexasEngineGlobalOptions,
   type TexasSimulationFlags,
-  type TexasTraceEvent,
   /** @deprecated 旧版宽泛 code 类型，请逐步迁移到 TexasErrorCode */
   type TexasErrorCodeLegacy,
   CurrentHand
@@ -153,5 +151,11 @@ export {
   captureTableSnapshot
 } from './engine'
 export type { TableSnapshot, TablePlayerSnapshot } from './engine'
+
+export type { PersistedDomainEventRow, DomainEventStore } from './replay'
+export {
+  toPersistedDomainEventRows,
+  createInMemoryDomainEventStore
+} from './replay'
 
 export type { PreAction } from './gameContracts'
