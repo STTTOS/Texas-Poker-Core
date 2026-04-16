@@ -18,6 +18,7 @@ import type {
 import Pool from '../Pool'
 import Dealer from '../Dealer'
 import { Player } from '../Player'
+import { Poke } from '@/Deck/constant'
 import { CurrentHand } from '@/Hand/CurrentHand'
 import { executeBet } from '../Player/handBettingActions'
 import { TexasEngineContext } from '@/TexasEngineContext'
@@ -111,10 +112,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return this.#hand.settlement.getPlayerEval(player.id)
   }
 
-  get endAt() {
-    return this.#hand.boardThroughStage
-  }
-
   get activePlayer() {
     return this.#hand.activePlayer
   }
@@ -180,10 +177,8 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
 
     const { rankCategory, pokes, rankStrength } = this.#hand.settlement.snapshot
 
-    const pokesRevealed = this.getCommonPokes(
-      StageEnum.PRE_FLOP,
-      this.#hand.boardThroughStage
-    )
+    const endStage = this.#hand.stage
+    const pokesRevealed = this.getRevealedPokes()
     this.#handEvents.push({
       type: 'HandEnded',
       payload: {
@@ -191,7 +186,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         outcome: 'showdown',
         pokesRevealed,
         currentStage: stageForCurrentPayload,
-        endStage: this.#hand.boardThroughStage,
+        endStage,
         showHandPokes: true,
         bestPokes: pokes,
         bestRankCategory: rankCategory,
@@ -203,7 +198,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       name: 'hand_end_showdown',
       data: {
         lastActionStage: stageForCurrentPayload,
-        boardThroughStage: this.#hand.boardThroughStage
+        endStage
       }
     })
   }
@@ -276,11 +271,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     if (stage === StageEnum.FLOP) return 3
     if (stage === StageEnum.TURN) return 4
     if (stage === StageEnum.RIVER) return 5
-  }
-
-  /** 获取游戏结束阶段时的公共牌*/
-  getCommonPokesWhenGameEnd() {
-    return this.getCommonPokes(StageEnum.PRE_FLOP, this.#hand.boardThroughStage)
   }
 
   /**
@@ -418,7 +408,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   /**
-   * 摊牌跑马路一步：推进 `stage`/`boardThroughStage` 并 `StageAdvanced(runout_reveal)`；到河牌则 settle、`HandEnded`。
+   * 摊牌跑马路一步：推进 `stage` 并 `StageAdvanced(runout_reveal)`；到河牌则 settle、`HandEnded`。
    */
   #applyOneRunoutRevealStep(): void {
     const index = STAGE_ORDER.findIndex((s) => s === this.#hand.stage)
@@ -430,7 +420,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     const from = this.#hand.stage
     const to = STAGE_ORDER[index + 1]
     this.#hand.stage = to
-    this.#hand.boardThroughStage = to
     const pokes = this.getCommonPokes(from, to)
     this.#handEvents.push({
       type: 'StageAdvanced',
@@ -460,22 +449,19 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
    */
   tryToEndGame() {
     if (this.#isWinByExclusiveFold()) {
-      this.#hand.boardThroughStage = this.#hand.stage
+      const endStage = this.#hand.stage
       this.#settle()
       this.end()
 
-      const pokesRevealed = this.getCommonPokes(
-        StageEnum.PRE_FLOP,
-        this.#hand.boardThroughStage
-      )
+      const pokesRevealed = this.getRevealedPokes()
       this.#handEvents.push({
         type: 'HandEnded',
         payload: {
           ...this.#eventMeta(),
           outcome: 'fold_win',
           pokesRevealed,
-          currentStage: this.#hand.stage,
-          endStage: this.#hand.boardThroughStage,
+          currentStage: endStage,
+          endStage,
           showHandPokes: false
         }
       })
@@ -483,8 +469,8 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         channel: 'controller',
         name: 'hand_end_fold_win',
         data: {
-          lastActionStage: this.#hand.stage,
-          boardThroughStage: this.#hand.boardThroughStage
+          lastActionStage: endStage,
+          endStage
         }
       })
       return true
@@ -507,7 +493,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         this.resetActivePlayer()
         return true
       }
-      this.#hand.boardThroughStage = StageEnum.RIVER
 
       this.#emitShowdownHandEnded(stageBeforeRunout)
       return true
@@ -516,7 +501,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return false
   }
 
-  getCommonPokes(currentStage: Stage, endStage: Stage) {
+  getCommonPokes(currentStage: Stage, endStage: Stage): Poke[] {
     if (currentStage === endStage) return []
 
     const commonPokes = this.#dealer.getPokes().commonPokes
@@ -524,6 +509,11 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       this.#getPokeEndIndex(currentStage),
       this.#getPokeEndIndex(endStage)
     )
+  }
+
+  /** 当前手牌阶段下已发出的公牌（翻前 → `#hand.stage`）。 */
+  getRevealedPokes(): Poke[] {
+    return this.getCommonPokes(StageEnum.PRE_FLOP, this.#hand.stage)
   }
 
   /** 翻前强制贴盲：实际入池 `min(规定额, 当前余额)`，与盲注路径 `executeBet` 一致。 */
@@ -656,7 +646,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#runoutStageBefore = null
     this.#hand.status = 'in_hand'
     this.#hand.stage = StageEnum.PRE_FLOP
-    this.#hand.boardThroughStage = StageEnum.PRE_FLOP
 
     if (TexasEngineContext.simulation().resetDealerBeforeHandStart) {
       this.#dealer.reset()
@@ -676,8 +665,13 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   settleRankingsThroughStage(throughStage: Stage) {
-    this.#hand.boardThroughStage = throughStage
-    this.#settle()
+    const saved = this.#hand.stage
+    this.#hand.stage = throughStage
+    try {
+      this.#settle()
+    } finally {
+      this.#hand.stage = saved
+    }
   }
 
   end() {
@@ -689,11 +683,11 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   #settle() {
-    const commonPokesWhenGameEnd = this.getCommonPokesWhenGameEnd()
+    const commonPokes = this.getRevealedPokes()
     this.#hand.settlement.settleFromCommonBoard(
       this.#dealer.players,
       this.#dealer.getPlayersStillInGame(),
-      commonPokesWhenGameEnd
+      commonPokes
     )
   }
   resetActivePlayer() {
