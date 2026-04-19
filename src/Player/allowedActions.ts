@@ -3,6 +3,7 @@ import TexasError, { type TexasErrorCode } from '@/TexasError'
 
 /**
  * 纯函数：根据桌面公开状态推导当前玩家允许的行动列表（与倒计时、回调无关）。
+ * 输入可由 {@link Player#getAllowedActionsContext} 构造，便于单测与机器人与 `Player` 解耦。
  */
 export type AllowedActionsContext = {
   /** 仍在底池争胜且可参与下注轮（思考权以 `Controller.activePlayer` 为准，不由状态位表达） */

@@ -12,11 +12,14 @@ import type {
 
 import { getRandomInt } from '@/utils'
 import { StageEnum } from '@/Controller/stage'
-import { resolveAllowedActions } from './allowedActions'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { Poke, RankCategory, RankSignature } from '../Deck/constant'
 import { roleMap, RoleEnum, type Role, ActionTypeEnum } from './constant'
+import {
+  resolveAllowedActions,
+  type AllowedActionsContext
+} from './allowedActions'
 import {
   executeBet,
   executeCall,
@@ -51,6 +54,10 @@ export interface User {
 }
 export type { Role } from './constant'
 export { RoleEnum } from './constant'
+export {
+  resolveAllowedActions,
+  type AllowedActionsContext
+} from './allowedActions'
 
 /**
  * 玩家
@@ -185,18 +192,25 @@ export class Player implements GameComponent {
   }
 
   /**
-   * @description 获取玩家允许的行动列表
-   * 防止预期外的行为
+   * 供 {@link resolveAllowedActions} 与单测/工具复用的只读输入切片（无倒计时、无 I/O）。
    */
-  #getAllowedActions(): Array<ActionType> {
-    return resolveAllowedActions({
+  getAllowedActionsContext(): AllowedActionsContext {
+    return {
       selfStatus: this.#status,
       selfBalance: this.balance,
       selfCurrentStageTotal: this.#currentStageTotalAmount,
       dealerActionHistory: this.#dealerRing.actionHistory,
       maxOthersStageBet: this.getMaxOthersStageBet(),
       isBigBlindPreFlopOption: this.#isBigBlindOptionInPreFlop()
-    })
+    }
+  }
+
+  /**
+   * @description 获取玩家允许的行动列表
+   * 防止预期外的行为
+   */
+  #getAllowedActions(): Array<ActionType> {
+    return resolveAllowedActions(this.getAllowedActionsContext())
   }
 
   /**

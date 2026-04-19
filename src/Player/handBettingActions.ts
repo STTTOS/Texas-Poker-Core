@@ -5,6 +5,7 @@ import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { voluntaryActionDisallowError } from './allowedActions'
 import { resolveCallChipsOrError } from './resolveCallChipsOrError'
 import { resolveRaiseAdditionalOrError } from './resolveRaiseAdditionalOrError'
+import { resolveVoluntaryBetChipOrError } from './resolveVoluntaryBetChipOrError'
 
 /**
  * 街道下注动作的执行细节（校验、记池、荷官行动历史、领域事件顺序）。
@@ -79,6 +80,7 @@ export function executeBet(
   skipDomainEvents = false,
   act?: ActValidationOptions
 ): number | void {
+  let committed: number
   if (!preFlopDefaultAction) {
     actor.checkIfCanAct(act)
     const allowed = actor.getAllowedActions()
@@ -88,29 +90,17 @@ export function executeBet(
       TexasCoreErrorCode.PLAYER_CANNOT_BET
     )
     if (denyBet) return actor.fail(denyBet)
-  }
 
-  if (!preFlopDefaultAction && chipAmount > actor.balance) {
-    return actor.fail(
-      new TexasError(TexasCoreErrorCode.PLAYER_BET_EXCEEDS_BALANCE, {
-        money: chipAmount,
-        balance: actor.balance
-      })
-    )
-  }
-
-  /** 盲注允许「不足额」：实际下注入池为 min(规定盲注, 当前余额)。自愿下注仍走上方超额校验。 */
-  const committed = preFlopDefaultAction
-    ? Math.min(chipAmount, actor.balance)
-    : chipAmount
-
-  if (committed < actor.lowestBetAmount && !preFlopDefaultAction) {
-    return actor.fail(
-      new TexasError(TexasCoreErrorCode.PLAYER_BET_BELOW_BB, {
-        money: committed,
-        lowestBetAmount: actor.lowestBetAmount
-      })
-    )
+    const betSizing = resolveVoluntaryBetChipOrError({
+      chipAmount,
+      selfBalance: actor.balance,
+      lowestBetAmount: actor.lowestBetAmount
+    })
+    if (!betSizing.ok) return actor.fail(betSizing.error)
+    committed = betSizing.committed
+  } else {
+    /** 盲注允许「不足额」：实际下注入池为 min(规定盲注, 当前余额)。 */
+    committed = Math.min(chipAmount, actor.balance)
   }
   if (committed === actor.balance) {
     return executeAllIn(actor, skipDomainEvents, preFlopDefaultAction, act)

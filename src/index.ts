@@ -44,6 +44,8 @@ import {
   ActionTypeEnum,
   type PlayerStatus,
   default as Player,
+  resolveAllowedActions,
+  type AllowedActionsContext,
   isPlayerEligibleForStreetBetting
 } from './Player'
 import TexasError, {
@@ -116,6 +118,8 @@ export {
   Texas,
   OnlineStatus,
   type PlayerStatus,
+  type AllowedActionsContext,
+  resolveAllowedActions,
   isPlayerEligibleForStreetBetting,
   type TexasEngineGlobalOptions,
   type TexasSimulationFlags,

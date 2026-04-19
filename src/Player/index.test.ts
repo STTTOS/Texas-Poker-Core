@@ -3,6 +3,7 @@ import Pool from '@/Pool'
 import { Player } from '.'
 import Dealer from '@/Dealer'
 import Controller from '@/Controller'
+import { resolveAllowedActions } from './allowedActions'
 import { executeCall, executeFold, executeAllIn } from './handBettingActions'
 
 describe('class Player', () => {
@@ -301,6 +302,58 @@ describe('class Player', () => {
       p2.currentStageTotalAmount = 1000
 
       expect(p1.getRestrict().min).toBe(600)
+    })
+  })
+
+  describe('getAllowedActionsContext', () => {
+    test('resolveAllowedActions(context) matches getAllowedActions', () => {
+      const dealer = new Dealer(1000)
+      const pool = new Pool()
+      const controller = new Controller(dealer, pool)
+      const p1 = new Player({
+        user: { id: 1, name: 'a' },
+        initialChips: 18_000,
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
+      })
+      const p2 = new Player({
+        user: { id: 2, name: 'b' },
+        initialChips: 5000,
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
+      })
+      const p3 = new Player({
+        user: { id: 3, name: 'c' },
+        initialChips: 10_000,
+        stakes: dealer.stakes,
+        handSession: controller,
+        dealerRing: dealer,
+        pot: pool
+      })
+      const room = new Room({
+        dealer,
+        owner: p1,
+        initialChips: 18_000
+      })
+      room.seat(p1)
+      room.join(p2)
+      room.join(p3)
+      room.seat(p2)
+      room.seat(p3)
+      room.initialRoles(p3)
+      teardownController = controller
+      controller.start()
+      controller.drainHandEvents()
+      controller.drainPendingFlowOpsSync()
+
+      const probe = controller.activePlayer!
+      expect(resolveAllowedActions(probe.getAllowedActionsContext())).toEqual(
+        probe.getAllowedActions()
+      )
     })
   })
 })
