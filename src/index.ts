@@ -179,7 +179,9 @@ export {
   peekPendingFlowOp,
   simulateDequeuePendingHeadIfMatches,
   captureSeatUserIdsInActionOrder,
+  CANONICAL_TABLE_SESSION_JSON_SCHEMA_VERSION,
   cloneTableSnapshot,
+  parseCanonicalTableSessionFromJson,
   reduceCanonicalTableSession
 } from './engine'
 export type {
