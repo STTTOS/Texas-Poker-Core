@@ -8,6 +8,10 @@ export type { TablePlayerSnapshot, TableSnapshot } from './tableSnapshot'
 export { captureTableSnapshot } from './tableSnapshot'
 export type { ApplyTableCommandResult } from './applyTableCommand'
 export {
+  pendingFlowOpsAllowVoluntaryDispatch,
+  peekPendingFlowOp
+} from './pendingFlowReadModel'
+export {
   applyTableCommand,
   applyTableCommandThenFlushAllPendingFlowOps
 } from './applyTableCommand'

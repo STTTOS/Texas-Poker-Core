@@ -173,7 +173,9 @@ export {
   reduceLastHoleCardsDealtFromDomainEvents,
   captureHandReduceProjection,
   applyVoluntaryTableCommand,
-  applyFoldOrCheckCommand
+  applyFoldOrCheckCommand,
+  pendingFlowOpsAllowVoluntaryDispatch,
+  peekPendingFlowOp
 } from './engine'
 export type {
   TableSnapshot,

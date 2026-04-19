@@ -5,6 +5,7 @@ import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 
 import { applyTableCommand } from './applyTableCommand'
 import { type TableSnapshot, captureTableSnapshot } from './tableSnapshot'
+import { pendingFlowOpsAllowVoluntaryDispatch } from './pendingFlowReadModel'
 
 /**
  * 在 {@link TableSnapshot} 之上增加「当前是否可对活跃玩家下发自愿指令」的读投影，
@@ -43,10 +44,11 @@ export function captureHandReduceProjection(
   table: InstanceType<typeof Texas>
 ): HandReduceProjection {
   const base = captureTableSnapshot(table)
-  const pending = base.pendingFlowOps.length
   const ap = table.controller.activePlayer
   const voluntary =
-    table.controller.status === 'in_hand' && pending === 0 && ap != null
+    table.controller.status === 'in_hand' &&
+    pendingFlowOpsAllowVoluntaryDispatch(base.pendingFlowOps) &&
+    ap != null
       ? ap.getAllowedActions()
       : null
   return { ...base, activeVoluntaryActions: voluntary }
