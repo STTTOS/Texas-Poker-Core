@@ -1,7 +1,7 @@
 import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 
 import { StageEnum } from '@/Controller'
-import { ActionTypeEnum } from '@/Player/constant'
+import { RoleEnum, ActionTypeEnum } from '@/Player/constant'
 import {
   flatConcatDomainEvents,
   reducePotFromDomainEvents,
@@ -9,10 +9,13 @@ import {
   reduceLastHandEndedFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
+  reduceTurnEndedTrailFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
   reduceLastBlindsPostedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents,
-  reduceLastStageAdvancedFromDomainEvents
+  reduceLastRolesAssignedFromDomainEvents,
+  reduceLastStageAdvancedFromDomainEvents,
+  reduceLastPostedBigBlindFromDomainEvents
 } from './domainEventReadModel'
 
 describe('domainEventReadModel (pure projection)', () => {
@@ -319,5 +322,85 @@ describe('domainEventReadModel (pure projection)', () => {
     const p = reduceLastPotAwardedFromDomainEvents(events)
     expect(p?.seq).toBe(60)
     expect(p?.potTotal).toBe(0)
+  })
+
+  test('reduceTurnEndedTrailFromDomainEvents sorts by seq', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'TurnEnded',
+        payload: {
+          handId: 'h1',
+          seq: 5,
+          userId: 2,
+          reason: 'acted'
+        }
+      },
+      {
+        type: 'TurnEnded',
+        payload: {
+          handId: 'h1',
+          seq: 2,
+          userId: 1,
+          reason: 'control_cleared'
+        }
+      }
+    ]
+    const t = reduceTurnEndedTrailFromDomainEvents(events)
+    expect(t.map((x) => x.seq)).toEqual([2, 5])
+  })
+
+  test('reduceLastPostedBigBlindFromDomainEvents keeps last', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'PostedBigBlind',
+        payload: {
+          handId: 'h1',
+          seq: 3,
+          userId: 9,
+          amount: 400,
+          requested: 500
+        }
+      },
+      {
+        type: 'PostedBigBlind',
+        payload: {
+          handId: 'h1',
+          seq: 7,
+          userId: 9,
+          amount: 500,
+          requested: 500
+        }
+      }
+    ]
+    const p = reduceLastPostedBigBlindFromDomainEvents(events)
+    expect(p?.seq).toBe(7)
+    expect(p?.amount).toBe(500)
+  })
+
+  test('reduceLastRolesAssignedFromDomainEvents keeps last', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'RolesAssigned',
+        payload: {
+          seq: 1,
+          players: [
+            { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 }
+          ]
+        }
+      },
+      {
+        type: 'RolesAssigned',
+        payload: {
+          seq: 4,
+          players: [
+            { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 },
+            { userId: 2, name: 'b', role: RoleEnum.BB, actionIndex: 1 }
+          ]
+        }
+      }
+    ]
+    const r = reduceLastRolesAssignedFromDomainEvents(events)
+    expect(r?.seq).toBe(4)
+    expect(r?.players).toHaveLength(2)
   })
 })

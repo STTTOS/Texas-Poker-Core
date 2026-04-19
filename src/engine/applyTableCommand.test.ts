@@ -13,9 +13,11 @@ import {
   reduceLastHandEndedFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
+  reduceTurnEndedTrailFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
   reduceLastBlindsPostedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents,
+  reduceLastRolesAssignedFromDomainEvents,
   reduceLastStageAdvancedFromDomainEvents
 } from './domainEventReadModel'
 
@@ -215,6 +217,30 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     const ended = reduceLastHandEndedFromDomainEvents(tape)
     expect(texas.controller.status).toBe('between_hands')
     expect(ended?.outcome).toBe('fold_win')
+    expect(
+      reduceTurnEndedTrailFromDomainEvents(tape).some(
+        (t) => t.reason === 'leave'
+      )
+    ).toBe(true)
+  })
+
+  test('reduceLastRolesAssignedFromDomainEvents on setPlayerRoles tape', () => {
+    const texas = new Texas({
+      lowestBetAmount: 1000,
+      maximumCountOfPlayers: 7,
+      initialChips: 50_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.seat(p2)
+    texas.dealer.setButton(p1)
+    teardown = texas
+    const tape = texas.setPlayerRoles()
+    const r = reduceLastRolesAssignedFromDomainEvents(tape)
+    expect(r?.players.length).toBeGreaterThanOrEqual(2)
   })
 
   test('reduceLastPotAwardedFromDomainEvents matches settle() PotAwarded', () => {

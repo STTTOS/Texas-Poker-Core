@@ -15,9 +15,12 @@ export type {
   BlindsPostedReadModel,
   HandEndedReadModel,
   PlayerActedEntry,
+  PostedBigBlindReadModel,
   PotAwardedReadModel,
   PotContributionReadModel,
+  RolesAssignedReadModel,
   StageAdvancedReadModel,
+  TurnEndedEntry,
   TurnOfferReadModel
 } from './domainEventReadModel'
 export {
@@ -30,7 +33,10 @@ export {
   reduceLastPotAwardedFromDomainEvents,
   reduceLastBlindsPostedFromDomainEvents,
   reduceLastStageAdvancedFromDomainEvents,
-  reduceHandIdFromFirstHandStarted
+  reduceHandIdFromFirstHandStarted,
+  reduceTurnEndedTrailFromDomainEvents,
+  reduceLastPostedBigBlindFromDomainEvents,
+  reduceLastRolesAssignedFromDomainEvents
 } from './domainEventReadModel'
 export type {
   HandReduceProjection,

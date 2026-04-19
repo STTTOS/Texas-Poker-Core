@@ -1,7 +1,11 @@
 import type { Poke } from '@/Deck/constant'
+import type { Role } from '@/Player/constant'
 import type { Stage } from '@/Controller/stage'
 import type { ActionTypeEnum } from '@/Player/constant'
-import type { TexasDomainEvent } from '@/domain/handDomainEvents'
+import type {
+  TurnEndedReason,
+  TexasDomainEvent
+} from '@/domain/handDomainEvents'
 
 /** 将多段事件批（如 `dispatchCommand` + 若干 `flush*`）按顺序拼成一条磁带（新数组）。 */
 export function flatConcatDomainEvents(
@@ -241,4 +245,87 @@ export function reduceHandIdFromFirstHandStarted(
     }
   }
   return null
+}
+
+/** 本批 `TurnEnded` 按 `seq` 升序。 */
+export type TurnEndedEntry = Readonly<{
+  seq: number
+  userId: number
+  reason: TurnEndedReason
+}>
+
+export function reduceTurnEndedTrailFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): readonly TurnEndedEntry[] {
+  const rows: TurnEndedEntry[] = []
+  for (const e of events) {
+    if (e.type === 'TurnEnded') {
+      const { seq, userId, reason } = e.payload
+      rows.push({ seq, userId, reason })
+    }
+  }
+  rows.sort((a, b) => a.seq - b.seq)
+  return rows
+}
+
+/** 本批中**最后一条** `PostedBigBlind`（中途入座大盲）。 */
+export type PostedBigBlindReadModel = Readonly<{
+  handId: string
+  seq: number
+  userId: number
+  amount: number
+  requested: number
+}>
+
+export function reduceLastPostedBigBlindFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): PostedBigBlindReadModel | null {
+  let last: PostedBigBlindReadModel | null = null
+  for (const e of events) {
+    if (e.type === 'PostedBigBlind') {
+      const p = e.payload
+      last = {
+        handId: p.handId,
+        seq: p.seq,
+        userId: p.userId,
+        amount: p.amount,
+        requested: p.requested
+      }
+    }
+  }
+  return last
+}
+
+/** 本批中**最后一条** `RolesAssigned`（会话级定庄/角色表）。 */
+export type RolesAssignedReadModel = Readonly<{
+  seq: number
+  players: ReadonlyArray<
+    Readonly<{
+      userId: number
+      name: string
+      role: Role
+      actionIndex: number
+    }>
+  >
+}>
+
+export function reduceLastRolesAssignedFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): RolesAssignedReadModel | null {
+  let last: RolesAssignedReadModel | null = null
+  for (const e of events) {
+    if (e.type === 'RolesAssigned') {
+      const p = e.payload
+      last = {
+        seq: p.seq,
+        players: p.players.map((x) => ({
+          userId: x.userId,
+          name: x.name,
+          role: x.role,
+          actionIndex: x.actionIndex
+        }))
+      }
+    }
+  }
+  return last
 }
