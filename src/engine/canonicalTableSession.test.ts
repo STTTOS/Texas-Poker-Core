@@ -193,6 +193,23 @@ describe('reduceCanonicalTableSession (immutable program → events + snapshot c
     expect(got.finalSnapshot).toEqual(imperativeFinal)
   })
 
+  test('parseCanonicalTableSessionFromJson rejects invalid command step', () => {
+    const bad = JSON.stringify({
+      schemaVersion: 1,
+      create: {
+        lowestBetAmount: 500,
+        maximumCountOfPlayers: 7,
+        initialChips: 5000,
+        user: { id: 1, name: 'a' }
+      },
+      bootstrap: [],
+      commandSteps: [{ cmd: { type: 'Bet', playerId: 1 } }]
+    })
+    expect(() => parseCanonicalTableSessionFromJson(bad)).toThrow(
+      /commandSteps.*cmd/
+    )
+  })
+
   test('parseCanonicalTableSessionFromJson rejects bad JSON', () => {
     expect(() => parseCanonicalTableSessionFromJson('not json')).toThrow(
       /Invalid canonical table session JSON/

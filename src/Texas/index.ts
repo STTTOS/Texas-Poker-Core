@@ -39,6 +39,10 @@ export interface CreateRoomInputArgs {
 
 export type { TexasDomainEvent, HandDomainEvent, SessionDomainEvent }
 export type { TableCommand } from '@/domain/tableCommand'
+export {
+  parseTableCommandFromJson,
+  parseTableCommandFromUnknown
+} from '@/domain/tableCommandParse'
 
 /**
  * 单桌会话：房间、奖池、荷官与 {@link Controller}。

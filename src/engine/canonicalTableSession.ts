@@ -6,6 +6,7 @@ import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 import Texas, { type CreateRoomInputArgs } from '@/Texas'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
+import { parseTableCommandFromUnknown } from '@/domain/tableCommandParse'
 import { type TableSnapshot, captureTableSnapshot } from './tableSnapshot'
 import {
   applyTableCommand,
@@ -241,17 +242,20 @@ function parseBootstrapInstruction(raw: unknown): BootstrapInstruction {
 }
 
 function parseCommandStep(raw: unknown): CommandStepInstruction {
-  if (
-    !isRecord(raw) ||
-    !isRecord(raw.cmd) ||
-    typeof raw.cmd.type !== 'string'
-  ) {
+  if (!isRecord(raw)) {
     invalidCanonicalJson(
-      'each command step must be { cmd: { type, ... }, flushAllPending? }'
+      'each command step must be { cmd: { ... }, flushAllPending? }'
     )
   }
+  let cmd: TableCommand
+  try {
+    cmd = parseTableCommandFromUnknown(raw.cmd)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    invalidCanonicalJson(`commandSteps[].cmd: ${msg}`)
+  }
   return {
-    cmd: raw.cmd as TableCommand,
+    cmd,
     flushAllPending: raw.flushAllPending === true
   }
 }

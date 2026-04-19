@@ -136,6 +136,10 @@ export type {
 } from './Texas'
 
 export type { TableCommand } from './domain/tableCommand'
+export {
+  parseTableCommandFromJson,
+  parseTableCommandFromUnknown
+} from './domain/tableCommandParse'
 export type { TurnEndedReason, HandEventMeta } from './domain/handDomainEvents'
 
 export type {
