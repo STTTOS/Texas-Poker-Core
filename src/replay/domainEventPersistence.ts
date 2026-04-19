@@ -66,3 +66,12 @@ export function createInMemoryDomainEventStore(): {
     getRows: () => [...rows]
   }
 }
+
+/**
+ * 按 **落库 / 磁带行顺序** 还原领域事件（append-only 文件一行一条时顺序即真相）。
+ */
+export function domainEventsFromPersistedRows(
+  rows: readonly PersistedDomainEventRow[]
+): TexasDomainEvent[] {
+  return rows.map((row) => JSON.parse(row.payloadJson) as TexasDomainEvent)
+}

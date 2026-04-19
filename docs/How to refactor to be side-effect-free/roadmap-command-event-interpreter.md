@@ -188,12 +188,12 @@
 - [x] **阶段 0** — 词汇与边界：`domain-events-catalog.md`、`architecture-events-orchestration.md` §8 **Core 禁止清单**；本手 `handId` + `seq` 已在 `HandDomainEvent` 落地（`HandEventMeta`）。`tableId` / `correlationId` 仍可选、未强制进 payload。
 - [x] **阶段 1** — 旁路事件：`Controller` 缓冲 + `Texas.drainDomainEvents()`；类型见 `handDomainEvents.ts`。
 - [x] **阶段 2** — 解释器雏形：`src/orchestration/interpret.ts`（`interpret` + `DomainEventHandler`），根 `index` 已导出；业务工程可挂 `handlerPersist` / `handlerNotify`。
-- [ ] **阶段 3** — callback → handler：Core 内已无 `#callbackOfAction` 一类钩子；**尚未**要求所有持久化/推送只经 `interpret`（需接入方迁移）。
+- [ ] **阶段 3** — callback → handler：Core 内已无 `#callbackOfAction` 一类钩子；本仓库提供 `createAppendDomainEventsHandler` 等拼件，**尚未**要求所有持久化/推送只经 `interpret`（需接入方迁移）。
 - [x] **阶段 4** — pacing 迁出：`transferControlTo` **无**内嵌 `await` 节奏；进街与交权固定经 **`pendingFlowOps`** + `Texas#applyPendingStageAdvance` / `flushPendingTurnHandoff`（及测试用 `flushAllPendingFlowOps`）消费。中间态不变量全文仍以接入方文档为准。
 - [x] **阶段 5** — Command 门面：`Texas.dispatchCommand` 经 `handBettingActions` 执行；`Player#bet`/`fold` 等标 `@deprecated`，盲注走 `Controller` 内 `executeBet`；迁移期单测仍可调用旧方法。
 - [x] **P4（自愿指令门面 + 纯校验）** — `applyVoluntaryTableCommand` / `isVoluntaryTableCommand`（`Fold|Check|Call|Bet|Raise|AllIn` → `dispatchCommand` + `captureHandReduceProjection`）；`applyVoluntaryTableCommand.test.ts`；`applyFoldOrCheckCommand`；`voluntaryActionDisallowError`；`Player#getAllowedActionsContext` + 根 `resolveAllowedActions` / `AllowedActionsContext`；`handBettingActions` 内 `voluntaryAllowedActions`；`resolveVoluntaryBetChipOrError`、`resolveCallChipsOrError`、`resolveRaiseAdditionalOrError`、`resolveAllInChipsOrError`；`getOthersMaxBetAmountAtCurrentStage` → `getMaxOthersStageBet`。**未做**（另立迭代）：不可变 `State` 上纯 `apply(state, cmd)` 与从 `Texas` 图完全剥离（与阶段 6 全量 `reduce(apply)` 同轨规划）。
 - [x] **P5（pending 读侧 + 纯模拟）** — `pendingFlowOpsAllowVoluntaryDispatch` / `peekPendingFlowOp` / `simulateDequeuePendingHeadIfMatches`（`pendingFlowReadModel.ts`）；`captureHandReduceProjection` 已复用。Controller 内 **可变** FIFO 与阶段机本体未重写为单测内纯归约（刻意保留，避免大范围行为漂移）。
-- [ ] **阶段 6** — 事件持久化与重放：**增量** — 磁带 → 只读复合投影 `projectCompositeReadModel`（`src/replay/projectCompositeReadModel.ts`，根 `index` 已导出）；append-only 存储与官方 `reduce(apply)` 重放 CLI 仍缺；机器人仍可按现有 API 接 Command。
+- [ ] **阶段 6** — 事件持久化与重放：**增量** — 磁带 → 只读复合投影 `projectCompositeReadModel`（根已导出）；**NDJSON append-only**（`appendPersistedRowsToNdjsonFileSync` / `createNdjsonFileDomainEventStore`）+ `domainEventsFromPersistedRows` + `projectCompositeReadModelFromNdjsonFileSync`；dev CLI `pnpm replay:composite <file.ndjson>`；`createAppendDomainEventsHandler` 接 `interpret` 落盘。**仍缺**：DB 真表、全桌不可变 `reduce(apply)` 状态重放；机器人仍可按现有 API 接 Command。
 - [x] **P6（读侧切片）** — `captureSeatUserIdsInActionOrder`（`dealerRingReadModel.ts`，与 `captureTableSnapshot` 环序一致；根 `index` 已导出）；中央池贡献仍经 `Pool#getContributionSnapshot` / 快照 `potTotal`。边池结构、`Texas` 门面瘦身仍属后续演进（§10 表）。
 
 **§9 通用清单**：回归测试随 PR 跑通；apply vs interpret **分段指标**与**功能开关**仍待产品化。

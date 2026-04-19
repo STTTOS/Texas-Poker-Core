@@ -209,6 +209,12 @@ export type {
 export {
   toPersistedDomainEventRows,
   createInMemoryDomainEventStore,
+  domainEventsFromPersistedRows,
+  appendPersistedRowsToNdjsonFileSync,
+  readAllPersistedRowsFromNdjsonFileSync,
+  createNdjsonFileDomainEventStore,
+  projectCompositeReadModelFromNdjsonFileSync,
+  createAppendDomainEventsHandler,
   projectCompositeReadModel
 } from './replay'
 
