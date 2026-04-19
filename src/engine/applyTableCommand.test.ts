@@ -9,16 +9,19 @@ import {
 import {
   flatConcatDomainEvents,
   reducePotFromDomainEvents,
+  filterDomainEventsByHandId,
   reduceHandIdFromFirstHandStarted,
   reduceLastHandEndedFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
   reduceTurnEndedTrailFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
+  reduceFirstHandStartedFromDomainEvents,
   reduceLastBlindsPostedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents,
   reduceLastRolesAssignedFromDomainEvents,
-  reduceLastStageAdvancedFromDomainEvents
+  reduceLastStageAdvancedFromDomainEvents,
+  reduceLastHoleCardsDealtFromDomainEvents
 } from './domainEventReadModel'
 
 describe('applyTableCommand (facade toward apply state and events)', () => {
@@ -174,12 +177,26 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     const all = flatConcatDomainEvents([prefix, eCall, fCall, eCheck, fCheck])
     expect(texas.controller.stage).toBe(StageEnum.FLOP)
 
+    const started = reduceFirstHandStartedFromDomainEvents(all)
+    expect(started?.handId).toBe(texas.controller.currentHandId)
     expect(reduceHandIdFromFirstHandStarted(all)).toBe(
       texas.controller.currentHandId
     )
     expect(
       reduceLastStageAdvancedFromDomainEvents(all)?.boardThroughStageAfter
     ).toBe(StageEnum.FLOP)
+
+    const hole = reduceLastHoleCardsDealtFromDomainEvents(prefix)
+    expect(hole).not.toBeNull()
+    const uids = Object.keys(hole!.byUserId).map(Number)
+    expect(uids).toHaveLength(2)
+    for (const uid of uids) {
+      expect(hole!.byUserId[uid]).toHaveLength(2)
+    }
+
+    const perHand = filterDomainEventsByHandId(all, started!.handId)
+    expect(perHand.length).toBeLessThan(all.length)
+    expect(perHand.every((e) => e.type !== 'RolesAssigned')).toBe(true)
 
     const board = reduceCommunityBoardFromDomainEvents(all)
     expect(board).toEqual(texas.controller.getRevealedPokes())

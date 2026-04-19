@@ -3,6 +3,7 @@ import type { Role } from '@/Player/constant'
 import type { Stage } from '@/Controller/stage'
 import type { ActionTypeEnum } from '@/Player/constant'
 import type {
+  HandDomainEvent,
   TurnEndedReason,
   TexasDomainEvent
 } from '@/domain/handDomainEvents'
@@ -14,6 +15,25 @@ export function flatConcatDomainEvents(
   const out: TexasDomainEvent[] = []
   for (const batch of parts) {
     out.push(...batch)
+  }
+  return out
+}
+
+/**
+ * 按 `handId` 过滤本手事件（**不含**会话级 `RolesAssigned` / `HoleCardsDealt`）。
+ */
+export function filterDomainEventsByHandId(
+  events: readonly TexasDomainEvent[],
+  handId: string
+): TexasDomainEvent[] {
+  const out: TexasDomainEvent[] = []
+  for (const e of events) {
+    if (e.type === 'RolesAssigned' || e.type === 'HoleCardsDealt') {
+      continue
+    }
+    if ((e as HandDomainEvent).payload.handId === handId) {
+      out.push(e)
+    }
   }
   return out
 }
@@ -235,16 +255,28 @@ export function reduceLastStageAdvancedFromDomainEvents(
   return last
 }
 
-/** 磁带中首条 `HandStarted` 的 `handId`（会话切本手锚点）。 */
-export function reduceHandIdFromFirstHandStarted(
+/** 磁带中首条 `HandStarted`（本手锚点）。 */
+export type HandStartedReadModel = Readonly<{
+  handId: string
+  seq: number
+}>
+
+export function reduceFirstHandStartedFromDomainEvents(
   events: readonly TexasDomainEvent[]
-): string | null {
+): HandStartedReadModel | null {
   for (const e of events) {
     if (e.type === 'HandStarted') {
-      return e.payload.handId
+      return { handId: e.payload.handId, seq: e.payload.seq }
     }
   }
   return null
+}
+
+/** 磁带中首条 `HandStarted` 的 `handId`（{@link reduceFirstHandStartedFromDomainEvents} 的便捷别名）。 */
+export function reduceHandIdFromFirstHandStarted(
+  events: readonly TexasDomainEvent[]
+): string | null {
+  return reduceFirstHandStartedFromDomainEvents(events)?.handId ?? null
 }
 
 /** 本批 `TurnEnded` 按 `seq` 升序。 */
@@ -325,6 +357,29 @@ export function reduceLastRolesAssignedFromDomainEvents(
           actionIndex: x.actionIndex
         }))
       }
+    }
+  }
+  return last
+}
+
+/** 本批中**最后一条** `HoleCardsDealt`（发手牌快照；出站前仍须按 viewer 过滤）。 */
+export type HoleCardsDealtReadModel = Readonly<{
+  seq: number
+  byUserId: Readonly<Record<number, readonly Poke[]>>
+}>
+
+export function reduceLastHoleCardsDealtFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): HoleCardsDealtReadModel | null {
+  let last: HoleCardsDealtReadModel | null = null
+  for (const e of events) {
+    if (e.type === 'HoleCardsDealt') {
+      const { seq, byUserId } = e.payload
+      const copy: Record<number, readonly Poke[]> = {}
+      for (const [uid, pokes] of Object.entries(byUserId)) {
+        copy[Number(uid)] = [...pokes]
+      }
+      last = { seq, byUserId: copy }
     }
   }
   return last

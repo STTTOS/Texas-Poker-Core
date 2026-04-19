@@ -5,16 +5,19 @@ import { RoleEnum, ActionTypeEnum } from '@/Player/constant'
 import {
   flatConcatDomainEvents,
   reducePotFromDomainEvents,
+  filterDomainEventsByHandId,
   reduceHandIdFromFirstHandStarted,
   reduceLastHandEndedFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
   reduceTurnEndedTrailFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
+  reduceFirstHandStartedFromDomainEvents,
   reduceLastBlindsPostedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents,
   reduceLastRolesAssignedFromDomainEvents,
   reduceLastStageAdvancedFromDomainEvents,
+  reduceLastHoleCardsDealtFromDomainEvents,
   reduceLastPostedBigBlindFromDomainEvents
 } from './domainEventReadModel'
 
@@ -402,5 +405,69 @@ describe('domainEventReadModel (pure projection)', () => {
     const r = reduceLastRolesAssignedFromDomainEvents(events)
     expect(r?.seq).toBe(4)
     expect(r?.players).toHaveLength(2)
+  })
+
+  test('reduceFirstHandStartedFromDomainEvents and reduceHandId alias', () => {
+    const events: TexasDomainEvent[] = [
+      { type: 'RolesAssigned', payload: { seq: 0, players: [] } },
+      {
+        type: 'HandStarted',
+        payload: { handId: 'hx', seq: 1 }
+      }
+    ]
+    expect(reduceFirstHandStartedFromDomainEvents(events)).toEqual({
+      handId: 'hx',
+      seq: 1
+    })
+    expect(reduceHandIdFromFirstHandStarted(events)).toBe('hx')
+  })
+
+  test('filterDomainEventsByHandId excludes session and keeps hand rows', () => {
+    const events: TexasDomainEvent[] = [
+      { type: 'RolesAssigned', payload: { seq: 0, players: [] } },
+      {
+        type: 'HandStarted',
+        payload: { handId: 'h1', seq: 1 }
+      },
+      {
+        type: 'PotUpdated',
+        payload: {
+          handId: 'h1',
+          seq: 2,
+          totalAmount: 100,
+          contributions: []
+        }
+      },
+      {
+        type: 'HandStarted',
+        payload: { handId: 'h2', seq: 1 }
+      }
+    ]
+    const f = filterDomainEventsByHandId(events, 'h1')
+    expect(f).toHaveLength(2)
+    expect(f.every((e) => e.type !== 'RolesAssigned')).toBe(true)
+  })
+
+  test('reduceLastHoleCardsDealtFromDomainEvents keeps last', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'HoleCardsDealt',
+        payload: {
+          seq: 1,
+          byUserId: { 1: ['h2', 'h3'] }
+        }
+      },
+      {
+        type: 'HoleCardsDealt',
+        payload: {
+          seq: 5,
+          byUserId: { 1: ['da', 'ck'], 2: ['s7', 'd9'] }
+        }
+      }
+    ]
+    const h = reduceLastHoleCardsDealtFromDomainEvents(events)
+    expect(h?.seq).toBe(5)
+    expect(h?.byUserId[1]).toEqual(['da', 'ck'])
+    expect(h?.byUserId[2]).toEqual(['s7', 'd9'])
   })
 })
