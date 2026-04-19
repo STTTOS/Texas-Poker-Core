@@ -82,6 +82,7 @@ export const TexasCoreErrorCode = {
   PLAYER_CANNOT_CALL: 3411,
   PLAYER_CALL_INVALID_STATE: 3412,
   PLAYER_CALL_EXCEEDS_BALANCE: 3413,
+  /** @deprecated 清台跟注已在 `executeCall` 内转 `executeAllIn`，不再抛出 */
   PLAYER_CALL_SHOULD_ALL_IN: 3414,
   PLAYER_CANNOT_ALL_IN: 3415,
   PLAYER_ALL_IN_INVALID: 3416,

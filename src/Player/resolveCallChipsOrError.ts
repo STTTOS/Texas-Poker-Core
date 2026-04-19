@@ -3,7 +3,7 @@ import { TexasCoreErrorCode } from '@/TexasError'
 
 /**
  * 跟注路径中「应补筹码」的纯推导（不含行动权 / 允许列表校验）。
- * 与 {@link executeCall} 历史语义一致。
+ * `chipsToMatch === selfBalance` 视为合法（清台跟注）；{@link executeCall} 与 Bet/Raise 一致，该情形转 {@link executeAllIn}。
  */
 export type ResolveCallChipsInput = Readonly<{
   /** 本街其他玩家在本街已投入的最大额（与 `Player#getOthersMaxBetAmountAtCurrentStage` 一致） */
@@ -39,12 +39,6 @@ export function resolveCallChipsOrError(
         moneyShouldPay: chipsToMatch,
         balance: selfBalance
       })
-    }
-  }
-  if (chipsToMatch === selfBalance) {
-    return {
-      ok: false,
-      error: new TexasError(TexasCoreErrorCode.PLAYER_CALL_SHOULD_ALL_IN)
     }
   }
 

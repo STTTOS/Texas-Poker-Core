@@ -6,6 +6,7 @@
 export type TableCommand =
   | { type: 'Fold'; playerId: number }
   | { type: 'Check'; playerId: number }
+  /** 跟注额等于当前余额时与 `AllIn` 等价（事件为 ALL_IN）。 */
   | { type: 'Call'; playerId: number }
   | { type: 'Bet'; playerId: number; amount: number }
   | { type: 'Raise'; playerId: number; additionalAmount: number }

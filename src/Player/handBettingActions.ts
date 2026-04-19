@@ -205,6 +205,12 @@ export function executeCall(actor: Player, act?: ActValidationOptions): void {
   if (!callSizing.ok) return actor.fail(callSizing.error)
   const chipsToMatch = callSizing.chipsToMatch
 
+  /** 与 {@link executeBet} / {@link executeRaise} 一致：清台进池走全下语义（事件为 ALL_IN、`status: allIn`）。 */
+  if (chipsToMatch === actor.balance) {
+    void executeAllIn(actor, false, false, act)
+    return
+  }
+
   actor.assignCurrentStreetAction({
     type: ActionTypeEnum.CALL,
     payload: { value: chipsToMatch }

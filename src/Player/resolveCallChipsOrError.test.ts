@@ -37,15 +37,12 @@ describe('resolveCallChipsOrError', () => {
     }
   })
 
-  test('should all-in when gap equals full balance', () => {
+  test('full-balance gap is valid sizing (executeCall routes to all-in)', () => {
     const r = resolveCallChipsOrError({
       maxOthersStageBet: 800,
       selfCurrentStageTotal: 0,
       selfBalance: 800
     })
-    expect(r.ok).toBe(false)
-    if (!r.ok) {
-      expect(r.error.code).toBe(TexasCoreErrorCode.PLAYER_CALL_SHOULD_ALL_IN)
-    }
+    expect(r).toEqual({ ok: true, chipsToMatch: 800 })
   })
 })
