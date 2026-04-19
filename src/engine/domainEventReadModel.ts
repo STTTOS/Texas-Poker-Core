@@ -200,3 +200,45 @@ export function reduceLastBlindsPostedFromDomainEvents(
   }
   return last
 }
+
+/** 本批中**最后一条** `StageAdvanced`（进街 / 发公牌进度）。 */
+export type StageAdvancedReadModel = Readonly<{
+  handId: string
+  seq: number
+  fromStage: Stage
+  toStage: Stage
+  boardThroughStageAfter: Stage
+  advanceKind: 'betting_round_complete' | 'runout_reveal'
+}>
+
+export function reduceLastStageAdvancedFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): StageAdvancedReadModel | null {
+  let last: StageAdvancedReadModel | null = null
+  for (const e of events) {
+    if (e.type === 'StageAdvanced') {
+      const p = e.payload
+      last = {
+        handId: p.handId,
+        seq: p.seq,
+        fromStage: p.fromStage,
+        toStage: p.toStage,
+        boardThroughStageAfter: p.boardThroughStageAfter,
+        advanceKind: p.advanceKind
+      }
+    }
+  }
+  return last
+}
+
+/** 磁带中首条 `HandStarted` 的 `handId`（会话切本手锚点）。 */
+export function reduceHandIdFromFirstHandStarted(
+  events: readonly TexasDomainEvent[]
+): string | null {
+  for (const e of events) {
+    if (e.type === 'HandStarted') {
+      return e.payload.handId
+    }
+  }
+  return null
+}

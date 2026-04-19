@@ -17,6 +17,7 @@ export type {
   PlayerActedEntry,
   PotAwardedReadModel,
   PotContributionReadModel,
+  StageAdvancedReadModel,
   TurnOfferReadModel
 } from './domainEventReadModel'
 export {
@@ -27,7 +28,9 @@ export {
   reduceCommunityBoardFromDomainEvents,
   reduceLastHandEndedFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
-  reduceLastBlindsPostedFromDomainEvents
+  reduceLastBlindsPostedFromDomainEvents,
+  reduceLastStageAdvancedFromDomainEvents,
+  reduceHandIdFromFirstHandStarted
 } from './domainEventReadModel'
 export type {
   HandReduceProjection,

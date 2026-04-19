@@ -159,6 +159,8 @@ export {
   reduceLastHandEndedFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
   reduceLastBlindsPostedFromDomainEvents,
+  reduceLastStageAdvancedFromDomainEvents,
+  reduceHandIdFromFirstHandStarted,
   captureHandReduceProjection,
   applyFoldOrCheckCommand
 } from './engine'
@@ -171,6 +173,7 @@ export type {
   PlayerActedEntry,
   PotAwardedReadModel,
   PotContributionReadModel,
+  StageAdvancedReadModel,
   TurnOfferReadModel,
   HandReduceProjection,
   FoldOrCheckTableCommand

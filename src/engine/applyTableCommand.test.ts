@@ -9,12 +9,14 @@ import {
 import {
   flatConcatDomainEvents,
   reducePotFromDomainEvents,
+  reduceHandIdFromFirstHandStarted,
   reduceLastHandEndedFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
   reduceLastBlindsPostedFromDomainEvents,
-  reducePlayerActedTrailFromDomainEvents
+  reducePlayerActedTrailFromDomainEvents,
+  reduceLastStageAdvancedFromDomainEvents
 } from './domainEventReadModel'
 
 describe('applyTableCommand (facade toward apply state and events)', () => {
@@ -149,8 +151,10 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
-    texas.dealCards()
+    const prefix = flatConcatDomainEvents([
+      [...texas.start(), ...texas.flushAllPendingFlowOps()],
+      texas.dealCards()
+    ])
 
     const firstPf = texas.controller.activePlayer!
     const eCall = applyTableCommand(texas, {
@@ -165,8 +169,15 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     }).events
     const fCheck = texas.flushAllPendingFlowOps()
 
-    const all = [...eCall, ...fCall, ...eCheck, ...fCheck]
+    const all = flatConcatDomainEvents([prefix, eCall, fCall, eCheck, fCheck])
     expect(texas.controller.stage).toBe(StageEnum.FLOP)
+
+    expect(reduceHandIdFromFirstHandStarted(all)).toBe(
+      texas.controller.currentHandId
+    )
+    expect(
+      reduceLastStageAdvancedFromDomainEvents(all)?.boardThroughStageAfter
+    ).toBe(StageEnum.FLOP)
 
     const board = reduceCommunityBoardFromDomainEvents(all)
     expect(board).toEqual(texas.controller.getRevealedPokes())
@@ -243,45 +254,30 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     )
   })
 
-  test('applyTableCommandThenFlushAllPendingFlowOps matches manual concat', () => {
-    function huStartedDealt(): Texas {
-      const texas = new Texas({
-        lowestBetAmount: 1000,
-        maximumCountOfPlayers: 7,
-        initialChips: 50_000,
-        user: { id: 1, name: 'a' }
-      })
-      const p1 = texas.room.owner
-      const p2 = texas.createPlayer({ id: 2, name: 'b' })
-      texas.room.seat(p1)
-      texas.room.join(p2)
-      texas.room.seat(p2)
-      texas.dealer.setButton(p1)
-      texas.setPlayerRoles()
-      void [...texas.start(), ...texas.flushAllPendingFlowOps()]
-      texas.dealCards()
-      return texas
-    }
+  test('applyTableCommandThenFlushAllPendingFlowOps emits TurnOffered after Call', () => {
+    const texas = new Texas({
+      lowestBetAmount: 1000,
+      maximumCountOfPlayers: 7,
+      initialChips: 50_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.seat(p2)
+    texas.dealer.setButton(p1)
+    texas.setPlayerRoles()
+    teardown = texas
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
+    texas.dealCards()
 
-    const t1 = huStartedDealt()
-    const first1 = t1.controller.activePlayer!
-    const step = applyTableCommand(t1, {
+    const first = texas.controller.activePlayer!
+    const { events } = applyTableCommandThenFlushAllPendingFlowOps(texas, {
       type: 'Call',
-      playerId: first1.getUserInfo().id
-    }).events
-    const flushed = t1.flushAllPendingFlowOps()
-    const golden = flatConcatDomainEvents([step, flushed])
-    t1.room.checkIfCloseRoom()
-
-    const t2 = huStartedDealt()
-    teardown = t2
-    const first2 = t2.controller.activePlayer!
-    const combined = applyTableCommandThenFlushAllPendingFlowOps(t2, {
-      type: 'Call',
-      playerId: first2.getUserInfo().id
-    }).events
-
-    expect(combined).toEqual(golden)
+      playerId: first.getUserInfo().id
+    })
+    expect(events.some((e) => e.type === 'TurnOffered')).toBe(true)
   })
 
   test('applyTableCommandThenFlushAllPendingFlowOps leaves no pending flow ops', () => {

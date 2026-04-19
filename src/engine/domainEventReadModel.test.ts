@@ -5,12 +5,14 @@ import { ActionTypeEnum } from '@/Player/constant'
 import {
   flatConcatDomainEvents,
   reducePotFromDomainEvents,
+  reduceHandIdFromFirstHandStarted,
   reduceLastHandEndedFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
   reduceLastBlindsPostedFromDomainEvents,
-  reducePlayerActedTrailFromDomainEvents
+  reducePlayerActedTrailFromDomainEvents,
+  reduceLastStageAdvancedFromDomainEvents
 } from './domainEventReadModel'
 
 describe('domainEventReadModel (pure projection)', () => {
@@ -213,6 +215,57 @@ describe('domainEventReadModel (pure projection)', () => {
     const h = reduceLastHandEndedFromDomainEvents(events)
     expect(h?.seq).toBe(99)
     expect(h?.outcome).toBe('fold_win')
+  })
+
+  test('reduceHandIdFromFirstHandStarted reads first HandStarted', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'PotUpdated',
+        payload: {
+          handId: 'h1',
+          seq: 0,
+          totalAmount: 0,
+          contributions: []
+        }
+      },
+      {
+        type: 'HandStarted',
+        payload: { handId: 'h9', seq: 1 }
+      }
+    ]
+    expect(reduceHandIdFromFirstHandStarted(events)).toBe('h9')
+  })
+
+  test('reduceLastStageAdvancedFromDomainEvents keeps last StageAdvanced', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'StageAdvanced',
+        payload: {
+          handId: 'h1',
+          seq: 10,
+          fromStage: StageEnum.PRE_FLOP,
+          toStage: StageEnum.FLOP,
+          pokesRevealedThisStep: ['h2', 's3', 'd4'],
+          boardThroughStageAfter: StageEnum.FLOP,
+          advanceKind: 'betting_round_complete'
+        }
+      },
+      {
+        type: 'StageAdvanced',
+        payload: {
+          handId: 'h1',
+          seq: 20,
+          fromStage: StageEnum.FLOP,
+          toStage: StageEnum.TURN,
+          pokesRevealedThisStep: ['c5'],
+          boardThroughStageAfter: StageEnum.TURN,
+          advanceKind: 'betting_round_complete'
+        }
+      }
+    ]
+    const s = reduceLastStageAdvancedFromDomainEvents(events)
+    expect(s?.seq).toBe(20)
+    expect(s?.boardThroughStageAfter).toBe(StageEnum.TURN)
   })
 
   test('reduceLastBlindsPostedFromDomainEvents keeps last BlindsPosted', () => {
