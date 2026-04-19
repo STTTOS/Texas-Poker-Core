@@ -4,6 +4,7 @@ import { ActionTypeEnum } from './constant'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { voluntaryActionDisallowError } from './allowedActions'
 import { resolveCallChipsOrError } from './resolveCallChipsOrError'
+import { resolveRaiseAdditionalOrError } from './resolveRaiseAdditionalOrError'
 
 /**
  * 街道下注动作的执行细节（校验、记池、荷官行动历史、领域事件顺序）。
@@ -146,32 +147,15 @@ export function executeRaise(
   )
   if (denyRaise) return actor.fail(denyRaise)
 
-  if (additionalChips > actor.balance) {
-    return actor.fail(
-      new TexasError(TexasCoreErrorCode.PLAYER_RAISE_EXCEEDS_BALANCE, {
-        money: additionalChips,
-        balance: actor.balance
-      })
-    )
-  }
-  if (additionalChips < actor.lowestBetAmount) {
-    return actor.fail(
-      new TexasError(TexasCoreErrorCode.PLAYER_RAISE_BELOW_BB, {
-        money: additionalChips,
-        lowestBetAmount: actor.lowestBetAmount
-      })
-    )
-  }
+  const raiseGate = resolveRaiseAdditionalOrError({
+    additionalChips,
+    selfBalance: actor.balance,
+    lowestBetAmount: actor.lowestBetAmount,
+    selfCurrentStageTotal: actor.currentStageTotalAmount,
+    maxOthersStageBet
+  })
+  if (!raiseGate.ok) return actor.fail(raiseGate.error)
 
-  const attemptedStreetTotal = additionalChips + actor.currentStageTotalAmount
-  if (attemptedStreetTotal <= maxOthersStageBet) {
-    return actor.fail(
-      new TexasError(TexasCoreErrorCode.PLAYER_RAISE_NOT_INCREASE, {
-        maxBetAmount: maxOthersStageBet,
-        attemptedTotal: attemptedStreetTotal
-      })
-    )
-  }
   if (additionalChips === actor.balance) {
     return executeAllIn(actor, false, false, act)
   }
