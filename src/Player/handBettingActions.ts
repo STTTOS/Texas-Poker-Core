@@ -188,12 +188,10 @@ export function executeCall(actor: Player, act?: ActValidationOptions): void {
   if (!callSizing.ok) return actor.fail(callSizing.error)
   const chipsToMatch = callSizing.chipsToMatch
 
-  /** 与 {@link executeBet} / {@link executeRaise} 一致：清台进池走全下语义（事件为 ALL_IN、`status: allIn`）。 */
-  if (chipsToMatch === actor.balance) {
-    void executeAllIn(actor, false, false, act)
-    return
-  }
-
+  /**
+   * 能执行到此处时 `CALL` 已在允许列表中，故 `balance + currentStageTotal > maxOthers`，
+   * 因而 `chipsToMatch < balance` 恒成立；清台跟注须走 `AllIn` 命令（见 `resolveAllowedActions`）。
+   */
   actor.assignCurrentStreetAction({
     type: ActionTypeEnum.CALL,
     payload: { value: chipsToMatch }

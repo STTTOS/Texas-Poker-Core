@@ -174,6 +174,7 @@ export {
   captureHandReduceProjection,
   applyVoluntaryTableCommand,
   applyFoldOrCheckCommand,
+  isVoluntaryTableCommand,
   pendingFlowOpsAllowVoluntaryDispatch,
   peekPendingFlowOp
 } from './engine'

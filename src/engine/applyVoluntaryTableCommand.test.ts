@@ -1,14 +1,29 @@
+import type { TableCommand } from '@/domain/tableCommand'
+
 import Texas from '@/Texas'
 import { StageEnum } from '@/Controller'
 import { ActionTypeEnum } from '@/Player/constant'
 import { TexasEngineContext } from '@/TexasEngineContext'
-import { applyVoluntaryTableCommand } from './handReducer'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
+import {
+  isVoluntaryTableCommand,
+  applyVoluntaryTableCommand
+} from './handReducer'
 
 function headsUpStartedDealt(texas: Texas) {
   void [...texas.start(), ...texas.flushAllPendingFlowOps()]
   texas.dealCards()
 }
+
+describe('isVoluntaryTableCommand', () => {
+  test('narrows Fold through AllIn', () => {
+    const v: TableCommand = { type: 'Call', playerId: 1 }
+    expect(isVoluntaryTableCommand(v)).toBe(true)
+    expect(isVoluntaryTableCommand({ type: 'PostBigBlind', playerId: 1 })).toBe(
+      false
+    )
+  })
+})
 
 describe('applyVoluntaryTableCommand', () => {
   let teardown: Texas | undefined

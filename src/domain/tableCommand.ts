@@ -7,8 +7,7 @@ export type TableCommand =
   | { type: 'Fold'; playerId: number }
   | { type: 'Check'; playerId: number }
   /**
-   * 若 `resolveAllowedActions` 仍含 `CALL` 且应跟注额等于当前余额，`executeCall` 内转全下（事件为 ALL_IN）；
-   * 仅含 `ALL_IN|FOLD` 的短码局面须发 `AllIn`。
+   * 仅当 `resolveAllowedActions` 含 `CALL` 时合法；短码仅 `ALL_IN|FOLD` 时须发 `AllIn`。
    */
   | { type: 'Call'; playerId: number }
   | { type: 'Bet'; playerId: number; amount: number }

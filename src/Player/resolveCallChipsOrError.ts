@@ -3,7 +3,7 @@ import { TexasCoreErrorCode } from '@/TexasError'
 
 /**
  * 跟注路径中「应补筹码」的纯推导（不含行动权 / 允许列表校验）。
- * `chipsToMatch === selfBalance` 视为合法（清台跟注）；{@link executeCall} 与 Bet/Raise 一致，该情形转 {@link executeAllIn}。
+ * 与 `resolveAllowedActions` 联用时：合法 `CALL` 要求 `chipsToMatch < selfBalance`；`chipsToMatch === selfBalance` 仅数学上成立，桌上应发 `AllIn`。
  */
 export type ResolveCallChipsInput = Readonly<{
   /** 本街其他玩家在本街已投入的最大额（与 `Player#getMaxOthersStageBet` 一致） */

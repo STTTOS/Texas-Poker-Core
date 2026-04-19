@@ -55,5 +55,6 @@ export type {
 export {
   captureHandReduceProjection,
   applyVoluntaryTableCommand,
-  applyFoldOrCheckCommand
+  applyFoldOrCheckCommand,
+  isVoluntaryTableCommand
 } from './handReducer'

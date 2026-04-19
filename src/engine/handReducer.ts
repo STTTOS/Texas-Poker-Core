@@ -40,6 +40,20 @@ export type VoluntaryTableCommand = Extract<
   | { type: 'AllIn' }
 >
 
+export function isVoluntaryTableCommand(
+  cmd: TableCommand
+): cmd is VoluntaryTableCommand {
+  const t = cmd.type
+  return (
+    t === 'Fold' ||
+    t === 'Check' ||
+    t === 'Call' ||
+    t === 'Bet' ||
+    t === 'Raise' ||
+    t === 'AllIn'
+  )
+}
+
 export function captureHandReduceProjection(
   table: InstanceType<typeof Texas>
 ): HandReduceProjection {
