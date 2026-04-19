@@ -2,6 +2,7 @@ import type { TableCommand } from '@/domain/tableCommand'
 import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 
 import Texas from '@/Texas'
+import { applyTableCommand } from './applyTableCommand'
 import {
   interpret,
   type OrchestrationCtx,
@@ -18,7 +19,7 @@ export async function dispatchCommandAndInterpret(
   ctx: OrchestrationCtx,
   handlers: readonly DomainEventHandler[]
 ): Promise<readonly TexasDomainEvent[]> {
-  const events = table.dispatchCommand(cmd)
+  const { events } = applyTableCommand(table, cmd)
   await interpretTableEvents(events, ctx, handlers)
   return events
 }
