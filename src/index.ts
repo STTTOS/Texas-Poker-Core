@@ -168,6 +168,7 @@ export {
   reduceLastRolesAssignedFromDomainEvents,
   reduceLastHoleCardsDealtFromDomainEvents,
   captureHandReduceProjection,
+  applyVoluntaryTableCommand,
   applyFoldOrCheckCommand
 } from './engine'
 export type {
@@ -187,7 +188,8 @@ export type {
   TurnEndedEntry,
   TurnOfferReadModel,
   HandReduceProjection,
-  FoldOrCheckTableCommand
+  FoldOrCheckTableCommand,
+  VoluntaryTableCommand
 } from './engine'
 
 export type {

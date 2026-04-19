@@ -25,6 +25,20 @@ export type FoldOrCheckTableCommand = Extract<
   { type: 'Fold' } | { type: 'Check' }
 >
 
+/**
+ * 桌上**自愿**意图（不含超时/离场/入座大盲等带特殊语义的变体）。
+ * 机器人与单测应优先经此 ADT + {@link applyVoluntaryTableCommand}，而非直接点 `Player` 方法。
+ */
+export type VoluntaryTableCommand = Extract<
+  TableCommand,
+  | { type: 'Fold' }
+  | { type: 'Check' }
+  | { type: 'Call' }
+  | { type: 'Bet' }
+  | { type: 'Raise' }
+  | { type: 'AllIn' }
+>
+
 export function captureHandReduceProjection(
   table: InstanceType<typeof Texas>
 ): HandReduceProjection {
@@ -39,16 +53,26 @@ export function captureHandReduceProjection(
 }
 
 /**
- * 命令路径雏形：自愿 **Fold / Check** 统一经 `Texas#dispatchCommand`，再截取读投影。
+ * 自愿指令经 `Texas#dispatchCommand`（零 I/O 委托现有图）+ {@link captureHandReduceProjection}。
  * 长期可替换为纯 `apply(state, cmd) → { state, events }`；当前仍以运行中 `Texas` 为真源。
  */
-export function applyFoldOrCheckCommand(
+export function applyVoluntaryTableCommand(
   table: InstanceType<typeof Texas>,
-  cmd: FoldOrCheckTableCommand
+  cmd: VoluntaryTableCommand
 ): { events: readonly TexasDomainEvent[]; projection: HandReduceProjection } {
   const { events } = applyTableCommand(table, cmd)
   return {
     events,
     projection: captureHandReduceProjection(table)
   }
+}
+
+/**
+ * {@link applyVoluntaryTableCommand} 在 **Fold / Check** 上的窄化别名。
+ */
+export function applyFoldOrCheckCommand(
+  table: InstanceType<typeof Texas>,
+  cmd: FoldOrCheckTableCommand
+): { events: readonly TexasDomainEvent[]; projection: HandReduceProjection } {
+  return applyVoluntaryTableCommand(table, cmd)
 }

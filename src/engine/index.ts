@@ -45,9 +45,11 @@ export {
 } from './domainEventReadModel'
 export type {
   HandReduceProjection,
-  FoldOrCheckTableCommand
+  FoldOrCheckTableCommand,
+  VoluntaryTableCommand
 } from './handReducer'
 export {
   captureHandReduceProjection,
+  applyVoluntaryTableCommand,
   applyFoldOrCheckCommand
 } from './handReducer'

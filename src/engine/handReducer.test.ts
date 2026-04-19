@@ -5,10 +5,11 @@ import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import {
   applyFoldOrCheckCommand,
+  applyVoluntaryTableCommand,
   captureHandReduceProjection
 } from './handReducer'
 
-describe('handReducer (Fold / Check command path)', () => {
+describe('handReducer (voluntary command path)', () => {
   let teardown: Texas | undefined
 
   afterEach(() => {
@@ -59,10 +60,18 @@ describe('handReducer (Fold / Check command path)', () => {
     texas.dealCards()
 
     const firstPf = texas.controller.activePlayer!
-    void texas.dispatchCommand({
+    const { events: callStep } = applyVoluntaryTableCommand(texas, {
       type: 'Call',
       playerId: firstPf.getUserInfo().id
     })
+    expect(
+      callStep.some(
+        (e) =>
+          e.type === 'PlayerActed' &&
+          e.payload.userId === firstPf.getUserInfo().id &&
+          e.payload.actionType === ActionTypeEnum.CALL
+      )
+    ).toBe(true)
     void texas.flushAllPendingFlowOps()
 
     const secondPf = texas.controller.activePlayer!
