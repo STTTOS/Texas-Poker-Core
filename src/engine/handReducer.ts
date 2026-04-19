@@ -3,6 +3,7 @@ import type { ActionTypeEnum } from '@/Player/constant'
 import type { TableCommand } from '@/domain/tableCommand'
 import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 
+import { applyTableCommand } from './applyTableCommand'
 import { type TableSnapshot, captureTableSnapshot } from './tableSnapshot'
 
 /**
@@ -44,8 +45,8 @@ export function captureHandReduceProjection(
 export function applyFoldOrCheckCommand(
   table: InstanceType<typeof Texas>,
   cmd: FoldOrCheckTableCommand
-): { events: TexasDomainEvent[]; projection: HandReduceProjection } {
-  const events = table.dispatchCommand(cmd)
+): { events: readonly TexasDomainEvent[]; projection: HandReduceProjection } {
+  const { events } = applyTableCommand(table, cmd)
   return {
     events,
     projection: captureHandReduceProjection(table)
