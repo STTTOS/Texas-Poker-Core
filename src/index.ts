@@ -186,7 +186,12 @@ export {
   CANONICAL_TABLE_SESSION_JSON_SCHEMA_VERSION,
   cloneTableSnapshot,
   parseCanonicalTableSessionFromJson,
-  reduceCanonicalTableSession
+  reduceCanonicalTableSession,
+  TABLE_STATE_V1_SCHEMA_VERSION,
+  assertTableMatchesStateV1Snapshot,
+  freezeTableStateV1FromLive,
+  reduceCanonicalSessionToTableStateV1,
+  applyTableCommandWithStateV1
 } from './engine'
 export type {
   TableSnapshot,
@@ -195,6 +200,8 @@ export type {
   CanonicalTableSession,
   CommandStepInstruction,
   ReduceCanonicalTableSessionResult,
+  TableStateV1,
+  ApplyTableCommandWithStateV1Result,
   ApplyTableCommandResult,
   BlindsPostedReadModel,
   HandEndedReadModel,

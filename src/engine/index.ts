@@ -18,6 +18,17 @@ export {
   parseCanonicalTableSessionFromJson,
   reduceCanonicalTableSession
 } from './canonicalTableSession'
+export type {
+  TableStateV1,
+  ApplyTableCommandWithStateV1Result
+} from './tableStateV1'
+export {
+  TABLE_STATE_V1_SCHEMA_VERSION,
+  assertTableMatchesStateV1Snapshot,
+  freezeTableStateV1FromLive,
+  reduceCanonicalSessionToTableStateV1,
+  applyTableCommandWithStateV1
+} from './tableStateV1'
 export type { ApplyTableCommandResult } from './applyTableCommand'
 export {
   pendingFlowOpsAllowVoluntaryDispatch,
