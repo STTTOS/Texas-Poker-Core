@@ -3,6 +3,7 @@ import type { Player } from './index'
 import { ActionTypeEnum } from './constant'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { voluntaryActionDisallowError } from './allowedActions'
+import { resolveCallChipsOrError } from './resolveCallChipsOrError'
 
 /**
  * 街道下注动作的执行细节（校验、记池、荷官行动历史、领域事件顺序）。
@@ -196,29 +197,13 @@ export function executeCall(actor: Player, act?: ActValidationOptions): void {
   if (denyCall) return actor.fail(denyCall)
 
   const maxOthersStageBet = actor.getOthersMaxBetAmountAtCurrentStage()
-  const chipsToMatch = maxOthersStageBet - actor.currentStageTotalAmount
-  if (chipsToMatch <= 0) {
-    return actor.fail(
-      new TexasError(TexasCoreErrorCode.PLAYER_CALL_INVALID_STATE, {
-        moneyShouldPay: chipsToMatch,
-        balance: actor.balance,
-        maxBet: maxOthersStageBet
-      })
-    )
-  }
-  if (chipsToMatch > actor.balance) {
-    return actor.fail(
-      new TexasError(TexasCoreErrorCode.PLAYER_CALL_EXCEEDS_BALANCE, {
-        moneyShouldPay: chipsToMatch,
-        balance: actor.balance
-      })
-    )
-  }
-  if (chipsToMatch === actor.balance) {
-    return actor.fail(
-      new TexasError(TexasCoreErrorCode.PLAYER_CALL_SHOULD_ALL_IN)
-    )
-  }
+  const callSizing = resolveCallChipsOrError({
+    maxOthersStageBet,
+    selfCurrentStageTotal: actor.currentStageTotalAmount,
+    selfBalance: actor.balance
+  })
+  if (!callSizing.ok) return actor.fail(callSizing.error)
+  const chipsToMatch = callSizing.chipsToMatch
 
   actor.assignCurrentStreetAction({
     type: ActionTypeEnum.CALL,
