@@ -6,7 +6,10 @@
 export type TableCommand =
   | { type: 'Fold'; playerId: number }
   | { type: 'Check'; playerId: number }
-  /** 跟注额等于当前余额时与 `AllIn` 等价（事件为 ALL_IN）。 */
+  /**
+   * 若 `resolveAllowedActions` 仍含 `CALL` 且应跟注额等于当前余额，`executeCall` 内转全下（事件为 ALL_IN）；
+   * 仅含 `ALL_IN|FOLD` 的短码局面须发 `AllIn`。
+   */
   | { type: 'Call'; playerId: number }
   | { type: 'Bet'; playerId: number; amount: number }
   | { type: 'Raise'; playerId: number; additionalAmount: number }
