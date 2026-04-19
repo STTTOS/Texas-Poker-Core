@@ -2,11 +2,14 @@ import type { Player } from './index'
 
 import { ActionTypeEnum } from './constant'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
-import { voluntaryActionDisallowError } from './allowedActions'
 import { resolveCallChipsOrError } from './resolveCallChipsOrError'
 import { resolveAllInChipsOrError } from './resolveAllInChipsOrError'
 import { resolveRaiseAdditionalOrError } from './resolveRaiseAdditionalOrError'
 import { resolveVoluntaryBetChipOrError } from './resolveVoluntaryBetChipOrError'
+import {
+  resolveAllowedActions,
+  voluntaryActionDisallowError
+} from './allowedActions'
 
 /**
  * 街道下注动作的执行细节（校验、记池、荷官行动历史、领域事件顺序）。
@@ -18,9 +21,14 @@ export type ActValidationOptions = {
   skipTurnOfferRequirement?: boolean
 }
 
+/** 自愿路径统一经 {@link resolveAllowedActions} + {@link Player#getAllowedActionsContext}，与 `#getAllowedActions` 等价。 */
+function voluntaryAllowedActions(actor: Player) {
+  return resolveAllowedActions(actor.getAllowedActionsContext())
+}
+
 export function executeCheck(actor: Player, act?: ActValidationOptions): void {
   actor.checkIfCanAct(act)
-  const allowed = actor.getAllowedActions()
+  const allowed = voluntaryAllowedActions(actor)
   const denyCheck = voluntaryActionDisallowError(
     allowed,
     ActionTypeEnum.CHECK,
@@ -36,7 +44,7 @@ export function executeCheck(actor: Player, act?: ActValidationOptions): void {
 
 export function executeFold(actor: Player, act?: ActValidationOptions): void {
   actor.checkIfCanAct(act)
-  const allowed = actor.getAllowedActions()
+  const allowed = voluntaryAllowedActions(actor)
   const denyFold = voluntaryActionDisallowError(
     allowed,
     ActionTypeEnum.FOLD,
@@ -84,7 +92,7 @@ export function executeBet(
   let committed: number
   if (!preFlopDefaultAction) {
     actor.checkIfCanAct(act)
-    const allowed = actor.getAllowedActions()
+    const allowed = voluntaryAllowedActions(actor)
     const denyBet = voluntaryActionDisallowError(
       allowed,
       ActionTypeEnum.BET,
@@ -127,7 +135,7 @@ export function executeRaise(
   act?: ActValidationOptions
 ): void | number | undefined {
   actor.checkIfCanAct(act)
-  const allowed = actor.getAllowedActions()
+  const allowed = voluntaryAllowedActions(actor)
 
   const maxOthersStageBet = actor.getMaxOthersStageBet()
 
@@ -163,7 +171,7 @@ export function executeRaise(
 
 export function executeCall(actor: Player, act?: ActValidationOptions): void {
   actor.checkIfCanAct(act)
-  const allowed = actor.getAllowedActions()
+  const allowed = voluntaryAllowedActions(actor)
   const denyCall = voluntaryActionDisallowError(
     allowed,
     ActionTypeEnum.CALL,
@@ -209,7 +217,7 @@ export function executeAllIn(
   if (!skipTurnValidation) {
     actor.checkIfCanAct(act)
   }
-  const allowed = actor.getAllowedActions()
+  const allowed = voluntaryAllowedActions(actor)
   const denyAllIn = voluntaryActionDisallowError(
     allowed,
     ActionTypeEnum.ALL_IN,
