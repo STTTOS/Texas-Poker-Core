@@ -2,6 +2,7 @@ import type { Player } from './index'
 
 import { ActionTypeEnum } from './constant'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
+import { voluntaryActionDisallowError } from './allowedActions'
 
 /**
  * 街道下注动作的执行细节（校验、记池、荷官行动历史、领域事件顺序）。
@@ -16,9 +17,12 @@ export type ActValidationOptions = {
 export function executeCheck(actor: Player, act?: ActValidationOptions): void {
   actor.checkIfCanAct(act)
   const allowed = actor.getAllowedActions()
-  if (!allowed.includes(ActionTypeEnum.CHECK)) {
-    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CHECK))
-  }
+  const denyCheck = voluntaryActionDisallowError(
+    allowed,
+    ActionTypeEnum.CHECK,
+    TexasCoreErrorCode.PLAYER_CANNOT_CHECK
+  )
+  if (denyCheck) return actor.fail(denyCheck)
 
   actor.assignCurrentStreetAction({ type: ActionTypeEnum.CHECK })
   actor.notifyDealerActionHistory()
@@ -29,9 +33,12 @@ export function executeCheck(actor: Player, act?: ActValidationOptions): void {
 export function executeFold(actor: Player, act?: ActValidationOptions): void {
   actor.checkIfCanAct(act)
   const allowed = actor.getAllowedActions()
-  if (!allowed.includes(ActionTypeEnum.FOLD)) {
-    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_FOLD))
-  }
+  const denyFold = voluntaryActionDisallowError(
+    allowed,
+    ActionTypeEnum.FOLD,
+    TexasCoreErrorCode.PLAYER_CANNOT_FOLD
+  )
+  if (denyFold) return actor.fail(denyFold)
 
   actor.assignCurrentStreetAction({ type: ActionTypeEnum.FOLD })
   actor.setStatus('out')
@@ -73,9 +80,12 @@ export function executeBet(
   if (!preFlopDefaultAction) {
     actor.checkIfCanAct(act)
     const allowed = actor.getAllowedActions()
-    if (!allowed.includes(ActionTypeEnum.BET)) {
-      return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_BET))
-    }
+    const denyBet = voluntaryActionDisallowError(
+      allowed,
+      ActionTypeEnum.BET,
+      TexasCoreErrorCode.PLAYER_CANNOT_BET
+    )
+    if (denyBet) return actor.fail(denyBet)
   }
 
   if (!preFlopDefaultAction && chipAmount > actor.balance) {
@@ -128,9 +138,12 @@ export function executeRaise(
 
   const maxOthersStageBet = actor.getMaxOthersStageBet()
 
-  if (!allowed.includes(ActionTypeEnum.RAISE)) {
-    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_RAISE))
-  }
+  const denyRaise = voluntaryActionDisallowError(
+    allowed,
+    ActionTypeEnum.RAISE,
+    TexasCoreErrorCode.PLAYER_CANNOT_RAISE
+  )
+  if (denyRaise) return actor.fail(denyRaise)
 
   if (additionalChips > actor.balance) {
     return actor.fail(
@@ -175,9 +188,12 @@ export function executeRaise(
 export function executeCall(actor: Player, act?: ActValidationOptions): void {
   actor.checkIfCanAct(act)
   const allowed = actor.getAllowedActions()
-  if (!allowed.includes(ActionTypeEnum.CALL)) {
-    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_CALL))
-  }
+  const denyCall = voluntaryActionDisallowError(
+    allowed,
+    ActionTypeEnum.CALL,
+    TexasCoreErrorCode.PLAYER_CANNOT_CALL
+  )
+  if (denyCall) return actor.fail(denyCall)
 
   const maxOthersStageBet = actor.getOthersMaxBetAmountAtCurrentStage()
   const chipsToMatch = maxOthersStageBet - actor.currentStageTotalAmount
@@ -228,9 +244,12 @@ export function executeAllIn(
     actor.checkIfCanAct(act)
   }
   const allowed = actor.getAllowedActions()
-  if (!allowed.includes(ActionTypeEnum.ALL_IN)) {
-    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_ALL_IN))
-  }
+  const denyAllIn = voluntaryActionDisallowError(
+    allowed,
+    ActionTypeEnum.ALL_IN,
+    TexasCoreErrorCode.PLAYER_CANNOT_ALL_IN
+  )
+  if (denyAllIn) return actor.fail(denyAllIn)
 
   const chipsToCommit = actor.balance
   if (chipsToCommit <= 0) {

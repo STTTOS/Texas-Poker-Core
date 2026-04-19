@@ -1,4 +1,5 @@
 import { ActionTypeEnum } from './constant'
+import TexasError, { type TexasErrorCode } from '@/TexasError'
 
 /**
  * 纯函数：根据桌面公开状态推导当前玩家允许的行动列表（与倒计时、回调无关）。
@@ -105,4 +106,17 @@ export function resolveAllowedActions(
     ]
   }
   return result
+}
+
+/**
+ * 自愿动作是否被当前允许列表接纳（纯函数）。
+ * 返回 `TexasError` 供调用方 `player.fail(err)`；通过则返回 `null`。
+ */
+export function voluntaryActionDisallowError(
+  allowed: readonly ActionTypeEnum[],
+  required: ActionTypeEnum,
+  disallowCode: TexasErrorCode
+): TexasError | null {
+  if (allowed.includes(required)) return null
+  return new TexasError(disallowCode)
 }
