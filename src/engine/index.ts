@@ -13,7 +13,9 @@ export type {
   ReduceCanonicalTableSessionResult
 } from './canonicalTableSession'
 export {
+  CANONICAL_TABLE_SESSION_JSON_SCHEMA_VERSION,
   cloneTableSnapshot,
+  parseCanonicalTableSessionFromJson,
   reduceCanonicalTableSession
 } from './canonicalTableSession'
 export type { ApplyTableCommandResult } from './applyTableCommand'

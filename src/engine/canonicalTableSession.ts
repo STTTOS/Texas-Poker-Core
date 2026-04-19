@@ -25,6 +25,8 @@ export type BootstrapInstruction =
   | { readonly kind: 'seat_owner' }
   /** `createPlayer` + `room.join`（尚未入座）。 */
   | { readonly kind: 'join_user'; readonly user: User }
+  /** `createPlayer` + `join` + `seat` 一步完成（常见加人上桌）。 */
+  | { readonly kind: 'invite_seat_user'; readonly user: User }
   /** 须已 `join_user` 且 `userId` 对应玩家存在。 */
   | { readonly kind: 'seat_user_by_id'; readonly userId: number }
   | { readonly kind: 'set_button'; readonly userId: number }
@@ -34,7 +36,13 @@ export type BootstrapInstruction =
       readonly mode: 'initial' | 'rearrange'
       readonly buttonUserId?: number
     }
+  /** 局间 `reset` 后须再锁座才能 `start`；与 `set_player_roles` 内锁座不同。 */
+  | { readonly kind: 'lock_seats' }
+  | { readonly kind: 'unlock_seats' }
+  /** 奖池/控制器/荷官/会话缓冲清零并 `unlockSeats`（见 {@link Texas#reset}）。 */
+  | { readonly kind: 'reset_session' }
   | { readonly kind: 'start_hand' }
+  | { readonly kind: 'flush_pending_turn_handoff' }
   | { readonly kind: 'flush_all_pending_flow_ops' }
   | { readonly kind: 'deal_cards' }
 
@@ -63,6 +71,9 @@ export type ReduceCanonicalTableSessionResult = Readonly<{
   snapshotsAfterCommands: readonly TableSnapshot[]
   finalSnapshot: TableSnapshot
 }>
+
+/** 与 `*.canonical.json` 磁带对齐；未知版本可拒绝解析。 */
+export const CANONICAL_TABLE_SESSION_JSON_SCHEMA_VERSION = 1 as const
 
 function playerByUserId(
   table: InstanceType<typeof Texas>,
@@ -94,6 +105,12 @@ function runBootstrapOp(
       table.room.join(p)
       return []
     }
+    case 'invite_seat_user': {
+      const p = table.createPlayer(op.user)
+      table.room.join(p)
+      table.room.seat(p)
+      return []
+    }
     case 'seat_user_by_id': {
       const p = playerByUserId(table, op.userId)
       table.room.seat(p)
@@ -111,13 +128,166 @@ function runBootstrapOp(
           ? { buttonUserId: op.buttonUserId }
           : undefined
       )
+    case 'lock_seats':
+      table.lockSeats()
+      return []
+    case 'unlock_seats':
+      table.unlockSeats()
+      return []
+    case 'reset_session':
+      table.reset()
+      return []
     case 'start_hand':
       return table.start()
+    case 'flush_pending_turn_handoff':
+      return table.flushPendingTurnHandoff()
     case 'flush_all_pending_flow_ops':
       return table.flushAllPendingFlowOps()
     case 'deal_cards':
       return table.dealCards()
+    default: {
+      const _never: never = op
+      return _never
+    }
   }
+}
+
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null
+}
+
+function isUser(x: unknown): x is User {
+  if (!isRecord(x)) return false
+  return typeof x.id === 'number' && typeof x.name === 'string'
+}
+
+function invalidCanonicalJson(message: string): never {
+  throw new Error(`Invalid canonical table session JSON: ${message}`)
+}
+
+function parseCreateRoomInputArgs(raw: unknown): CreateRoomInputArgs {
+  if (!isRecord(raw)) invalidCanonicalJson('create must be an object')
+  if (typeof raw.lowestBetAmount !== 'number')
+    invalidCanonicalJson('create.lowestBetAmount must be a number')
+  if (typeof raw.maximumCountOfPlayers !== 'number')
+    invalidCanonicalJson('create.maximumCountOfPlayers must be a number')
+  if (typeof raw.initialChips !== 'number')
+    invalidCanonicalJson('create.initialChips must be a number')
+  if (!isUser(raw.user))
+    invalidCanonicalJson('create.user must be { id, name }')
+  return {
+    lowestBetAmount: raw.lowestBetAmount,
+    maximumCountOfPlayers: raw.maximumCountOfPlayers,
+    initialChips: raw.initialChips,
+    user: raw.user
+  }
+}
+
+function parseBootstrapInstruction(raw: unknown): BootstrapInstruction {
+  if (!isRecord(raw) || typeof raw.kind !== 'string') {
+    invalidCanonicalJson(
+      'each bootstrap step must be an object with string kind'
+    )
+  }
+  switch (raw.kind) {
+    case 'seat_owner':
+      return { kind: 'seat_owner' }
+    case 'join_user':
+      if (!isUser(raw.user)) invalidCanonicalJson('join_user.user invalid')
+      return { kind: 'join_user', user: raw.user }
+    case 'invite_seat_user':
+      if (!isUser(raw.user))
+        invalidCanonicalJson('invite_seat_user.user invalid')
+      return { kind: 'invite_seat_user', user: raw.user }
+    case 'seat_user_by_id':
+      if (typeof raw.userId !== 'number')
+        invalidCanonicalJson('seat_user_by_id.userId must be a number')
+      return { kind: 'seat_user_by_id', userId: raw.userId }
+    case 'set_button':
+      if (typeof raw.userId !== 'number')
+        invalidCanonicalJson('set_button.userId must be a number')
+      return { kind: 'set_button', userId: raw.userId }
+    case 'set_player_roles': {
+      if (raw.mode !== 'initial' && raw.mode !== 'rearrange') {
+        invalidCanonicalJson(
+          'set_player_roles.mode must be initial | rearrange'
+        )
+      }
+      const buttonUserId =
+        typeof raw.buttonUserId === 'number' ? raw.buttonUserId : undefined
+      return {
+        kind: 'set_player_roles',
+        mode: raw.mode,
+        ...(buttonUserId != null ? { buttonUserId } : {})
+      }
+    }
+    case 'lock_seats':
+      return { kind: 'lock_seats' }
+    case 'unlock_seats':
+      return { kind: 'unlock_seats' }
+    case 'reset_session':
+      return { kind: 'reset_session' }
+    case 'start_hand':
+      return { kind: 'start_hand' }
+    case 'flush_pending_turn_handoff':
+      return { kind: 'flush_pending_turn_handoff' }
+    case 'flush_all_pending_flow_ops':
+      return { kind: 'flush_all_pending_flow_ops' }
+    case 'deal_cards':
+      return { kind: 'deal_cards' }
+    default:
+      invalidCanonicalJson(`unknown bootstrap kind: ${String(raw.kind)}`)
+  }
+}
+
+function parseCommandStep(raw: unknown): CommandStepInstruction {
+  if (
+    !isRecord(raw) ||
+    !isRecord(raw.cmd) ||
+    typeof raw.cmd.type !== 'string'
+  ) {
+    invalidCanonicalJson(
+      'each command step must be { cmd: { type, ... }, flushAllPending? }'
+    )
+  }
+  return {
+    cmd: raw.cmd as TableCommand,
+    flushAllPending: raw.flushAllPending === true
+  }
+}
+
+/**
+ * 解析命令级牌谱 JSON（UTF-8）。形状与 {@link CanonicalTableSession} 一致，可选顶层 `schemaVersion`（当前仅 `1`）。
+ * 解析失败抛带前缀 `Invalid canonical table session JSON:` 的 {@link Error}。
+ */
+export function parseCanonicalTableSessionFromJson(
+  json: string
+): CanonicalTableSession {
+  let root: unknown
+  try {
+    root = JSON.parse(json) as unknown
+  } catch {
+    invalidCanonicalJson('not valid JSON')
+  }
+  if (!isRecord(root)) {
+    invalidCanonicalJson('root must be an object')
+  }
+  const ver = root.schemaVersion
+  if (
+    ver !== undefined &&
+    ver !== CANONICAL_TABLE_SESSION_JSON_SCHEMA_VERSION
+  ) {
+    invalidCanonicalJson(
+      `unsupported schemaVersion (expected ${CANONICAL_TABLE_SESSION_JSON_SCHEMA_VERSION})`
+    )
+  }
+  if (!Array.isArray(root.bootstrap) || !Array.isArray(root.commandSteps)) {
+    invalidCanonicalJson('bootstrap and commandSteps must be arrays')
+  }
+  const create = parseCreateRoomInputArgs(root.create)
+  const bootstrap = root.bootstrap.map(parseBootstrapInstruction)
+  const commandSteps = root.commandSteps.map(parseCommandStep)
+  return { create, bootstrap, commandSteps }
 }
 
 /**
