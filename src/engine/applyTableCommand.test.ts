@@ -3,7 +3,10 @@ import { StageEnum } from '@/Controller'
 import { ActionTypeEnum } from '@/Player/constant'
 import { applyTableCommand } from './applyTableCommand'
 import { TexasEngineContext } from '@/TexasEngineContext'
-import { reducePotFromDomainEvents } from './domainEventReadModel'
+import {
+  reducePotFromDomainEvents,
+  reduceLastTurnOfferedFromDomainEvents
+} from './domainEventReadModel'
 
 describe('applyTableCommand (facade toward apply state and events)', () => {
   let teardown: Texas | undefined
@@ -87,5 +90,38 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     expect(new Set(fromEvents.contributions.map(key))).toEqual(
       new Set(snapshotAfter.contributions.map(key))
     )
+  })
+
+  test('TurnOffered read model matches engine active player after Call + handoff', () => {
+    const texas = new Texas({
+      lowestBetAmount: 1000,
+      maximumCountOfPlayers: 7,
+      initialChips: 50_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.seat(p2)
+    texas.dealer.setButton(p1)
+    texas.setPlayerRoles()
+    teardown = texas
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
+    texas.dealCards()
+
+    const first = texas.controller.activePlayer!
+    const { events: stepEvents } = applyTableCommand(texas, {
+      type: 'Call',
+      playerId: first.getUserInfo().id
+    })
+    const handoffEvents = texas.flushPendingTurnHandoff()
+    const combined = [...stepEvents, ...handoffEvents]
+
+    const turn = reduceLastTurnOfferedFromDomainEvents(combined)
+    const ap = texas.controller.activePlayer
+    expect(turn).not.toBeNull()
+    expect(ap).not.toBeNull()
+    expect(turn!.userId).toBe(ap!.getUserInfo().id)
   })
 })

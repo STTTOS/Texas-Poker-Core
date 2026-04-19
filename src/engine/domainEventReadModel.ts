@@ -1,3 +1,5 @@
+import type { Stage } from '@/Controller/stage'
+import type { ActionTypeEnum } from '@/Player/constant'
 import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 
 /**
@@ -28,6 +30,32 @@ export function reducePotFromDomainEvents(
           userId: c.userId,
           amount: c.amount
         }))
+      }
+    }
+  }
+  return last
+}
+
+/**
+ * 本批事件里**最后一次** `TurnOffered`（与「当前轮到谁思考」展示对齐；不含 pacing 延迟本身）。
+ */
+export type TurnOfferReadModel = Readonly<{
+  userId: number
+  street: Stage
+  allowedActions: readonly ActionTypeEnum[]
+}>
+
+export function reduceLastTurnOfferedFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): TurnOfferReadModel | null {
+  let last: TurnOfferReadModel | null = null
+  for (const e of events) {
+    if (e.type === 'TurnOffered') {
+      const { userId, street, allowedActions } = e.payload
+      last = {
+        userId,
+        street,
+        allowedActions: [...allowedActions]
       }
     }
   }
