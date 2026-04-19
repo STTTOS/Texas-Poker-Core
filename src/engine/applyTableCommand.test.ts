@@ -8,6 +8,7 @@ import {
   reducePotFromDomainEvents,
   reduceLastHandEndedFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
+  reduceLastPotAwardedFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents
 } from './domainEventReadModel'
@@ -199,5 +200,42 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     const ended = reduceLastHandEndedFromDomainEvents(tape)
     expect(texas.controller.status).toBe('between_hands')
     expect(ended?.outcome).toBe('fold_win')
+  })
+
+  test('reduceLastPotAwardedFromDomainEvents matches settle() PotAwarded', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 7,
+      initialChips: 5000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    const p3 = texas.createPlayer({ id: 3, name: 'c' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.join(p3)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
+    texas.dealer.setButton(p1)
+    texas.setPlayerRoles()
+    teardown = texas
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
+    texas.dealCards()
+
+    texas.controller.end()
+    texas.controller.settleRankingsThroughStage(StageEnum.RIVER)
+    const payEv = texas.settle()
+    const raw = payEv.find((e) => e.type === 'PotAwarded')
+    if (!raw || raw.type !== 'PotAwarded') {
+      throw new Error('expected PotAwarded from settle')
+    }
+    const fromReducer = reduceLastPotAwardedFromDomainEvents(payEv)
+    expect(fromReducer?.potTotal).toBe(raw.payload.potTotal)
+    const key = (c: Readonly<{ userId: number; amount: number }>) =>
+      `${c.userId}:${c.amount}`
+    expect(new Set(fromReducer!.allocations.map(key))).toEqual(
+      new Set(raw.payload.allocations.map(key))
+    )
   })
 })
