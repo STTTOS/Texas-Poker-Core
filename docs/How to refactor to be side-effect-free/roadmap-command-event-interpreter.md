@@ -192,6 +192,8 @@
 - [x] **阶段 4** — pacing 迁出：`transferControlTo` **无**内嵌 `await` 节奏；进街与交权固定经 **`pendingFlowOps`** + `Texas#applyPendingStageAdvance` / `flushPendingTurnHandoff`（及测试用 `flushAllPendingFlowOps`）消费。中间态不变量全文仍以接入方文档为准。
 - [x] **阶段 5** — Command 门面：`Texas.dispatchCommand` 经 `handBettingActions` 执行；`Player#bet`/`fold` 等标 `@deprecated`，盲注走 `Controller` 内 `executeBet`；迁移期单测仍可调用旧方法。
 - [ ] **P4 增量（自愿指令 + 读投影）** — `applyVoluntaryTableCommand`（`Fold|Check|Call|Bet|Raise|AllIn` → `dispatchCommand` + `captureHandReduceProjection`）；`applyFoldOrCheckCommand` 为其别名；`voluntaryActionDisallowError`；`Player#getAllowedActionsContext` + 根导出 `resolveAllowedActions` / `AllowedActionsContext`；`handBettingActions` 自愿路径经 `resolveAllowedActions(getAllowedActionsContext())`（内部 `voluntaryAllowedActions`）；自愿下注 `resolveVoluntaryBetChipOrError`；跟注 `resolveCallChipsOrError`、加注 `resolveRaiseAdditionalOrError`、全下 `resolveAllInChipsOrError`；`getOthersMaxBetAmountAtCurrentStage` 已委托 `getMaxOthersStageBet`。下注与交权实现仍在 `Player` + `handBettingActions`，尚未迁入纯 `apply(state, cmd)`。
+- [ ] **P5 增量（pending 读侧）** — `pendingFlowOpsAllowVoluntaryDispatch` / `peekPendingFlowOp`（`src/engine/pendingFlowReadModel.ts`，根 `index` 已导出）；`captureHandReduceProjection` 已复用。Controller 内 FIFO 与阶段机本体仍非独立纯模块。
 - [ ] **阶段 6** — 事件持久化与重放：**增量** — 磁带 → 只读复合投影 `projectCompositeReadModel`（`src/replay/projectCompositeReadModel.ts`，根 `index` 已导出）；append-only 存储与官方 `reduce(apply)` 重放 CLI 仍缺；机器人仍可按现有 API 接 Command。
+- [ ] **P6** — Dealer 环 + Pool 账本数据化、`Texas` 变薄：尚未开工（见 §10 表）。
 
 **§9 通用清单**：回归测试随 PR 跑通；apply vs interpret **分段指标**与**功能开关**仍待产品化。
