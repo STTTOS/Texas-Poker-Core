@@ -170,3 +170,33 @@ export function reduceLastPotAwardedFromDomainEvents(
   }
   return last
 }
+
+/** 本批中**最后一条** `BlindsPosted`（盲注汇总行）。 */
+export type BlindsPostedReadModel = Readonly<{
+  handId: string
+  seq: number
+  posts: ReadonlyArray<
+    Readonly<{ userId: number; amount: number; kind: 'sb' | 'bb' }>
+  >
+}>
+
+export function reduceLastBlindsPostedFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): BlindsPostedReadModel | null {
+  let last: BlindsPostedReadModel | null = null
+  for (const e of events) {
+    if (e.type === 'BlindsPosted') {
+      const p = e.payload
+      last = {
+        handId: p.handId,
+        seq: p.seq,
+        posts: p.posts.map((x) => ({
+          userId: x.userId,
+          amount: x.amount,
+          kind: x.kind
+        }))
+      }
+    }
+  }
+  return last
+}

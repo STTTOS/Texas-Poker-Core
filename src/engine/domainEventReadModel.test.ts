@@ -9,6 +9,7 @@ import {
   reduceCommunityBoardFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
+  reduceLastBlindsPostedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents
 } from './domainEventReadModel'
 
@@ -212,6 +213,33 @@ describe('domainEventReadModel (pure projection)', () => {
     const h = reduceLastHandEndedFromDomainEvents(events)
     expect(h?.seq).toBe(99)
     expect(h?.outcome).toBe('fold_win')
+  })
+
+  test('reduceLastBlindsPostedFromDomainEvents keeps last BlindsPosted', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'BlindsPosted',
+        payload: {
+          handId: 'h1',
+          seq: 2,
+          posts: [{ userId: 1, amount: 50, kind: 'sb' }]
+        }
+      },
+      {
+        type: 'BlindsPosted',
+        payload: {
+          handId: 'h1',
+          seq: 8,
+          posts: [
+            { userId: 1, amount: 50, kind: 'sb' },
+            { userId: 2, amount: 100, kind: 'bb' }
+          ]
+        }
+      }
+    ]
+    const b = reduceLastBlindsPostedFromDomainEvents(events)
+    expect(b?.seq).toBe(8)
+    expect(b?.posts).toHaveLength(2)
   })
 
   test('reduceLastPotAwardedFromDomainEvents keeps last PotAwarded', () => {

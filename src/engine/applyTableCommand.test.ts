@@ -1,8 +1,11 @@
 import Texas from '@/Texas'
 import { StageEnum } from '@/Controller'
 import { ActionTypeEnum } from '@/Player/constant'
-import { applyTableCommand } from './applyTableCommand'
 import { TexasEngineContext } from '@/TexasEngineContext'
+import {
+  applyTableCommand,
+  applyTableCommandThenFlushAllPendingFlowOps
+} from './applyTableCommand'
 import {
   flatConcatDomainEvents,
   reducePotFromDomainEvents,
@@ -10,6 +13,7 @@ import {
   reduceCommunityBoardFromDomainEvents,
   reduceLastPotAwardedFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
+  reduceLastBlindsPostedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents
 } from './domainEventReadModel'
 
@@ -237,5 +241,95 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     expect(new Set(fromReducer!.allocations.map(key))).toEqual(
       new Set(raw.payload.allocations.map(key))
     )
+  })
+
+  test('applyTableCommandThenFlushAllPendingFlowOps matches manual concat', () => {
+    function huStartedDealt(): Texas {
+      const texas = new Texas({
+        lowestBetAmount: 1000,
+        maximumCountOfPlayers: 7,
+        initialChips: 50_000,
+        user: { id: 1, name: 'a' }
+      })
+      const p1 = texas.room.owner
+      const p2 = texas.createPlayer({ id: 2, name: 'b' })
+      texas.room.seat(p1)
+      texas.room.join(p2)
+      texas.room.seat(p2)
+      texas.dealer.setButton(p1)
+      texas.setPlayerRoles()
+      void [...texas.start(), ...texas.flushAllPendingFlowOps()]
+      texas.dealCards()
+      return texas
+    }
+
+    const t1 = huStartedDealt()
+    const first1 = t1.controller.activePlayer!
+    const step = applyTableCommand(t1, {
+      type: 'Call',
+      playerId: first1.getUserInfo().id
+    }).events
+    const flushed = t1.flushAllPendingFlowOps()
+    const golden = flatConcatDomainEvents([step, flushed])
+    t1.room.checkIfCloseRoom()
+
+    const t2 = huStartedDealt()
+    teardown = t2
+    const first2 = t2.controller.activePlayer!
+    const combined = applyTableCommandThenFlushAllPendingFlowOps(t2, {
+      type: 'Call',
+      playerId: first2.getUserInfo().id
+    }).events
+
+    expect(combined).toEqual(golden)
+  })
+
+  test('applyTableCommandThenFlushAllPendingFlowOps leaves no pending flow ops', () => {
+    const texas = new Texas({
+      lowestBetAmount: 1000,
+      maximumCountOfPlayers: 7,
+      initialChips: 50_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.seat(p2)
+    texas.dealer.setButton(p1)
+    texas.setPlayerRoles()
+    teardown = texas
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
+    texas.dealCards()
+
+    const first = texas.controller.activePlayer!
+    const { snapshotAfter } = applyTableCommandThenFlushAllPendingFlowOps(
+      texas,
+      { type: 'Call', playerId: first.getUserInfo().id }
+    )
+    expect(snapshotAfter.pendingFlowOps).toEqual([])
+  })
+
+  test('reduceLastBlindsPostedFromDomainEvents on start tape', () => {
+    const texas = new Texas({
+      lowestBetAmount: 1000,
+      maximumCountOfPlayers: 7,
+      initialChips: 50_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.seat(p2)
+    texas.dealer.setButton(p1)
+    texas.setPlayerRoles()
+    teardown = texas
+    const tape = flatConcatDomainEvents([
+      [...texas.start(), ...texas.flushAllPendingFlowOps()]
+    ])
+    const b = reduceLastBlindsPostedFromDomainEvents(tape)
+    expect(b).not.toBeNull()
+    expect(b!.posts.length).toBeGreaterThan(0)
   })
 })

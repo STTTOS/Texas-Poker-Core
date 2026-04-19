@@ -7,8 +7,12 @@ export {
 export type { TablePlayerSnapshot, TableSnapshot } from './tableSnapshot'
 export { captureTableSnapshot } from './tableSnapshot'
 export type { ApplyTableCommandResult } from './applyTableCommand'
-export { applyTableCommand } from './applyTableCommand'
+export {
+  applyTableCommand,
+  applyTableCommandThenFlushAllPendingFlowOps
+} from './applyTableCommand'
 export type {
+  BlindsPostedReadModel,
   HandEndedReadModel,
   PlayerActedEntry,
   PotAwardedReadModel,
@@ -22,7 +26,8 @@ export {
   reducePlayerActedTrailFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
   reduceLastHandEndedFromDomainEvents,
-  reduceLastPotAwardedFromDomainEvents
+  reduceLastPotAwardedFromDomainEvents,
+  reduceLastBlindsPostedFromDomainEvents
 } from './domainEventReadModel'
 export type {
   HandReduceProjection,

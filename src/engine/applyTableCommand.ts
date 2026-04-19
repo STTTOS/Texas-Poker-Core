@@ -2,6 +2,7 @@ import type Texas from '@/Texas'
 import type { TableCommand } from '@/domain/tableCommand'
 import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 
+import { flatConcatDomainEvents } from './domainEventReadModel'
 import { type TableSnapshot, captureTableSnapshot } from './tableSnapshot'
 
 /**
@@ -22,6 +23,22 @@ export function applyTableCommand(
   const events = table.dispatchCommand(cmd)
   return {
     events,
+    snapshotAfter: captureTableSnapshot(table)
+  }
+}
+
+/**
+ * `dispatchCommand` 后立刻 {@link Texas#flushAllPendingFlowOps}（无 sleep），
+ * 事件带为两段拼接；适合单测 / 机器人零延迟；线上仍可分步 + pacing。
+ */
+export function applyTableCommandThenFlushAllPendingFlowOps(
+  table: InstanceType<typeof Texas>,
+  cmd: TableCommand
+): ApplyTableCommandResult {
+  const step = table.dispatchCommand(cmd)
+  const flushed = table.flushAllPendingFlowOps()
+  return {
+    events: flatConcatDomainEvents([step, flushed]),
     snapshotAfter: captureTableSnapshot(table)
   }
 }
