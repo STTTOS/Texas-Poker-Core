@@ -148,9 +148,16 @@ export {
   dispatchCommandAndInterpret,
   interpretTableEvents,
   flushAllPendingFlowOpsAndInterpret,
-  captureTableSnapshot
+  captureTableSnapshot,
+  captureHandReduceProjection,
+  applyFoldOrCheckCommand
 } from './engine'
-export type { TableSnapshot, TablePlayerSnapshot } from './engine'
+export type {
+  TableSnapshot,
+  TablePlayerSnapshot,
+  HandReduceProjection,
+  FoldOrCheckTableCommand
+} from './engine'
 
 export type { PersistedDomainEventRow, DomainEventStore } from './replay'
 export {

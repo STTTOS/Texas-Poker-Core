@@ -6,3 +6,11 @@ export {
 
 export type { TablePlayerSnapshot, TableSnapshot } from './tableSnapshot'
 export { captureTableSnapshot } from './tableSnapshot'
+export type {
+  HandReduceProjection,
+  FoldOrCheckTableCommand
+} from './handReducer'
+export {
+  captureHandReduceProjection,
+  applyFoldOrCheckCommand
+} from './handReducer'
