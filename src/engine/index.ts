@@ -9,12 +9,15 @@ export { captureTableSnapshot } from './tableSnapshot'
 export type { ApplyTableCommandResult } from './applyTableCommand'
 export { applyTableCommand } from './applyTableCommand'
 export type {
+  PlayerActedEntry,
   PotContributionReadModel,
   TurnOfferReadModel
 } from './domainEventReadModel'
 export {
   reducePotFromDomainEvents,
-  reduceLastTurnOfferedFromDomainEvents
+  reduceLastTurnOfferedFromDomainEvents,
+  reducePlayerActedTrailFromDomainEvents,
+  reduceCommunityBoardFromDomainEvents
 } from './domainEventReadModel'
 export type {
   HandReduceProjection,

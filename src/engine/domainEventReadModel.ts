@@ -1,3 +1,4 @@
+import type { Poke } from '@/Deck/constant'
 import type { Stage } from '@/Controller/stage'
 import type { ActionTypeEnum } from '@/Player/constant'
 import type { TexasDomainEvent } from '@/domain/handDomainEvents'
@@ -60,4 +61,42 @@ export function reduceLastTurnOfferedFromDomainEvents(
     }
   }
   return last
+}
+
+/** 本批 `PlayerActed` 按 `seq` 升序（便于与磁带 / 快照对拍）。 */
+export type PlayerActedEntry = Readonly<{
+  seq: number
+  userId: number
+  street: Stage
+  actionType: ActionTypeEnum
+  amount?: number
+}>
+
+export function reducePlayerActedTrailFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): readonly PlayerActedEntry[] {
+  const acts: PlayerActedEntry[] = []
+  for (const e of events) {
+    if (e.type === 'PlayerActed') {
+      const { seq, userId, street, actionType, amount } = e.payload
+      acts.push({ seq, userId, street, actionType, amount })
+    }
+  }
+  acts.sort((a, b) => a.seq - b.seq)
+  return acts
+}
+
+/**
+ * 按 `StageAdvanced` 出现顺序拼接 `pokesRevealedThisStep`（与公牌展示进度一致）。
+ */
+export function reduceCommunityBoardFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): readonly Poke[] {
+  const board: Poke[] = []
+  for (const e of events) {
+    if (e.type === 'StageAdvanced') {
+      board.push(...e.payload.pokesRevealedThisStep)
+    }
+  }
+  return board
 }

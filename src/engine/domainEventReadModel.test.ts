@@ -4,7 +4,9 @@ import { StageEnum } from '@/Controller'
 import { ActionTypeEnum } from '@/Player/constant'
 import {
   reducePotFromDomainEvents,
-  reduceLastTurnOfferedFromDomainEvents
+  reduceCommunityBoardFromDomainEvents,
+  reduceLastTurnOfferedFromDomainEvents,
+  reducePlayerActedTrailFromDomainEvents
 } from './domainEventReadModel'
 
 describe('domainEventReadModel (pure projection)', () => {
@@ -83,5 +85,69 @@ describe('domainEventReadModel (pure projection)', () => {
     const t = reduceLastTurnOfferedFromDomainEvents(events)
     expect(t?.userId).toBe(2)
     expect(t?.allowedActions).toContain(ActionTypeEnum.CALL)
+  })
+
+  test('reducePlayerActedTrailFromDomainEvents sorts by seq', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'PlayerActed',
+        payload: {
+          handId: 'h1',
+          seq: 9,
+          userId: 2,
+          street: StageEnum.PRE_FLOP,
+          actionType: ActionTypeEnum.CHECK
+        }
+      },
+      {
+        type: 'PlayerActed',
+        payload: {
+          handId: 'h1',
+          seq: 3,
+          userId: 1,
+          street: StageEnum.PRE_FLOP,
+          actionType: ActionTypeEnum.CALL,
+          amount: 500
+        }
+      }
+    ]
+    const trail = reducePlayerActedTrailFromDomainEvents(events)
+    expect(trail.map((t) => t.seq)).toEqual([3, 9])
+    expect(trail[0]!.actionType).toBe(ActionTypeEnum.CALL)
+  })
+
+  test('reduceCommunityBoardFromDomainEvents concatenates StageAdvanced steps', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'StageAdvanced',
+        payload: {
+          handId: 'h1',
+          seq: 10,
+          fromStage: StageEnum.PRE_FLOP,
+          toStage: StageEnum.FLOP,
+          pokesRevealedThisStep: ['h2', 's3', 'd4'],
+          boardThroughStageAfter: StageEnum.FLOP,
+          advanceKind: 'betting_round_complete'
+        }
+      },
+      {
+        type: 'StageAdvanced',
+        payload: {
+          handId: 'h1',
+          seq: 20,
+          fromStage: StageEnum.FLOP,
+          toStage: StageEnum.TURN,
+          pokesRevealedThisStep: ['c5'],
+          boardThroughStageAfter: StageEnum.TURN,
+          advanceKind: 'betting_round_complete'
+        }
+      }
+    ]
+    expect(reduceCommunityBoardFromDomainEvents(events)).toEqual([
+      'h2',
+      's3',
+      'd4',
+      'c5'
+    ])
   })
 })

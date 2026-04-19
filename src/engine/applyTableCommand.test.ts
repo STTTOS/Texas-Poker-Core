@@ -5,7 +5,9 @@ import { applyTableCommand } from './applyTableCommand'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import {
   reducePotFromDomainEvents,
-  reduceLastTurnOfferedFromDomainEvents
+  reduceCommunityBoardFromDomainEvents,
+  reduceLastTurnOfferedFromDomainEvents,
+  reducePlayerActedTrailFromDomainEvents
 } from './domainEventReadModel'
 
 describe('applyTableCommand (facade toward apply state and events)', () => {
@@ -123,5 +125,48 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     expect(turn).not.toBeNull()
     expect(ap).not.toBeNull()
     expect(turn!.userId).toBe(ap!.getUserInfo().id)
+  })
+
+  test('board + voluntary trail from events match engine after preflop check-through', () => {
+    const texas = new Texas({
+      lowestBetAmount: 1000,
+      maximumCountOfPlayers: 7,
+      initialChips: 50_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p1 = texas.room.owner
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.seat(p1)
+    texas.room.join(p2)
+    texas.room.seat(p2)
+    texas.dealer.setButton(p1)
+    texas.setPlayerRoles()
+    teardown = texas
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
+    texas.dealCards()
+
+    const firstPf = texas.controller.activePlayer!
+    const eCall = applyTableCommand(texas, {
+      type: 'Call',
+      playerId: firstPf.getUserInfo().id
+    }).events
+    const fCall = texas.flushAllPendingFlowOps()
+    const secondPf = texas.controller.activePlayer!
+    const eCheck = applyTableCommand(texas, {
+      type: 'Check',
+      playerId: secondPf.getUserInfo().id
+    }).events
+    const fCheck = texas.flushAllPendingFlowOps()
+
+    const all = [...eCall, ...fCall, ...eCheck, ...fCheck]
+    expect(texas.controller.stage).toBe(StageEnum.FLOP)
+
+    const board = reduceCommunityBoardFromDomainEvents(all)
+    expect(board).toEqual(texas.controller.getRevealedPokes())
+
+    const trail = reducePlayerActedTrailFromDomainEvents(all)
+    expect(trail.length).toBeGreaterThanOrEqual(2)
+    expect(trail.some((t) => t.actionType === ActionTypeEnum.CALL)).toBe(true)
+    expect(trail.some((t) => t.actionType === ActionTypeEnum.CHECK)).toBe(true)
   })
 })

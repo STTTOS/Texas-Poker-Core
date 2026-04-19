@@ -152,6 +152,8 @@ export {
   applyTableCommand,
   reducePotFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
+  reducePlayerActedTrailFromDomainEvents,
+  reduceCommunityBoardFromDomainEvents,
   captureHandReduceProjection,
   applyFoldOrCheckCommand
 } from './engine'
@@ -159,6 +161,7 @@ export type {
   TableSnapshot,
   TablePlayerSnapshot,
   ApplyTableCommandResult,
+  PlayerActedEntry,
   PotContributionReadModel,
   TurnOfferReadModel,
   HandReduceProjection,
