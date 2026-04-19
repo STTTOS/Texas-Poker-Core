@@ -3,6 +3,17 @@ import type { Stage } from '@/Controller/stage'
 import type { ActionTypeEnum } from '@/Player/constant'
 import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 
+/** 将多段事件批（如 `dispatchCommand` + 若干 `flush*`）按顺序拼成一条磁带（新数组）。 */
+export function flatConcatDomainEvents(
+  parts: readonly (readonly TexasDomainEvent[])[]
+): TexasDomainEvent[] {
+  const out: TexasDomainEvent[] = []
+  for (const batch of parts) {
+    out.push(...batch)
+  }
+  return out
+}
+
 /**
  * 由领域事件投影的中央池读模型（仅消费 `PotUpdated` 事实；与 {@link Pool} 展示口径对齐的起点）。
  * 纯函数、零 I/O，供回放 / 机器人 / 与 `TableSnapshot` 对拍。
@@ -99,4 +110,63 @@ export function reduceCommunityBoardFromDomainEvents(
     }
   }
   return board
+}
+
+/** 本批中**最后一条** `HandEnded` 的展示向字段（重放 UI / 对拍）。 */
+export type HandEndedReadModel = Readonly<{
+  handId: string
+  seq: number
+  outcome: 'showdown' | 'fold_win'
+  currentStage: Stage
+  endStage: Stage
+  showHandPokes: boolean
+}>
+
+export function reduceLastHandEndedFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): HandEndedReadModel | null {
+  let last: HandEndedReadModel | null = null
+  for (const e of events) {
+    if (e.type === 'HandEnded') {
+      const p = e.payload
+      last = {
+        handId: p.handId,
+        seq: p.seq,
+        outcome: p.outcome,
+        currentStage: p.currentStage,
+        endStage: p.endStage,
+        showHandPokes: p.showHandPokes
+      }
+    }
+  }
+  return last
+}
+
+/** 本批中**最后一条** `PotAwarded`（结算分配快照）。 */
+export type PotAwardedReadModel = Readonly<{
+  handId: string
+  seq: number
+  potTotal: number
+  allocations: ReadonlyArray<Readonly<{ userId: number; amount: number }>>
+}>
+
+export function reduceLastPotAwardedFromDomainEvents(
+  events: readonly TexasDomainEvent[]
+): PotAwardedReadModel | null {
+  let last: PotAwardedReadModel | null = null
+  for (const e of events) {
+    if (e.type === 'PotAwarded') {
+      const p = e.payload
+      last = {
+        handId: p.handId,
+        seq: p.seq,
+        potTotal: p.potTotal,
+        allocations: p.allocations.map((a) => ({
+          userId: a.userId,
+          amount: a.amount
+        }))
+      }
+    }
+  }
+  return last
 }

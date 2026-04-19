@@ -150,10 +150,13 @@ export {
   flushAllPendingFlowOpsAndInterpret,
   captureTableSnapshot,
   applyTableCommand,
+  flatConcatDomainEvents,
   reducePotFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
+  reduceLastHandEndedFromDomainEvents,
+  reduceLastPotAwardedFromDomainEvents,
   captureHandReduceProjection,
   applyFoldOrCheckCommand
 } from './engine'
@@ -161,7 +164,9 @@ export type {
   TableSnapshot,
   TablePlayerSnapshot,
   ApplyTableCommandResult,
+  HandEndedReadModel,
   PlayerActedEntry,
+  PotAwardedReadModel,
   PotContributionReadModel,
   TurnOfferReadModel,
   HandReduceProjection,

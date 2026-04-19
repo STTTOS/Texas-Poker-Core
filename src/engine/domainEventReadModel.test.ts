@@ -3,13 +3,44 @@ import type { TexasDomainEvent } from '@/domain/handDomainEvents'
 import { StageEnum } from '@/Controller'
 import { ActionTypeEnum } from '@/Player/constant'
 import {
+  flatConcatDomainEvents,
   reducePotFromDomainEvents,
+  reduceLastHandEndedFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
+  reduceLastPotAwardedFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents
 } from './domainEventReadModel'
 
 describe('domainEventReadModel (pure projection)', () => {
+  test('flatConcatDomainEvents preserves order', () => {
+    const a: TexasDomainEvent[] = [
+      {
+        type: 'PotUpdated',
+        payload: {
+          handId: 'h1',
+          seq: 1,
+          totalAmount: 10,
+          contributions: [{ userId: 1, amount: 10 }]
+        }
+      }
+    ]
+    const b: TexasDomainEvent[] = [
+      {
+        type: 'PotUpdated',
+        payload: {
+          handId: 'h1',
+          seq: 2,
+          totalAmount: 20,
+          contributions: [{ userId: 1, amount: 20 }]
+        }
+      }
+    ]
+    expect(flatConcatDomainEvents([a, b]).map((e) => e.payload.seq)).toEqual([
+      1, 2
+    ])
+  })
+
   test('reducePotFromDomainEvents keeps last PotUpdated', () => {
     const events: TexasDomainEvent[] = [
       {
@@ -149,5 +180,63 @@ describe('domainEventReadModel (pure projection)', () => {
       'd4',
       'c5'
     ])
+  })
+
+  test('reduceLastHandEndedFromDomainEvents keeps last HandEnded', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'HandEnded',
+        payload: {
+          handId: 'h1',
+          seq: 40,
+          outcome: 'showdown',
+          pokesRevealed: [],
+          currentStage: StageEnum.RIVER,
+          endStage: StageEnum.RIVER,
+          showHandPokes: true
+        }
+      },
+      {
+        type: 'HandEnded',
+        payload: {
+          handId: 'h1',
+          seq: 99,
+          outcome: 'fold_win',
+          pokesRevealed: [],
+          currentStage: StageEnum.PRE_FLOP,
+          endStage: StageEnum.PRE_FLOP,
+          showHandPokes: false
+        }
+      }
+    ]
+    const h = reduceLastHandEndedFromDomainEvents(events)
+    expect(h?.seq).toBe(99)
+    expect(h?.outcome).toBe('fold_win')
+  })
+
+  test('reduceLastPotAwardedFromDomainEvents keeps last PotAwarded', () => {
+    const events: TexasDomainEvent[] = [
+      {
+        type: 'PotAwarded',
+        payload: {
+          handId: 'h1',
+          seq: 50,
+          potTotal: 100,
+          allocations: [{ userId: 1, amount: 100 }]
+        }
+      },
+      {
+        type: 'PotAwarded',
+        payload: {
+          handId: 'h1',
+          seq: 60,
+          potTotal: 0,
+          allocations: []
+        }
+      }
+    ]
+    const p = reduceLastPotAwardedFromDomainEvents(events)
+    expect(p?.seq).toBe(60)
+    expect(p?.potTotal).toBe(0)
   })
 })

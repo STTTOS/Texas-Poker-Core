@@ -4,7 +4,9 @@ import { ActionTypeEnum } from '@/Player/constant'
 import { applyTableCommand } from './applyTableCommand'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import {
+  flatConcatDomainEvents,
   reducePotFromDomainEvents,
+  reduceLastHandEndedFromDomainEvents,
   reduceCommunityBoardFromDomainEvents,
   reduceLastTurnOfferedFromDomainEvents,
   reducePlayerActedTrailFromDomainEvents
@@ -168,5 +170,34 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     expect(trail.length).toBeGreaterThanOrEqual(2)
     expect(trail.some((t) => t.actionType === ActionTypeEnum.CALL)).toBe(true)
     expect(trail.some((t) => t.actionType === ActionTypeEnum.CHECK)).toBe(true)
+  })
+
+  test('flatConcat + HandEnded read model on HU FoldDueToLeave fold_win', () => {
+    const texas = new Texas({
+      lowestBetAmount: 500,
+      maximumCountOfPlayers: 9,
+      initialChips: 10_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    texas.room.join(p2)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.setPlayerRoles('initial')
+    texas.dealCards()
+    teardown = texas
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
+    const ap = texas.controller.activePlayer!
+    const other = texas.dealer.players.find((p) => p !== ap)!
+    const step = applyTableCommand(texas, {
+      type: 'FoldDueToLeave',
+      playerId: other.getUserInfo().id
+    }).events
+    const flushed = texas.flushAllPendingFlowOps()
+    const tape = flatConcatDomainEvents([step, flushed])
+
+    const ended = reduceLastHandEndedFromDomainEvents(tape)
+    expect(texas.controller.status).toBe('between_hands')
+    expect(ended?.outcome).toBe('fold_win')
   })
 })
