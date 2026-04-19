@@ -9,8 +9,10 @@ export { captureTableSnapshot } from './tableSnapshot'
 export type { ApplyTableCommandResult } from './applyTableCommand'
 export {
   pendingFlowOpsAllowVoluntaryDispatch,
-  peekPendingFlowOp
+  peekPendingFlowOp,
+  simulateDequeuePendingHeadIfMatches
 } from './pendingFlowReadModel'
+export { captureSeatUserIdsInActionOrder } from './dealerRingReadModel'
 export {
   applyTableCommand,
   applyTableCommandThenFlushAllPendingFlowOps

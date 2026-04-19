@@ -15,3 +15,17 @@ export function peekPendingFlowOp(
 ): PendingFlowOpKind | undefined {
   return ops[0]
 }
+
+/**
+ * 纯模拟出队：若队头与 `expected` 一致则返回去掉队头的新队列与 `matched: true`；
+ * 否则原样返回且 `matched: false`（与 `applyPendingStageAdvance` / `flushPendingTurnHandoff` 的队头校验同构，**无副作用**）。
+ */
+export function simulateDequeuePendingHeadIfMatches(
+  ops: readonly PendingFlowOpKind[],
+  expected: PendingFlowOpKind
+): { readonly queue: readonly PendingFlowOpKind[]; matched: boolean } {
+  if (ops.length === 0 || ops[0] !== expected) {
+    return { queue: ops, matched: false }
+  }
+  return { queue: ops.slice(1), matched: true }
+}

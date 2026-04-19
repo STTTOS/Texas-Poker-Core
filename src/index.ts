@@ -176,7 +176,9 @@ export {
   applyFoldOrCheckCommand,
   isVoluntaryTableCommand,
   pendingFlowOpsAllowVoluntaryDispatch,
-  peekPendingFlowOp
+  peekPendingFlowOp,
+  simulateDequeuePendingHeadIfMatches,
+  captureSeatUserIdsInActionOrder
 } from './engine'
 export type {
   TableSnapshot,
