@@ -190,10 +190,15 @@ export type {
   FoldOrCheckTableCommand
 } from './engine'
 
-export type { PersistedDomainEventRow, DomainEventStore } from './replay'
+export type {
+  PersistedDomainEventRow,
+  DomainEventStore,
+  DomainEventsCompositeReadModel
+} from './replay'
 export {
   toPersistedDomainEventRows,
-  createInMemoryDomainEventStore
+  createInMemoryDomainEventStore,
+  projectCompositeReadModel
 } from './replay'
 
 export type { PreAction } from './gameContracts'
