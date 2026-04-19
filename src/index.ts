@@ -150,6 +150,7 @@ export {
   flushAllPendingFlowOpsAndInterpret,
   captureTableSnapshot,
   applyTableCommand,
+  reducePotFromDomainEvents,
   captureHandReduceProjection,
   applyFoldOrCheckCommand
 } from './engine'
@@ -157,6 +158,7 @@ export type {
   TableSnapshot,
   TablePlayerSnapshot,
   ApplyTableCommandResult,
+  PotContributionReadModel,
   HandReduceProjection,
   FoldOrCheckTableCommand
 } from './engine'
