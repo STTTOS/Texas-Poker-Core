@@ -6,6 +6,16 @@ export {
 
 export type { TablePlayerSnapshot, TableSnapshot } from './tableSnapshot'
 export { captureTableSnapshot } from './tableSnapshot'
+export type {
+  BootstrapInstruction,
+  CanonicalTableSession,
+  CommandStepInstruction,
+  ReduceCanonicalTableSessionResult
+} from './canonicalTableSession'
+export {
+  cloneTableSnapshot,
+  reduceCanonicalTableSession
+} from './canonicalTableSession'
 export type { ApplyTableCommandResult } from './applyTableCommand'
 export {
   pendingFlowOpsAllowVoluntaryDispatch,

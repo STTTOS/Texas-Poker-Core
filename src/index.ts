@@ -178,11 +178,17 @@ export {
   pendingFlowOpsAllowVoluntaryDispatch,
   peekPendingFlowOp,
   simulateDequeuePendingHeadIfMatches,
-  captureSeatUserIdsInActionOrder
+  captureSeatUserIdsInActionOrder,
+  cloneTableSnapshot,
+  reduceCanonicalTableSession
 } from './engine'
 export type {
   TableSnapshot,
   TablePlayerSnapshot,
+  BootstrapInstruction,
+  CanonicalTableSession,
+  CommandStepInstruction,
+  ReduceCanonicalTableSessionResult,
   ApplyTableCommandResult,
   BlindsPostedReadModel,
   HandEndedReadModel,

@@ -137,15 +137,31 @@ class Texas {
   /**
    * 分配角色并缓冲 `RolesAssigned`（会话级事件）。
    * - **`initial`**：仅 `Room.initialRoles`（荷官 `setButton` + `setOthers`，定庄 + 锁座）；**不**再调 {@link reArrangeRoles}。
-   * - **`rearrange`**：仅 {@link reArrangeRoles}（须已有庄位）；按人数表重算 SB/BB/UTG…
+   *   若传入 `options.buttonUserId`，则 `Room.initialRoles(该玩家)`，**不再**随机定庄（与先 `dealer.setButton` 再本方法且省略 options 的旧写法等价）。
+   * - **`rearrange`**：仅 {@link reArrangeRoles}（须已有庄位）；按人数表重算 SB/BB/UTG…（忽略 `options.buttonUserId`）。
    * **移庄**：请局末在 `reset()` 解锁后显式 {@link rotateRolesForNewHand}，不再通过本方法 `rotate` 分支。
    * 不在此校验「全员 ≥ 大盲」；短码上桌见 {@link assertSeatedPlayersMeetBigBlind}（已废弃，仅业务自选）。
    */
   setPlayerRoles(
-    type: 'initial' | 'rearrange' = 'initial'
+    type: 'initial' | 'rearrange' = 'initial',
+    options?: Readonly<{ buttonUserId?: number }>
   ): TexasDomainEvent[] {
     if (type === 'initial') {
-      this.room.initialRoles()
+      let buttonPlayer: Player | undefined
+      if (options?.buttonUserId != null) {
+        buttonPlayer = this.room.getPlayerById(options.buttonUserId)
+        if (!buttonPlayer) {
+          this.fail(
+            new TexasError(
+              TexasCoreErrorCode.SESSION_DISPATCH_PLAYER_NOT_FOUND,
+              {
+                playerId: options.buttonUserId
+              }
+            )
+          )
+        }
+      }
+      this.room.initialRoles(buttonPlayer)
     } else {
       this.reArrangeRoles()
     }
