@@ -149,12 +149,14 @@ export {
   interpretTableEvents,
   flushAllPendingFlowOpsAndInterpret,
   captureTableSnapshot,
+  applyTableCommand,
   captureHandReduceProjection,
   applyFoldOrCheckCommand
 } from './engine'
 export type {
   TableSnapshot,
   TablePlayerSnapshot,
+  ApplyTableCommandResult,
   HandReduceProjection,
   FoldOrCheckTableCommand
 } from './engine'
