@@ -6,7 +6,7 @@ import { TexasCoreErrorCode } from '@/TexasError'
  * `chipsToMatch === selfBalance` 视为合法（清台跟注）；{@link executeCall} 与 Bet/Raise 一致，该情形转 {@link executeAllIn}。
  */
 export type ResolveCallChipsInput = Readonly<{
-  /** 本街其他玩家在本街已投入的最大额（与 `Player#getOthersMaxBetAmountAtCurrentStage` 一致） */
+  /** 本街其他玩家在本街已投入的最大额（与 `Player#getMaxOthersStageBet` 一致） */
   maxOthersStageBet: number
   /** 当前玩家本街已投入 */
   selfCurrentStageTotal: number

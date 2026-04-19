@@ -4,6 +4,7 @@ import { ActionTypeEnum } from './constant'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 import { voluntaryActionDisallowError } from './allowedActions'
 import { resolveCallChipsOrError } from './resolveCallChipsOrError'
+import { resolveAllInChipsOrError } from './resolveAllInChipsOrError'
 import { resolveRaiseAdditionalOrError } from './resolveRaiseAdditionalOrError'
 import { resolveVoluntaryBetChipOrError } from './resolveVoluntaryBetChipOrError'
 
@@ -170,7 +171,7 @@ export function executeCall(actor: Player, act?: ActValidationOptions): void {
   )
   if (denyCall) return actor.fail(denyCall)
 
-  const maxOthersStageBet = actor.getOthersMaxBetAmountAtCurrentStage()
+  const maxOthersStageBet = actor.getMaxOthersStageBet()
   const callSizing = resolveCallChipsOrError({
     maxOthersStageBet,
     selfCurrentStageTotal: actor.currentStageTotalAmount,
@@ -216,15 +217,9 @@ export function executeAllIn(
   )
   if (denyAllIn) return actor.fail(denyAllIn)
 
-  const chipsToCommit = actor.balance
-  if (chipsToCommit <= 0) {
-    return actor.fail(
-      new TexasError(TexasCoreErrorCode.PLAYER_ALL_IN_INVALID, {
-        moneyShouldPay: chipsToCommit,
-        balance: actor.balance
-      })
-    )
-  }
+  const allInSizing = resolveAllInChipsOrError({ selfBalance: actor.balance })
+  if (!allInSizing.ok) return actor.fail(allInSizing.error)
+  const chipsToCommit = allInSizing.chipsToCommit
 
   actor.appendChipsToPot(chipsToCommit)
   actor.assignCurrentStreetAction({

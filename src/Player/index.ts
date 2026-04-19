@@ -337,13 +337,11 @@ export class Player implements GameComponent {
   }
 
   /**
-   * 获取其他玩家在当前阶段的最大下注额
+   * 获取其他玩家在当前阶段的最大下注额。
+   * @deprecated 与 {@link getMaxOthersStageBet} 同义，请新代码统一用 `getMaxOthersStageBet`。
    */
   getOthersMaxBetAmountAtCurrentStage() {
-    return Math.max(
-      0,
-      ...this.getOtherPlayers().map((p) => p.currentStageTotalAmount)
-    )
+    return this.getMaxOthersStageBet()
   }
 
   /**
