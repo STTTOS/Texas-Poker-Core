@@ -16,6 +16,13 @@ export {
 
 export { projectCompositeReadModelFromNdjsonFileSync } from './compositeFromNdjson'
 
+export type { DomainEventTapeValidationIssue } from './domainEventTapeValidation'
+export {
+  validatePersistedDomainEventRows,
+  assertPersistedDomainEventRows,
+  summarizePersistedDomainEventRows
+} from './domainEventTapeValidation'
+
 export { createAppendDomainEventsHandler } from './appendDomainEventsInterpretHandler'
 
 export type { DomainEventsCompositeReadModel } from './projectCompositeReadModel'

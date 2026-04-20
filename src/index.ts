@@ -223,7 +223,8 @@ export type {
 export type {
   PersistedDomainEventRow,
   DomainEventStore,
-  DomainEventsCompositeReadModel
+  DomainEventsCompositeReadModel,
+  DomainEventTapeValidationIssue
 } from './replay'
 export {
   toPersistedDomainEventRows,
@@ -233,6 +234,9 @@ export {
   readAllPersistedRowsFromNdjsonFileSync,
   createNdjsonFileDomainEventStore,
   projectCompositeReadModelFromNdjsonFileSync,
+  validatePersistedDomainEventRows,
+  assertPersistedDomainEventRows,
+  summarizePersistedDomainEventRows,
   createAppendDomainEventsHandler,
   projectCompositeReadModel
 } from './replay'
