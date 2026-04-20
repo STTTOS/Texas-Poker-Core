@@ -4,6 +4,7 @@ import path from 'node:path'
 import { readAllPersistedRowsFromNdjsonFileSync } from './jsonlAppendOnlyStore'
 import { parseCanonicalTableSessionFromJson } from '@/engine/canonicalTableSession'
 import {
+  resolveReplayVerifyExitCode,
   toCompactVerifyCanonicalAgainstTapeResult,
   verifyCanonicalSessionAgainstPersistedRows
 } from './verifyCanonicalAgainstTape'
@@ -12,10 +13,11 @@ const sessionArg = process.argv[2]
 const tapeArg = process.argv[3]
 const noValidate = process.argv.includes('--no-validate')
 const compact = process.argv.includes('--compact')
+const failOnTapeIssuesOnly = process.argv.includes('--fail-on-tape-issues-only')
 
 if (!sessionArg || !tapeArg) {
   console.error(
-    'Usage: pnpm run replay:verify <session.canonical.json> <events.ndjson> [--compact] [--no-validate]'
+    'Usage: pnpm run replay:verify <session.canonical.json> <events.ndjson> [--compact] [--no-validate] [--fail-on-tape-issues-only]'
   )
   process.exit(1)
 }
@@ -60,6 +62,11 @@ const payload = compact
   ? toCompactVerifyCanonicalAgainstTapeResult(verify)
   : verify
 console.log(JSON.stringify(payload, null, 2))
-if (!verify.matches) {
+
+const exitCode = resolveReplayVerifyExitCode(
+  verify,
+  failOnTapeIssuesOnly ? 'tape_issues_only' : 'strict'
+)
+if (exitCode !== 0) {
   process.exit(2)
 }

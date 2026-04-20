@@ -4,6 +4,7 @@ import { TexasEngineContext } from '@/TexasEngineContext'
 import { toPersistedDomainEventRows } from './domainEventPersistence'
 import { reduceCanonicalTableSession } from '@/engine/canonicalTableSession'
 import {
+  resolveReplayVerifyExitCode,
   toCompactVerifyCanonicalAgainstTapeResult,
   verifyCanonicalSessionAgainstPersistedRows
 } from './verifyCanonicalAgainstTape'
@@ -105,5 +106,36 @@ describe('verifyCanonicalSessionAgainstPersistedRows', () => {
     expect(compact.firstDiffIndex).toBe(0)
     expect(compact.tapeIssueCount).toBe(0)
     expect(compact.diffContext?.index).toBe(0)
+  })
+
+  test('resolveReplayVerifyExitCode supports tape_issues_only policy', () => {
+    const session = buildSession()
+    const expected = reduceCanonicalTableSession(session).events
+    const rowsWithSemanticDiff = toPersistedDomainEventRows('t1', expected)
+    rowsWithSemanticDiff[0] = {
+      ...rowsWithSemanticDiff[0],
+      payloadJson: JSON.stringify({
+        ...(JSON.parse(rowsWithSemanticDiff[0].payloadJson) as object),
+        payload: { seq: 999 }
+      })
+    }
+    const semanticDiff = verifyCanonicalSessionAgainstPersistedRows(
+      session,
+      rowsWithSemanticDiff,
+      { validateTape: false }
+    )
+    expect(resolveReplayVerifyExitCode(semanticDiff, 'strict')).toBe(2)
+    expect(resolveReplayVerifyExitCode(semanticDiff, 'tape_issues_only')).toBe(
+      0
+    )
+
+    const rowsWithTapeIssue = toPersistedDomainEventRows('t1', expected)
+    rowsWithTapeIssue[0] = { ...rowsWithTapeIssue[0], eventType: 'HandEnded' }
+    const tapeIssue = verifyCanonicalSessionAgainstPersistedRows(
+      session,
+      rowsWithTapeIssue
+    )
+    expect(resolveReplayVerifyExitCode(tapeIssue, 'strict')).toBe(2)
+    expect(resolveReplayVerifyExitCode(tapeIssue, 'tape_issues_only')).toBe(2)
   })
 })

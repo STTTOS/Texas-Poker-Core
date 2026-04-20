@@ -31,6 +31,8 @@ export type VerifyCanonicalAgainstTapeCompactResult = Readonly<{
   diffContext: VerifyCanonicalDiffContext | null
 }>
 
+export type ReplayVerifyExitPolicy = 'strict' | 'tape_issues_only'
+
 export type VerifyEventSignature = Readonly<{
   type: TexasDomainEvent['type']
   handId: string | null
@@ -125,4 +127,19 @@ export function toCompactVerifyCanonicalAgainstTapeResult(
     tapeIssueCount: verify.tapeIssues.length,
     diffContext: verify.diffContext
   }
+}
+
+/**
+ * Replay CLI 的退出策略：
+ * - strict（默认）：命令对拍差异或磁带校验问题任一存在即失败。
+ * - tape_issues_only：仅磁带结构问题失败；用于巡检阶段先保结构、暂不阻断语义差异。
+ */
+export function resolveReplayVerifyExitCode(
+  verify: VerifyCanonicalAgainstTapeResult,
+  policy: ReplayVerifyExitPolicy = 'strict'
+): 0 | 2 {
+  if (policy === 'tape_issues_only') {
+    return verify.tapeIssues.length > 0 ? 2 : 0
+  }
+  return verify.matches ? 0 : 2
 }

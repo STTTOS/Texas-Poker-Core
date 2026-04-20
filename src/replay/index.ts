@@ -26,12 +26,14 @@ export {
 export type {
   VerifyCanonicalAgainstTapeResult,
   VerifyCanonicalAgainstTapeCompactResult,
+  ReplayVerifyExitPolicy,
   VerifyCanonicalDiffContext,
   VerifyEventSignature
 } from './verifyCanonicalAgainstTape'
 export {
   verifyCanonicalSessionAgainstPersistedRows,
-  toCompactVerifyCanonicalAgainstTapeResult
+  toCompactVerifyCanonicalAgainstTapeResult,
+  resolveReplayVerifyExitCode
 } from './verifyCanonicalAgainstTape'
 
 export { createAppendDomainEventsHandler } from './appendDomainEventsInterpretHandler'
