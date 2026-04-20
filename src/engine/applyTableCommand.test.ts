@@ -51,6 +51,7 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
+    texas.dealCards()
     void texas.start()
     void texas.flushPendingTurnHandoff()
 
@@ -88,8 +89,8 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const first = texas.controller.activePlayer!
     const { events, snapshotAfter } = applyTableCommand(texas, {
@@ -123,8 +124,8 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const first = texas.controller.activePlayer!
     const { events: stepEvents } = applyTableCommand(texas, {
@@ -154,11 +155,11 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     texas.room.join(p2)
     texas.room.seat(p2)
     texas.dealer.setButton(p1)
-    texas.setPlayerRoles()
     teardown = texas
     const prefix = flatConcatDomainEvents([
-      [...texas.start(), ...texas.flushAllPendingFlowOps()],
-      texas.dealCards()
+      texas.setPlayerRoles(),
+      texas.dealCards(),
+      [...texas.start(), ...texas.flushAllPendingFlowOps()]
     ])
 
     const firstPf = texas.controller.activePlayer!
@@ -195,8 +196,9 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     }
 
     const perHand = filterDomainEventsByHandId(all, started!.handId)
-    expect(perHand.length).toBeLessThan(all.length)
-    expect(perHand.every((e) => e.type !== 'RolesAssigned')).toBe(true)
+    expect(perHand.length).toBe(all.length)
+    expect(perHand.some((e) => e.type === 'RolesAssigned')).toBe(true)
+    expect(perHand.some((e) => e.type === 'HoleCardsDealt')).toBe(true)
 
     const board = reduceCommunityBoardFromDomainEvents(all)
     expect(board).toEqual(texas.controller.getRevealedPokes())
@@ -278,8 +280,8 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     texas.controller.end()
     texas.controller.settleRankingsThroughStage(StageEnum.RIVER)
@@ -312,8 +314,8 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const first = texas.controller.activePlayer!
     const { events } = applyTableCommandThenFlushAllPendingFlowOps(texas, {
@@ -338,8 +340,8 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const first = texas.controller.activePlayer!
     const { snapshotAfter } = applyTableCommandThenFlushAllPendingFlowOps(
@@ -365,6 +367,7 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     texas.setPlayerRoles()
     teardown = texas
     const tape = flatConcatDomainEvents([
+      texas.dealCards(),
       [...texas.start(), ...texas.flushAllPendingFlowOps()]
     ])
     const b = reduceLastBlindsPostedFromDomainEvents(tape)

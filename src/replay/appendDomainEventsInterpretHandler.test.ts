@@ -29,6 +29,7 @@ describe('createAppendDomainEventsHandler', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
+    texas.dealCards()
     void texas.start()
     void texas.flushPendingTurnHandoff()
 

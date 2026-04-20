@@ -200,7 +200,6 @@ describe('domainEventReadModel (pure projection)', () => {
           seq: 40,
           outcome: 'showdown',
           pokesRevealed: [],
-          currentStage: StageEnum.RIVER,
           endStage: StageEnum.RIVER,
           showHandPokes: true
         }
@@ -212,7 +211,6 @@ describe('domainEventReadModel (pure projection)', () => {
           seq: 99,
           outcome: 'fold_win',
           pokesRevealed: [],
-          currentStage: StageEnum.PRE_FLOP,
           endStage: StageEnum.PRE_FLOP,
           showHandPokes: false
         }
@@ -385,6 +383,7 @@ describe('domainEventReadModel (pure projection)', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 1,
           players: [
             { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 }
@@ -394,6 +393,7 @@ describe('domainEventReadModel (pure projection)', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 4,
           players: [
             { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 },
@@ -403,37 +403,41 @@ describe('domainEventReadModel (pure projection)', () => {
       }
     ]
     const r = reduceLastRolesAssignedFromDomainEvents(events)
+    expect(r?.handId).toBe('h1')
     expect(r?.seq).toBe(4)
     expect(r?.players).toHaveLength(2)
   })
 
   test('reduceFirstHandStartedFromDomainEvents and reduceHandId alias', () => {
     const events: TexasDomainEvent[] = [
-      { type: 'RolesAssigned', payload: { seq: 0, players: [] } },
+      { type: 'RolesAssigned', payload: { handId: 'hx', seq: 1, players: [] } },
       {
         type: 'HandStarted',
-        payload: { handId: 'hx', seq: 1 }
+        payload: { handId: 'hx', seq: 2 }
       }
     ]
     expect(reduceFirstHandStartedFromDomainEvents(events)).toEqual({
       handId: 'hx',
-      seq: 1
+      seq: 2
     })
     expect(reduceHandIdFromFirstHandStarted(events)).toBe('hx')
   })
 
-  test('filterDomainEventsByHandId excludes session and keeps hand rows', () => {
+  test('filterDomainEventsByHandId keeps prelude and street rows for one hand', () => {
     const events: TexasDomainEvent[] = [
-      { type: 'RolesAssigned', payload: { seq: 0, players: [] } },
+      {
+        type: 'RolesAssigned',
+        payload: { handId: 'h1', seq: 1, players: [] }
+      },
       {
         type: 'HandStarted',
-        payload: { handId: 'h1', seq: 1 }
+        payload: { handId: 'h1', seq: 2 }
       },
       {
         type: 'PotUpdated',
         payload: {
           handId: 'h1',
-          seq: 2,
+          seq: 3,
           totalAmount: 100,
           contributions: []
         }
@@ -444,8 +448,8 @@ describe('domainEventReadModel (pure projection)', () => {
       }
     ]
     const f = filterDomainEventsByHandId(events, 'h1')
-    expect(f).toHaveLength(2)
-    expect(f.every((e) => e.type !== 'RolesAssigned')).toBe(true)
+    expect(f).toHaveLength(3)
+    expect(f.some((e) => e.type === 'RolesAssigned')).toBe(true)
   })
 
   test('reduceLastHoleCardsDealtFromDomainEvents keeps last', () => {
@@ -453,6 +457,7 @@ describe('domainEventReadModel (pure projection)', () => {
       {
         type: 'HoleCardsDealt',
         payload: {
+          handId: 'h1',
           seq: 1,
           byUserId: { 1: ['h2', 'h3'] }
         }
@@ -460,6 +465,7 @@ describe('domainEventReadModel (pure projection)', () => {
       {
         type: 'HoleCardsDealt',
         payload: {
+          handId: 'h1',
           seq: 5,
           byUserId: { 1: ['da', 'ck'], 2: ['s7', 'd9'] }
         }

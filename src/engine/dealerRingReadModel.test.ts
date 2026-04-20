@@ -27,6 +27,7 @@ describe('dealerRingReadModel', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
+    texas.dealCards()
     void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const snap = captureTableSnapshot(texas)

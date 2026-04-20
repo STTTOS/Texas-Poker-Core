@@ -33,6 +33,7 @@ describe('handReducer (voluntary command path)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
+    texas.dealCards()
     void texas.start()
     expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
 
@@ -56,8 +57,8 @@ describe('handReducer (voluntary command path)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const firstPf = texas.controller.activePlayer!
     const { events: callStep } = applyVoluntaryTableCommand(texas, {
@@ -114,6 +115,7 @@ describe('handReducer (voluntary command path)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
+    texas.dealCards()
     void texas.start()
     void texas.flushPendingTurnHandoff()
 
@@ -158,8 +160,8 @@ describe('handReducer (voluntary command path)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const actor = texas.controller.activePlayer!
     const notActor = texas.dealer.players.find((p) => p !== actor)!

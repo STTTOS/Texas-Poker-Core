@@ -3,6 +3,7 @@
  * 进街与下一位思考权不立即生效：写入 {@link Controller.#pendingFlowOps}，由业务调用
  * {@link applyPendingStageAdvance} / {@link flushPendingTurnHandoff}（或 {@link drainPendingFlowOpsSync}）消费。
  */
+import type { Role } from '@/Player/constant'
 import type { ShowdownPlayerEval } from './HandSettlement'
 import type { PlayerHandSession } from '@/playerSessionPorts'
 import type {
@@ -41,9 +42,9 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   #hand = new CurrentHand()
   #dealer: Dealer
   #pool: Pool
-  /** 桌级单调递增；每次 `start()` 生成新本手 id（`h1`,`h2`,…） */
+  /** 桌级单调递增；每次 {@link prepareHandTape} 生成新本手 id（`h1`,`h2`,…） */
   #handSerial = 0
-  /** 当前本手 id；`start()` 起至 `reset()` 清空 */
+  /** 当前本手 id；`prepareHandTape` 起至 `reset()` 清空 */
   #activeHandId: string | null = null
   #handEventSeq = 0
   #handEvents: HandDomainEvent[] = []
@@ -53,8 +54,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   #pendingFlowOps: PendingFlowOpKind[] = []
   /** 跑马路分段进街中；至河牌后结算并发 `HandEnded` */
   #runoutMode = false
-  /** 进入跑马路时的 `stage`（写入 `HandEnded.currentStage`） */
-  #runoutStageBefore: Stage | null = null
   fail: TexasErrorCallback
 
   constructor(
@@ -74,7 +73,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return this.#handEventSeq
   }
 
-  /** 本手领域事件元数据；须在 `start()` 之后调用 */
+  /** 本手领域事件元数据；须在 {@link prepareHandTape} 之后调用 */
   #eventMeta(): { handId: string; seq: number } {
     if (this.#activeHandId === null) {
       return this.fail(
@@ -84,9 +83,45 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return { handId: this.#activeHandId, seq: this.#nextSeq() }
   }
 
-  /** 当前本手 id；未开局或未 `start()` 时为 `null` */
+  /** 当前本手 id；未经过 `prepareHandTape` 时为 `null` */
   get currentHandId(): string | null {
     return this.#activeHandId
+  }
+
+  /**
+   * 为本手分配 `handId`、重置本手 `seq` 与事件缓冲；同一物理手上再次调用（如仅 `rearrange`）时为 no-op。
+   * 由 {@link Texas#setPlayerRoles} / {@link Texas#dealCards} 在写磁带前调用。
+   */
+  prepareHandTape(): void {
+    if (this.#activeHandId !== null) return
+    this.#handSerial += 1
+    this.#activeHandId = `h${this.#handSerial}`
+    this.#handEventSeq = 0
+    this.#handEvents = []
+    this.#pendingTurnEndedReason = null
+    this.#pendingFlowOps = []
+    this.#runoutMode = false
+  }
+
+  recordRolesAssigned(
+    players: ReadonlyArray<{
+      userId: number
+      name: string
+      role: Role
+      actionIndex: number
+    }>
+  ): void {
+    this.#handEvents.push({
+      type: 'RolesAssigned',
+      payload: { ...this.#eventMeta(), players: [...players] }
+    })
+  }
+
+  recordHoleCardsDealt(byUserId: Record<number, Poke[]>): void {
+    this.#handEvents.push({
+      type: 'HoleCardsDealt',
+      payload: { ...this.#eventMeta(), byUserId: { ...byUserId } }
+    })
   }
 
   /** 自上次 drain 以来本手产生的事件（取出后清空本手缓冲） */
@@ -166,7 +201,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   /** 河牌摊牌：`settle` + `end` + `HandEnded(showdown)`（与跑马路最后一跳共用）。 */
-  #emitShowdownHandEnded(stageForCurrentPayload: Stage): void {
+  #emitShowdownHandEnded(): void {
     this.#settle()
     this.end()
 
@@ -180,7 +215,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         ...this.#eventMeta(),
         outcome: 'showdown',
         pokesRevealed,
-        currentStage: stageForCurrentPayload,
         endStage,
         showHandPokes: true,
         bestPokes: pokes,
@@ -413,9 +447,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     if (to === StageEnum.RIVER) {
       // 跑马路结束，后续 stage_advance 不得再走 reveal 分支。
       this.#runoutMode = false
-      const stageBeforeRunout = this.#runoutStageBefore ?? from
-      this.#runoutStageBefore = null
-      this.#emitShowdownHandEnded(stageBeforeRunout)
+      this.#emitShowdownHandEnded()
     }
   }
 
@@ -438,7 +470,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
           ...this.#eventMeta(),
           outcome: 'fold_win',
           pokesRevealed,
-          currentStage: endStage,
           endStage,
           showHandPokes: false
         }
@@ -447,11 +478,8 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     }
 
     if (this.shouldShowDown()) {
-      const stageBeforeRunout = this.#hand.stage
-
       if (this.#hand.stage !== StageEnum.RIVER) {
         this.#runoutMode = true
-        this.#runoutStageBefore = stageBeforeRunout
         let from: Stage = this.#hand.stage
         // 计算pending几次跑马
         while (from !== StageEnum.RIVER) {
@@ -464,7 +492,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         return true
       }
 
-      this.#emitShowdownHandEnded(stageBeforeRunout)
+      this.#emitShowdownHandEnded()
       return true
     }
 
@@ -604,17 +632,18 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   /**
-   * 新开一手：分配 `handId`、清空事件与 **`pendingFlowOps` / 跑马路状态**，执行贴盲后 `transferControlTo`（首人思考权在队头 `turn_handoff`）。
+   * 进入本手街道阶段：须在 {@link prepareHandTape} 之后调用；不清空已缓冲的 `RolesAssigned` / `HoleCardsDealt`。
+   * 写入 `HandStarted`、贴盲与 **`pendingFlowOps` / 跑马路状态**，再 `transferControlTo`（首人思考权在队头 `turn_handoff`）。
    */
   start() {
-    this.#handSerial += 1
-    this.#activeHandId = `h${this.#handSerial}`
-    this.#handEventSeq = 0
-    this.#handEvents = []
+    if (this.#activeHandId === null) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.CTRL_START_NO_HAND_PREP)
+      )
+    }
     this.#pendingTurnEndedReason = null
     this.#pendingFlowOps = []
     this.#runoutMode = false
-    this.#runoutStageBefore = null
     this.#hand.status = 'in_hand'
     this.#hand.stage = StageEnum.PRE_FLOP
 
@@ -676,7 +705,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#pendingTurnEndedReason = null
     this.#pendingFlowOps = []
     this.#runoutMode = false
-    this.#runoutStageBefore = null
     const ap = this.#hand.activePlayer
     if (ap) {
       ap.removeControl()

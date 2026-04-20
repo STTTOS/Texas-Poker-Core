@@ -19,18 +19,13 @@ export function flatConcatDomainEvents(
   return out
 }
 
-/**
- * 按 `handId` 过滤本手事件（**不含**会话级 `RolesAssigned` / `HoleCardsDealt`）。
- */
+/** 按 `handId` 过滤本手完整磁带（含分配角色、发洞牌与街道事件）。 */
 export function filterDomainEventsByHandId(
   events: readonly TexasDomainEvent[],
   handId: string
 ): TexasDomainEvent[] {
   const out: TexasDomainEvent[] = []
   for (const e of events) {
-    if (e.type === 'RolesAssigned' || e.type === 'HoleCardsDealt') {
-      continue
-    }
     if ((e as HandDomainEvent).payload.handId === handId) {
       out.push(e)
     }
@@ -141,7 +136,7 @@ export type HandEndedReadModel = Readonly<{
   handId: string
   seq: number
   outcome: 'showdown' | 'fold_win'
-  currentStage: Stage
+  pokesRevealed: readonly Poke[]
   endStage: Stage
   showHandPokes: boolean
 }>
@@ -157,7 +152,7 @@ export function reduceLastHandEndedFromDomainEvents(
         handId: p.handId,
         seq: p.seq,
         outcome: p.outcome,
-        currentStage: p.currentStage,
+        pokesRevealed: p.pokesRevealed,
         endStage: p.endStage,
         showHandPokes: p.showHandPokes
       }
@@ -328,8 +323,9 @@ export function reduceLastPostedBigBlindFromDomainEvents(
   return last
 }
 
-/** 本批中**最后一条** `RolesAssigned`（会话级定庄/角色表）。 */
+/** 本批中**最后一条** `RolesAssigned`（定庄/角色表）。 */
 export type RolesAssignedReadModel = Readonly<{
+  handId: string
   seq: number
   players: ReadonlyArray<
     Readonly<{
@@ -349,6 +345,7 @@ export function reduceLastRolesAssignedFromDomainEvents(
     if (e.type === 'RolesAssigned') {
       const p = e.payload
       last = {
+        handId: p.handId,
         seq: p.seq,
         players: p.players.map((x) => ({
           userId: x.userId,
@@ -364,6 +361,7 @@ export function reduceLastRolesAssignedFromDomainEvents(
 
 /** 本批中**最后一条** `HoleCardsDealt`（发手牌快照；出站前仍须按 viewer 过滤）。 */
 export type HoleCardsDealtReadModel = Readonly<{
+  handId: string
   seq: number
   byUserId: Readonly<Record<number, readonly Poke[]>>
 }>
@@ -374,12 +372,12 @@ export function reduceLastHoleCardsDealtFromDomainEvents(
   let last: HoleCardsDealtReadModel | null = null
   for (const e of events) {
     if (e.type === 'HoleCardsDealt') {
-      const { seq, byUserId } = e.payload
+      const { handId, seq, byUserId } = e.payload
       const copy: Record<number, readonly Poke[]> = {}
       for (const [uid, pokes] of Object.entries(byUserId)) {
         copy[Number(uid)] = [...pokes]
       }
-      last = { seq, byUserId: copy }
+      last = { handId, seq, byUserId: copy }
     }
   }
   return last

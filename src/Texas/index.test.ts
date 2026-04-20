@@ -35,11 +35,25 @@ describe('entery', () => {
     const roleEv = texas.setPlayerRoles()
     expect(roleEv.length).toBe(1)
     expect(roleEv[0].type).toBe('RolesAssigned')
+    expect(roleEv[0].payload.handId).toBe('h1')
+    expect(roleEv[0].payload.seq).toBe(1)
     expect(
       roleEv[0].type === 'RolesAssigned' && roleEv[0].payload.players.length
     ).toBeGreaterThanOrEqual(2)
 
     teardownTexas = texas
+    const dealEv = texas.dealCards()
+    expect(dealEv.length).toBe(1)
+    expect(dealEv[0].type).toBe('HoleCardsDealt')
+    expect(dealEv[0].payload.handId).toBe('h1')
+    expect(dealEv[0].payload.seq).toBe(2)
+    const hole =
+      dealEv[0].type === 'HoleCardsDealt' ? dealEv[0].payload.byUserId : {}
+    expect(Object.keys(hole).length).toBeGreaterThanOrEqual(2)
+    expect(
+      Object.values(hole).every((h) => Array.isArray(h) && h.length === 2)
+    ).toBe(true)
+
     const afterStart = [...texas.start(), ...texas.flushAllPendingFlowOps()]
     expect(texas.controller.currentHandId).toBe('h1')
     expect(
@@ -48,16 +62,6 @@ describe('entery', () => {
           'handId' in (e as { payload: { handId?: string } }).payload &&
           (e as { payload: { handId: string } }).payload.handId === 'h1'
       )
-    ).toBe(true)
-
-    const dealEv = texas.dealCards()
-    expect(dealEv.length).toBe(1)
-    expect(dealEv[0].type).toBe('HoleCardsDealt')
-    const hole =
-      dealEv[0].type === 'HoleCardsDealt' ? dealEv[0].payload.byUserId : {}
-    expect(Object.keys(hole).length).toBeGreaterThanOrEqual(2)
-    expect(
-      Object.values(hole).every((h) => Array.isArray(h) && h.length === 2)
     ).toBe(true)
 
     expect(() => texas.setPlayerRoles()).toThrow('玩家位置已确认,请勿重复设置')
@@ -373,8 +377,8 @@ describe('entery', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardownTexas = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const actor = texas.controller.activePlayer!
     const notActor = texas.dealer.players.find((p) => p !== actor)!
@@ -415,8 +419,8 @@ describe('entery', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardownTexas = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const firstPf = texas.controller.activePlayer!
     void texas.dispatchCommand({
@@ -475,6 +479,7 @@ describe('entery', () => {
       texas.dealer.setButton(p1)
       texas.setPlayerRoles()
       teardownTexas = texas
+      texas.dealCards()
       const afterStart = texas.start()
       expect(afterStart.some((e) => e.type === 'TurnOffered')).toBe(false)
       expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
@@ -505,6 +510,7 @@ describe('entery', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardownTexas = texas
+    texas.dealCards()
     void texas.start()
     expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
 

@@ -59,6 +59,7 @@ describe('class Player', () => {
     // 与旧版 ready 前 setButton(p2) 后再轮换一致：庄家为 p3
     room.initialRoles(p3)
     teardownController = controller
+    controller.prepareHandTape()
     controller.start()
     controller.drainHandEvents()
     controller.drainPendingFlowOpsSync()
@@ -118,6 +119,7 @@ describe('class Player', () => {
       room.initialRoles(p2)
       dealer.dealCards()
       teardownController = controller
+      controller.prepareHandTape()
       controller.start()
       controller.drainHandEvents()
       controller.drainPendingFlowOpsSync()
@@ -161,6 +163,7 @@ describe('class Player', () => {
       room.initialRoles(p2)
       dealer.dealCards()
       teardownController = controller
+      controller.prepareHandTape()
       controller.start()
       controller.drainHandEvents()
       controller.drainPendingFlowOpsSync()
@@ -346,6 +349,7 @@ describe('class Player', () => {
       room.seat(p3)
       room.initialRoles(p3)
       teardownController = controller
+      controller.prepareHandTape()
       controller.start()
       controller.drainHandEvents()
       controller.drainPendingFlowOpsSync()

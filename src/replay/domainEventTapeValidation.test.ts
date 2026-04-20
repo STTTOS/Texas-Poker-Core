@@ -12,6 +12,7 @@ describe('domainEventTapeValidation', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 1,
           players: [
             { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 }
@@ -20,13 +21,13 @@ describe('domainEventTapeValidation', () => {
       },
       {
         type: 'HandStarted',
-        payload: { handId: 'h1', seq: 1 }
+        payload: { handId: 'h1', seq: 2 }
       },
       {
         type: 'PlayerActed',
         payload: {
           handId: 'h1',
-          seq: 2,
+          seq: 3,
           userId: 1,
           street: StageEnum.PRE_FLOP,
           actionType: ActionTypeEnum.CHECK
@@ -39,7 +40,7 @@ describe('domainEventTapeValidation', () => {
       rowCount: 3,
       tableCount: 1,
       handCount: 1,
-      sessionEventCount: 1
+      sessionEventCount: 0
     })
   })
 
@@ -48,6 +49,7 @@ describe('domainEventTapeValidation', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 2,
           players: [
             { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 }
@@ -57,6 +59,7 @@ describe('domainEventTapeValidation', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 1,
           players: [
             { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 }
@@ -69,7 +72,7 @@ describe('domainEventTapeValidation', () => {
       eventType: 'HandStarted',
       payloadJson: JSON.stringify({
         type: 'RolesAssigned',
-        payload: { seq: 99, players: [] }
+        payload: { handId: 'h1', seq: 99, players: [] }
       })
     }
 

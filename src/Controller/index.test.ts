@@ -70,6 +70,7 @@ describe('class Controller', () => {
     room.initialRoles(p4)
 
     teardownController = controller
+    controller.prepareHandTape()
     controller.start()
     controller.drainHandEvents()
     controller.drainPendingFlowOpsSync()
@@ -147,6 +148,7 @@ describe('class Controller', () => {
     dealer.dealCards()
 
     teardownController = controller
+    controller.prepareHandTape()
     controller.start()
     const ev = controller.drainHandEvents()
 
@@ -216,6 +218,7 @@ describe('class Controller', () => {
     sb.balance = 300
 
     teardownController = controller
+    controller.prepareHandTape()
     controller.start()
     const ev = controller.drainHandEvents()
     controller.drainPendingFlowOpsSync()
@@ -282,6 +285,7 @@ describe('class Controller', () => {
     sb.balance = 400
 
     teardownController = controller
+    controller.prepareHandTape()
     controller.start()
     controller.drainHandEvents()
 
@@ -321,6 +325,7 @@ describe('class Controller', () => {
     dealer.dealCards()
 
     teardownController = controller
+    controller.prepareHandTape()
     controller.start()
     controller.drainHandEvents()
     controller.drainPendingFlowOpsSync()
@@ -368,6 +373,7 @@ describe('class Controller', () => {
     room.initialRoles(p2)
     dealer.dealCards()
     teardownController = controller
+    controller.prepareHandTape()
     controller.start()
     controller.drainHandEvents()
 
@@ -424,6 +430,7 @@ describe('class Controller', () => {
     room.initialRoles(p2)
     dealer.dealCards()
     teardownController = controller
+    controller.prepareHandTape()
     controller.start()
     controller.drainHandEvents()
 

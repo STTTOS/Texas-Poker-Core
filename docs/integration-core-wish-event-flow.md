@@ -17,8 +17,8 @@ Core 提供的统一行动入口为 **`Texas#dispatchCommand(TableCommand)`**；
 
 ## 2. 领域事件两类来源
 
-1. **会话级**（`SessionDomainEvent`）：`RolesAssigned`、`HoleCardsDealt` — 由 `Texas#setPlayerRoles`、`Texas#dealCards` 写入 `#sessionEvents`。
-2. **本手级**（`HandDomainEvent`）：`HandStarted`、`BlindsPosted`、`PlayerActed`、`PotUpdated`、`StageAdvanced`、`TurnOffered`、`TurnEnded`、`PotAwarded`、`HandEnded` — 由 `Controller` / `Player` 路径写入，经 `drainHandEvents()` 与 session 事件一并 `drain`。
+1. **本手磁带前段**：`RolesAssigned`、`HoleCardsDealt` — 由 `Texas#setPlayerRoles`、`Texas#dealCards` 经 `Controller.prepareHandTape()` 分配 **`handId`** 后写入 **本手** 缓冲，与后续街道事件同一 `seq` 序列。
+2. **本手磁带后段**（`HandDomainEvent` 其余）：`HandStarted`、`BlindsPosted`、`PlayerActed`、`PotUpdated`、`StageAdvanced`、`TurnOffered`、`TurnEnded`、`PotAwarded`、`HandEnded` — 由 `Controller` / `Player` 路径写入；`Texas#drainDomainEvents()` 等价于 `Controller#drainHandEvents()`（整段磁带顺序即产品：**分配角色 → 发牌 → `start`（贴盲与首人 `turn_handoff`）→ …**）。
 
 每条本手事件带 **`handId`**（`start()` 时形如 `h1`）与单调 **`seq`**，供 wish 侧 **(matchId, domainHandId, domainEventSeq)** 幂等落库。
 
@@ -33,9 +33,9 @@ Core 提供的统一行动入口为 **`Texas#dispatchCommand(TableCommand)`**；
 首局在房间进入游戏后，大致顺序为：
 
 1. 延迟（`startGameBeforeAssignRolesDelayMs`）→ `texas.setPlayerRoles()` → **`drainAndInterpretTexas`**
-   - 事件：`RolesAssigned` → DB upsert 角色、WS `roles-assigned`。
+   - 事件：`RolesAssigned`（已含本手 **`handId`**）→ DB upsert 角色、WS `roles-assigned`。
 2. 延迟（`nextHandDealAfterEndMs`）→ `texas.dealCards()` → **`drainAndInterpretTexas`**
-   - 事件：`HoleCardsDealt` → 更新 `playerMatchRecord.handPokes`、私聊 WS 发手牌。
+   - 事件：`HoleCardsDealt`（同一 **`handId`**）→ 更新 `playerMatchRecord.handPokes`、私聊 WS 发手牌。
 3. 延迟（`nextHandStartAfterDealMs`）→ `texas.start()` → **`drainAndInterpretTexas`**
    - Core：`HandStarted`、`BlindsPosted`、`PotUpdated`；`pendingFlowOps` 入队首位 **`turn_handoff`**（首人思考权尚未 `getControl`）。
    - wish：先 drain 上述事件；再 **`drainPendingFlowQueueWithPacing`**（见 §5）→ 首条 `TurnOffered`、调度思考超时等。
@@ -180,3 +180,5 @@ sequenceDiagram
 _文档版本：与 `pendingFlowOps` 固定行为及已移除 `TexasEngineContext.deferTurnHandoffUntilFlushed` / `businessPacedHandFlow` 后的实现对齐。_
 
 **API 与不变量速查**：[refactor-maintainer-reference.md](./refactor-maintainer-reference.md)。
+
+**对局回放（App / Server / Core）**：[replay-app-server-core-coordination.md](./replay-app-server-core-coordination.md)。

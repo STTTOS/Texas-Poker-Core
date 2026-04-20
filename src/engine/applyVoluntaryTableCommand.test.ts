@@ -11,8 +11,8 @@ import {
 } from './handReducer'
 
 function headsUpStartedDealt(texas: Texas) {
-  void [...texas.start(), ...texas.flushAllPendingFlowOps()]
   texas.dealCards()
+  void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 }
 
 describe('isVoluntaryTableCommand', () => {

@@ -2,7 +2,7 @@
 
 业务层负责：房间接入、权限、观战策略、倒计时、落库等。引擎负责：德州规则状态机、合法行动、奖池拆分。
 
-**与 wish 参考服务端的一整局事件流、节拍与落库顺序**：见 [docs/integration-core-wish-event-flow.md](./docs/integration-core-wish-event-flow.md)。**重构后 API / 队列行为维护说明**：见 [docs/refactor-maintainer-reference.md](./docs/refactor-maintainer-reference.md)。
+**与 wish 参考服务端的一整局事件流、节拍与落库顺序**：见 [docs/integration-core-wish-event-flow.md](./docs/integration-core-wish-event-flow.md)。**重构后 API / 队列行为维护说明**：见 [docs/refactor-maintainer-reference.md](./docs/refactor-maintainer-reference.md)。**对局回放（领域事件落库后 App / Server / Core 配合）**：见 [docs/replay-app-server-core-coordination.md](./docs/replay-app-server-core-coordination.md)。
 
 ### 进程级配置 `TexasEngineContext` / `Texas.configureEngine`
 

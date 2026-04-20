@@ -47,8 +47,8 @@ describe('replay composite golden (NDJSON round-trip)', () => {
     texas.dealer.setButton(p1)
     texas.setPlayerRoles()
     teardown = texas
-    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     texas.dealCards()
+    void [...texas.start(), ...texas.flushAllPendingFlowOps()]
 
     const uid = texas.controller.activePlayer!.getUserInfo().id
     const step1 = applyTableCommandThenFlushAllPendingFlowOps(texas, {

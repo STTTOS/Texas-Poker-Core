@@ -35,8 +35,8 @@ describe('TableStateV1 (immutable snapshot + trace around live Texas)', () => {
     t.room.join(p2)
     t.room.seat(p2)
     t.setPlayerRoles('initial', { buttonUserId: 1 })
-    void [...t.start(), ...t.flushAllPendingFlowOps()]
     t.dealCards()
+    void [...t.start(), ...t.flushAllPendingFlowOps()]
 
     const prior = freezeTableStateV1FromLive(t)
     const uCall = t.controller.activePlayer!.getUserInfo().id
@@ -66,8 +66,8 @@ describe('TableStateV1 (immutable snapshot + trace around live Texas)', () => {
     tRef.room.join(b)
     tRef.room.seat(b)
     tRef.setPlayerRoles('initial', { buttonUserId: 1 })
-    void [...tRef.start(), ...tRef.flushAllPendingFlowOps()]
     tRef.dealCards()
+    void [...tRef.start(), ...tRef.flushAllPendingFlowOps()]
     const refCall = tRef.controller.activePlayer!.getUserInfo().id
     const s1 = applyTableCommandThenFlushAllPendingFlowOps(tRef, {
       type: 'Call',

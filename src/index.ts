@@ -131,7 +131,6 @@ export {
 export type {
   TexasDomainEvent,
   HandDomainEvent,
-  SessionDomainEvent,
   CreateRoomInputArgs
 } from './Texas'
 

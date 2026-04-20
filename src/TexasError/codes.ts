@@ -68,6 +68,8 @@ export const TexasCoreErrorCode = {
   CTRL_POST_BB_NO_CHIPS: 3313,
   /** `PostBigBlind`：玩家已出局或全下，无法贴盲 */
   CTRL_POST_BB_PLAYER_INELIGIBLE: 3314,
+  /** `start()` 前须先经 `setPlayerRoles` / `dealCards` 触发 {@link Controller.prepareHandTape}，本手已有 `handId` */
+  CTRL_START_NO_HAND_PREP: 3316,
 
   PLAYER_ACTION_INVALID: 3401,
   PLAYER_CANNOT_CHECK: 3402,
@@ -238,6 +240,8 @@ export function formatTexasErrorMessage(
       return '余额不足，无法贴入座大盲'
     case TexasCoreErrorCode.CTRL_POST_BB_PLAYER_INELIGIBLE:
       return '玩家已出局或全下，无法贴入座大盲'
+    case TexasCoreErrorCode.CTRL_START_NO_HAND_PREP:
+      return '请先分配角色并发牌，再开始本手'
 
     case TexasCoreErrorCode.PLAYER_ACTION_INVALID:
       return String(p.detail ?? '玩家行为异常')

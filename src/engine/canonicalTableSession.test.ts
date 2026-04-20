@@ -65,8 +65,8 @@ describe('reduceCanonicalTableSession (immutable program → events + snapshot c
     t.room.seat(p2)
     const imperativeBootstrapEvents: TexasDomainEvent[] = [
       ...t.setPlayerRoles('initial', { buttonUserId: 1 }),
-      ...[...t.start(), ...t.flushAllPendingFlowOps()],
-      ...t.dealCards()
+      ...t.dealCards(),
+      ...[...t.start(), ...t.flushAllPendingFlowOps()]
     ]
     const uCall = t.controller.activePlayer!.getUserInfo().id
     const step1 = applyTableCommandThenFlushAllPendingFlowOps(t, {
@@ -100,9 +100,9 @@ describe('reduceCanonicalTableSession (immutable program → events + snapshot c
         { kind: 'join_user', user: { id: 2, name: 'b' } },
         { kind: 'seat_user_by_id', userId: 2 },
         { kind: 'set_player_roles', mode: 'initial', buttonUserId: 1 },
+        { kind: 'deal_cards' },
         { kind: 'start_hand' },
-        { kind: 'flush_all_pending_flow_ops' },
-        { kind: 'deal_cards' }
+        { kind: 'flush_all_pending_flow_ops' }
       ],
       commandSteps: [
         { cmd: { type: 'Call', playerId: uCall }, flushAllPending: true },
@@ -128,6 +128,7 @@ describe('reduceCanonicalTableSession (immutable program → events + snapshot c
         { kind: 'invite_seat_user', user: { id: 2, name: 'b' } },
         { kind: 'invite_seat_user', user: { id: 3, name: 'c' } },
         { kind: 'set_player_roles', mode: 'initial', buttonUserId: 1 },
+        { kind: 'deal_cards' },
         { kind: 'start_hand' },
         { kind: 'flush_pending_turn_handoff' }
       ],
@@ -158,6 +159,7 @@ describe('reduceCanonicalTableSession (immutable program → events + snapshot c
     t.room.seat(p3)
     const imperativeBoot = [
       ...t.setPlayerRoles('initial', { buttonUserId: 1 }),
+      ...t.dealCards(),
       ...t.start(),
       ...t.flushPendingTurnHandoff()
     ]
@@ -183,6 +185,7 @@ describe('reduceCanonicalTableSession (immutable program → events + snapshot c
         { kind: 'invite_seat_user', user: { id: 2, name: 'b' } },
         { kind: 'invite_seat_user', user: { id: 3, name: 'c' } },
         { kind: 'set_player_roles', mode: 'initial', buttonUserId: 1 },
+        { kind: 'deal_cards' },
         { kind: 'start_hand' },
         { kind: 'flush_pending_turn_handoff' }
       ],

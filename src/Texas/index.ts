@@ -2,8 +2,7 @@ import type { Poke } from '@/Deck/constant'
 import type { TableCommand } from '@/domain/tableCommand'
 import type {
   HandDomainEvent,
-  TexasDomainEvent,
-  SessionDomainEvent
+  TexasDomainEvent
 } from '@/domain/handDomainEvents'
 
 import Pool from '@/Pool'
@@ -37,7 +36,7 @@ export interface CreateRoomInputArgs {
   user: User
 }
 
-export type { TexasDomainEvent, HandDomainEvent, SessionDomainEvent }
+export type { TexasDomainEvent, HandDomainEvent }
 export type { TableCommand } from '@/domain/tableCommand'
 export {
   parseTableCommandFromJson,
@@ -55,8 +54,6 @@ class Texas {
   room: Room
   dealer: Dealer
   controller: Controller
-  #sessionSeq = 0
-  #sessionEvents: SessionDomainEvent[] = []
   fail: (error: TexasError) => never
   handleError: (error: TexasError) => never
 
@@ -102,18 +99,11 @@ class Texas {
   }
 
   /**
-   * 取出自上次 drain 以来累积的领域事件（会话级 + 本手级），并清空缓冲。
+   * 取出自上次 drain 以来累积的领域事件，并清空缓冲。
    * 业务在持久化/WS 后应按节拍调用 {@link applyPendingStageAdvance} / {@link flushPendingTurnHandoff}（或封装好的 drain），否则队列堆积、下一行动方无法 `getControl`。
    */
   drainDomainEvents(): TexasDomainEvent[] {
-    const session = this.#sessionEvents.splice(0)
-    const hand = this.controller.drainHandEvents()
-    return [...session, ...hand]
-  }
-
-  #nextSessionSeq() {
-    this.#sessionSeq += 1
-    return this.#sessionSeq
+    return this.controller.drainHandEvents()
   }
 
   /**
@@ -139,7 +129,7 @@ class Texas {
   }
 
   /**
-   * 分配角色并缓冲 `RolesAssigned`（会话级事件）。
+   * 分配角色并缓冲 `RolesAssigned`（与本手同一 `handId`，经 {@link Controller.prepareHandTape}）。
    * - **`initial`**：仅 `Room.initialRoles`（荷官 `setButton` + `setOthers`，定庄 + 锁座）；**不**再调 {@link reArrangeRoles}。
    *   若传入 `options.buttonUserId`，则 `Room.initialRoles(该玩家)`，**不再**随机定庄（与先 `dealer.setButton` 再本方法且省略 options 的旧写法等价）。
    * - **`rearrange`**：仅 {@link reArrangeRoles}（须已有庄位）；按人数表重算 SB/BB/UTG…（忽略 `options.buttonUserId`）。
@@ -177,10 +167,8 @@ class Texas {
         role: p.getRole()!,
         actionIndex: index
       }))
-    this.#sessionEvents.push({
-      type: 'RolesAssigned',
-      payload: { seq: this.#nextSessionSeq(), players }
-    })
+    this.controller.prepareHandTape()
+    this.controller.recordRolesAssigned(players)
     return this.drainDomainEvents()
   }
 
@@ -200,17 +188,15 @@ class Texas {
     this.room.rotateRoles()
   }
 
-  /** 发手牌并缓冲 `HoleCardsDealt`（会话级事件）。 */
+  /** 发手牌并缓冲 `HoleCardsDealt`（与本手同一 `handId`；若尚未 `setPlayerRoles` 则会先 `prepareHandTape`）。 */
   dealCards(): TexasDomainEvent[] {
+    this.controller.prepareHandTape()
     this.dealer.dealCards()
     const byUserId: Record<number, Poke[]> = {}
     for (const p of this.dealer.players) {
       byUserId[p.getUserInfo().id] = p.getHandPokes()
     }
-    this.#sessionEvents.push({
-      type: 'HoleCardsDealt',
-      payload: { seq: this.#nextSessionSeq(), byUserId }
-    })
+    this.controller.recordHoleCardsDealt(byUserId)
     return this.drainDomainEvents()
   }
 
@@ -390,8 +376,6 @@ class Texas {
     this.controller.reset()
     this.dealer.reset()
     this.room.unlockSeats()
-    this.#sessionSeq = 0
-    this.#sessionEvents = []
   }
 
   resetBeforeGameStart() {

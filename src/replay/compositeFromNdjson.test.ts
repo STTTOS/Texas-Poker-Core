@@ -24,6 +24,7 @@ describe('projectCompositeReadModelFromNdjsonFileSync', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 1,
           players: [
             { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 }
@@ -48,6 +49,7 @@ describe('projectCompositeReadModelFromNdjsonFileSync', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 1,
           players: [
             { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 }

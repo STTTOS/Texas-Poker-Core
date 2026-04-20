@@ -27,6 +27,7 @@ describe('jsonlAppendOnlyStore', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 1,
           players: [
             { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 }
@@ -44,6 +45,7 @@ describe('jsonlAppendOnlyStore', () => {
     appendPersistedRowsToNdjsonFileSync(file, r2)
     const back = readAllPersistedRowsFromNdjsonFileSync(file)
     expect(back).toHaveLength(2)
+    expect(back[0].handId).toBe('h1')
     expect(back[0].seq).toBe(1)
     expect(back[1].handId).toBe('h1')
     expect(back[1].seq).toBe(2)
@@ -56,6 +58,7 @@ describe('jsonlAppendOnlyStore', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 1,
           players: [
             { userId: 2, name: 'b', role: RoleEnum.BTN, actionIndex: 0 }

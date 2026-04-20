@@ -10,6 +10,7 @@ describe('projectCompositeReadModel', () => {
       {
         type: 'RolesAssigned',
         payload: {
+          handId: 'h1',
           seq: 1,
           players: [
             { userId: 1, name: 'a', role: RoleEnum.BTN, actionIndex: 0 }
