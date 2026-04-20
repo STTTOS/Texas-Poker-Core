@@ -6,7 +6,7 @@ import Texas from '@/Texas'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import { flatConcatDomainEvents } from '@/engine/domainEventReadModel'
 import { projectCompositeReadModel } from './projectCompositeReadModel'
-import { projectCompositeReadModelFromNdjsonFileSync } from './compositeFromNdjson'
+import { projectCompositeReadModelFromNdjsonFileSync } from './node/compositeFromNdjson'
 import { applyTableCommandThenFlushAllPendingFlowOps } from '@/engine/applyTableCommand'
 import {
   toPersistedDomainEventRows,
@@ -15,7 +15,7 @@ import {
 import {
   appendPersistedRowsToNdjsonFileSync,
   readAllPersistedRowsFromNdjsonFileSync
-} from './jsonlAppendOnlyStore'
+} from './node/jsonlAppendOnlyStore'
 
 describe('replay composite golden (NDJSON round-trip)', () => {
   let teardown: Texas | undefined

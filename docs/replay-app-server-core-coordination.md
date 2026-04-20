@@ -19,14 +19,15 @@ Core **不**连接数据库；落库与读库都在 Server；App 通过 Server A
 
 ### 2.1 提供的能力
 
-| 能力                                                                                                               | 用途                                                                       |
-| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `TexasDomainEvent` 及子类型（`src/domain/handDomainEvents.ts`）                                                    | 磁带语义契约                                                               |
-| `toPersistedDomainEventRows` / `domainEventsFromPersistedRows`（`src/replay/domainEventPersistence.ts`）           | Server 落库行 ↔ 事件对象                                                   |
-| `validatePersistedDomainEventRows` / `assertPersistedDomainEventRows`（`src/replay/domainEventTapeValidation.ts`） | 磁带结构巡检（开发 / 对拍）                                                |
-| `projectCompositeReadModel`（`src/replay/projectCompositeReadModel.ts`）                                           | 从一段事件序列聚合只读投影（池、公牌、最近 `TurnOffered`、`HandEnded` 等） |
-| `reduce*` 族（`src/engine/domainEventReadModel.ts`）                                                               | 按需拆出更细的读模型，供 App 或 Server 复用                                |
-| `verifyCanonicalSessionAgainstPersistedRows` 等（`src/replay/verifyCanonicalAgainstTape.ts`）                      | 命令牌谱与事件磁带一致性校验（可选）                                       |
+| 能力                                                                                                               | 用途                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `TexasDomainEvent` 及子类型（`src/domain/handDomainEvents.ts`）                                                    | 磁带语义契约                                                                         |
+| `toPersistedDomainEventRows` / `domainEventsFromPersistedRows`（`src/replay/domainEventPersistence.ts`）           | Server 落库行 ↔ 事件对象                                                             |
+| `validatePersistedDomainEventRows` / `assertPersistedDomainEventRows`（`src/replay/domainEventTapeValidation.ts`） | 磁带结构巡检（开发 / 对拍）                                                          |
+| `projectCompositeReadModel`（`src/replay/projectCompositeReadModel.ts`）                                           | 从一段事件序列聚合只读投影（池、公牌、最近 `TurnOffered`、`HandEnded` 等）           |
+| `src/replay/node/*`（NDJSON 读写，依赖 `fs`）                                                                      | **仅本仓库**：`pnpm replay:*` 与 Jest；**不**作为 npm 公共 API；Server 落库请自接 DB |
+| `reduce*` 族（`src/engine/domainEventReadModel.ts`）                                                               | 按需拆出更细的读模型，供 App 或 Server 复用                                          |
+| `verifyCanonicalSessionAgainstPersistedRows` 等（`src/replay/verifyCanonicalAgainstTape.ts`）                      | 命令牌谱与事件磁带一致性校验（可选）                                                 |
 
 本地/CI 可用脚本：`pnpm replay:composite`、`pnpm replay:validate`、`pnpm replay:verify`（见根目录 `package.json`）。
 

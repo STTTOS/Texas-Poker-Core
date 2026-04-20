@@ -8,7 +8,7 @@ import {
   createNdjsonFileDomainEventStore,
   appendPersistedRowsToNdjsonFileSync,
   readAllPersistedRowsFromNdjsonFileSync
-} from './jsonlAppendOnlyStore'
+} from './node/jsonlAppendOnlyStore'
 
 describe('jsonlAppendOnlyStore', () => {
   let dir: string

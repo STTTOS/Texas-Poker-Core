@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { readAllPersistedRowsFromNdjsonFileSync } from './jsonlAppendOnlyStore'
 import { parseCanonicalTableSessionFromJson } from '@/engine/canonicalTableSession'
+import { readAllPersistedRowsFromNdjsonFileSync } from './node/jsonlAppendOnlyStore'
 import {
   resolveReplayVerifyExitCode,
   toCompactVerifyCanonicalAgainstTapeResult,

@@ -8,14 +8,6 @@ export {
   domainEventsFromPersistedRows
 } from './domainEventPersistence'
 
-export {
-  appendPersistedRowsToNdjsonFileSync,
-  readAllPersistedRowsFromNdjsonFileSync,
-  createNdjsonFileDomainEventStore
-} from './jsonlAppendOnlyStore'
-
-export { projectCompositeReadModelFromNdjsonFileSync } from './compositeFromNdjson'
-
 export type { DomainEventTapeValidationIssue } from './domainEventTapeValidation'
 export {
   validatePersistedDomainEventRows,

@@ -4,8 +4,8 @@ import path from 'node:path'
 
 import { RoleEnum } from '@/Player/constant'
 import { toPersistedDomainEventRows } from './domainEventPersistence'
-import { appendPersistedRowsToNdjsonFileSync } from './jsonlAppendOnlyStore'
-import { projectCompositeReadModelFromNdjsonFileSync } from './compositeFromNdjson'
+import { appendPersistedRowsToNdjsonFileSync } from './node/jsonlAppendOnlyStore'
+import { projectCompositeReadModelFromNdjsonFileSync } from './node/compositeFromNdjson'
 
 describe('projectCompositeReadModelFromNdjsonFileSync', () => {
   let dir: string

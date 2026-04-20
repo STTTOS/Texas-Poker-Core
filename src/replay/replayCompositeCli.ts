@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { projectCompositeReadModelFromNdjsonFileSync } from './compositeFromNdjson'
+import { projectCompositeReadModelFromNdjsonFileSync } from './node/compositeFromNdjson'
 
 const fileArg = process.argv[2]
 const noValidate = process.argv.includes('--no-validate')

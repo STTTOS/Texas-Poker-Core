@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { readAllPersistedRowsFromNdjsonFileSync } from './jsonlAppendOnlyStore'
+import { readAllPersistedRowsFromNdjsonFileSync } from './node/jsonlAppendOnlyStore'
 import {
   assertPersistedDomainEventRows,
   summarizePersistedDomainEventRows

@@ -1,7 +1,7 @@
 import type {
   DomainEventStore,
   PersistedDomainEventRow
-} from './domainEventPersistence'
+} from '../domainEventPersistence'
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -9,6 +9,8 @@ import path from 'node:path'
 /**
  * 将持久化行 **追加** 到 NDJSON 文件（一行一条 JSON，适合牌谱磁带 / 本地 append-only）。
  * 不就地改写历史行；删除或修正应通过新文件或业务层补偿事件。
+ *
+ * **仅 Node**：依赖 `fs`；由本仓库 `replay` CLI / 测试引用，不经包根导出。
  */
 export function appendPersistedRowsToNdjsonFileSync(
   filePath: string,
