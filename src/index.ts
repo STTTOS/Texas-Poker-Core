@@ -226,6 +226,7 @@ export type {
   DomainEventsCompositeReadModel,
   DomainEventTapeValidationIssue,
   VerifyCanonicalAgainstTapeResult,
+  VerifyCanonicalAgainstTapeCompactResult,
   VerifyCanonicalDiffContext,
   VerifyEventSignature
 } from './replay'
@@ -241,6 +242,7 @@ export {
   assertPersistedDomainEventRows,
   summarizePersistedDomainEventRows,
   verifyCanonicalSessionAgainstPersistedRows,
+  toCompactVerifyCanonicalAgainstTapeResult,
   createAppendDomainEventsHandler,
   projectCompositeReadModel
 } from './replay'

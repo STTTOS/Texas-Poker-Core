@@ -3,15 +3,19 @@ import path from 'node:path'
 
 import { readAllPersistedRowsFromNdjsonFileSync } from './jsonlAppendOnlyStore'
 import { parseCanonicalTableSessionFromJson } from '@/engine/canonicalTableSession'
-import { verifyCanonicalSessionAgainstPersistedRows } from './verifyCanonicalAgainstTape'
+import {
+  toCompactVerifyCanonicalAgainstTapeResult,
+  verifyCanonicalSessionAgainstPersistedRows
+} from './verifyCanonicalAgainstTape'
 
 const sessionArg = process.argv[2]
 const tapeArg = process.argv[3]
 const noValidate = process.argv.includes('--no-validate')
+const compact = process.argv.includes('--compact')
 
 if (!sessionArg || !tapeArg) {
   console.error(
-    'Usage: pnpm run replay:verify <session.canonical.json> <events.ndjson> [--no-validate]'
+    'Usage: pnpm run replay:verify <session.canonical.json> <events.ndjson> [--compact] [--no-validate]'
   )
   process.exit(1)
 }
@@ -52,7 +56,10 @@ if (!verify.matches) {
     )
   }
 }
-console.log(JSON.stringify(verify, null, 2))
+const payload = compact
+  ? toCompactVerifyCanonicalAgainstTapeResult(verify)
+  : verify
+console.log(JSON.stringify(payload, null, 2))
 if (!verify.matches) {
   process.exit(2)
 }

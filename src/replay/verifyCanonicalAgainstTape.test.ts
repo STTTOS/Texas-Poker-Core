@@ -3,7 +3,10 @@ import type { CanonicalTableSession } from '@/engine/canonicalTableSession'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import { toPersistedDomainEventRows } from './domainEventPersistence'
 import { reduceCanonicalTableSession } from '@/engine/canonicalTableSession'
-import { verifyCanonicalSessionAgainstPersistedRows } from './verifyCanonicalAgainstTape'
+import {
+  toCompactVerifyCanonicalAgainstTapeResult,
+  verifyCanonicalSessionAgainstPersistedRows
+} from './verifyCanonicalAgainstTape'
 
 describe('verifyCanonicalSessionAgainstPersistedRows', () => {
   beforeEach(() => {
@@ -81,5 +84,26 @@ describe('verifyCanonicalSessionAgainstPersistedRows', () => {
     expect(out.tapeIssues.length).toBeGreaterThan(0)
     expect(out.firstDiffIndex).toBeNull()
     expect(out.diffContext).toBeNull()
+  })
+
+  test('toCompactVerifyCanonicalAgainstTapeResult returns concise payload', () => {
+    const session = buildSession()
+    const expected = reduceCanonicalTableSession(session).events
+    const rows = toPersistedDomainEventRows('t1', expected)
+    rows[0] = {
+      ...rows[0],
+      payloadJson: JSON.stringify({
+        ...(JSON.parse(rows[0].payloadJson) as object),
+        payload: { seq: 999 }
+      })
+    }
+    const out = verifyCanonicalSessionAgainstPersistedRows(session, rows, {
+      validateTape: false
+    })
+    const compact = toCompactVerifyCanonicalAgainstTapeResult(out)
+    expect(compact.matches).toBe(false)
+    expect(compact.firstDiffIndex).toBe(0)
+    expect(compact.tapeIssueCount).toBe(0)
+    expect(compact.diffContext?.index).toBe(0)
   })
 })

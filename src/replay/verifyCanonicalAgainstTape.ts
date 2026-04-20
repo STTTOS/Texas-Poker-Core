@@ -22,6 +22,15 @@ export type VerifyCanonicalAgainstTapeResult = Readonly<{
   actualAtDiff: TexasDomainEvent | null
 }>
 
+export type VerifyCanonicalAgainstTapeCompactResult = Readonly<{
+  matches: boolean
+  expectedEventCount: number
+  actualEventCount: number
+  firstDiffIndex: number | null
+  tapeIssueCount: number
+  diffContext: VerifyCanonicalDiffContext | null
+}>
+
 export type VerifyEventSignature = Readonly<{
   type: TexasDomainEvent['type']
   handId: string | null
@@ -102,5 +111,18 @@ export function verifyCanonicalSessionAgainstPersistedRows(
     expectedAtDiff:
       firstDiffIndex == null ? null : expected[firstDiffIndex] ?? null,
     actualAtDiff: firstDiffIndex == null ? null : actual[firstDiffIndex] ?? null
+  }
+}
+
+export function toCompactVerifyCanonicalAgainstTapeResult(
+  verify: VerifyCanonicalAgainstTapeResult
+): VerifyCanonicalAgainstTapeCompactResult {
+  return {
+    matches: verify.matches,
+    expectedEventCount: verify.expectedEventCount,
+    actualEventCount: verify.actualEventCount,
+    firstDiffIndex: verify.firstDiffIndex,
+    tapeIssueCount: verify.tapeIssues.length,
+    diffContext: verify.diffContext
   }
 }
