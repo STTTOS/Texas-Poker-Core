@@ -225,7 +225,9 @@ export type {
   DomainEventStore,
   DomainEventsCompositeReadModel,
   DomainEventTapeValidationIssue,
-  VerifyCanonicalAgainstTapeResult
+  VerifyCanonicalAgainstTapeResult,
+  VerifyCanonicalDiffContext,
+  VerifyEventSignature
 } from './replay'
 export {
   toPersistedDomainEventRows,

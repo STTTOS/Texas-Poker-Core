@@ -35,6 +35,23 @@ const verify = verifyCanonicalSessionAgainstPersistedRows(session, rows, {
   validateTape: !noValidate
 })
 
+if (!verify.matches) {
+  if (verify.tapeIssues.length > 0) {
+    console.error(`Tape validation issues: ${verify.tapeIssues.length}`)
+  }
+  if (verify.diffContext) {
+    const d = verify.diffContext
+    const toS = (x: typeof d.expected) =>
+      x
+        ? `${x.type}(handId=${x.handId ?? 'null'},seq=${x.seq ?? 'null'})`
+        : 'null'
+    console.error(
+      `First diff@${d.index}: expected=${toS(d.expected)} actual=${toS(
+        d.actual
+      )}`
+    )
+  }
+}
 console.log(JSON.stringify(verify, null, 2))
 if (!verify.matches) {
   process.exit(2)

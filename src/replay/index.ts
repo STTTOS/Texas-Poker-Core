@@ -23,7 +23,11 @@ export {
   summarizePersistedDomainEventRows
 } from './domainEventTapeValidation'
 
-export type { VerifyCanonicalAgainstTapeResult } from './verifyCanonicalAgainstTape'
+export type {
+  VerifyCanonicalAgainstTapeResult,
+  VerifyCanonicalDiffContext,
+  VerifyEventSignature
+} from './verifyCanonicalAgainstTape'
 export { verifyCanonicalSessionAgainstPersistedRows } from './verifyCanonicalAgainstTape'
 
 export { createAppendDomainEventsHandler } from './appendDomainEventsInterpretHandler'
