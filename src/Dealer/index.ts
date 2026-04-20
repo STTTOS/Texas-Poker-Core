@@ -111,9 +111,9 @@ class Dealer implements GameComponent, PlayerDealerRing<Player> {
 
   remove(player: Player): void {
     this.#table.remove(player)
-    if (this.#table.count > 0 && this.#table.button) {
-      this.#service.reArrangeRoles()
-    }
+    // if (this.#table.count > 0 && this.#table.button) {
+    //   this.#service.reArrangeRoles()
+    // }
   }
 
   /**
@@ -130,7 +130,7 @@ class Dealer implements GameComponent, PlayerDealerRing<Player> {
     } else {
       this.#table.join(player)
     }
-    if (this.#table.button) this.#service.reArrangeRoles()
+    // if (this.#table.button) this.#service.reArrangeRoles()
   }
 
   has(player: Player) {
