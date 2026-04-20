@@ -23,6 +23,9 @@ export {
   summarizePersistedDomainEventRows
 } from './domainEventTapeValidation'
 
+export type { VerifyCanonicalAgainstTapeResult } from './verifyCanonicalAgainstTape'
+export { verifyCanonicalSessionAgainstPersistedRows } from './verifyCanonicalAgainstTape'
+
 export { createAppendDomainEventsHandler } from './appendDomainEventsInterpretHandler'
 
 export type { DomainEventsCompositeReadModel } from './projectCompositeReadModel'

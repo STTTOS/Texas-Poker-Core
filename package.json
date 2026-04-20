@@ -24,6 +24,7 @@
     "simulatore": "cross-env PROJECT_ENV=prd ts-node -r tsconfig-paths/register  ./src/simulator_game_run.ts",
     "replay:composite": "cross-env PROJECT_ENV=prd ts-node -r tsconfig-paths/register ./src/replay/replayCompositeCli.ts",
     "replay:validate": "cross-env PROJECT_ENV=prd ts-node -r tsconfig-paths/register ./src/replay/replayValidateCli.ts",
+    "replay:verify": "cross-env PROJECT_ENV=prd ts-node -r tsconfig-paths/register ./src/replay/replayVerifyCli.ts",
     "replay:canonical": "cross-env PROJECT_ENV=prd ts-node -r tsconfig-paths/register ./src/replay/replayCanonicalCli.ts"
   },
   "files": [
