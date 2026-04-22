@@ -292,4 +292,34 @@ describe('Room', () => {
     expect(room.totalPlayersCount).toBe(0)
     expect(room.has(owner.getUserInfo().id)).toBe(false)
   })
+
+  test('owner may leave when room has other members', () => {
+    const dealer = new Dealer(200)
+    const pool = new Pool()
+    const controller = new Controller(dealer, pool)
+    const owner = new Player({
+      user: { id: 1, name: '1' },
+      initialChips: 500,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const room = new Room(roomOpts(dealer, owner))
+    const p2 = new Player({
+      user: { id: 2, name: '2' },
+      initialChips: 500,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+
+    room.join(p2)
+
+    expect(() => room.remove(owner)).not.toThrow()
+    expect(room.totalPlayersCount).toBe(1)
+    expect(room.has(owner.getUserInfo().id)).toBe(false)
+    expect(room.owner.getUserInfo().id).toBe(2)
+  })
 })
