@@ -7,15 +7,14 @@ import type { Role } from '@/Player/constant'
 import type { ShowdownPlayerEval } from './HandSettlement'
 import type { PlayerHandSession } from '@/playerSessionPorts'
 import type {
+  HandDomainEvent,
+  TurnEndedReason
+} from '@/domain/handDomainEvents'
+import type {
   GameComponent,
   HandLifecycle,
   TexasErrorCallback
 } from '@/gameContracts'
-import type {
-  HandDomainEvent,
-  TurnEndedReason,
-  PlayerActedReason
-} from '@/domain/handDomainEvents'
 
 import Pool from '../Pool'
 import Dealer from '../Dealer'
@@ -49,8 +48,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   #activeHandId: string | null = null
   #handEventSeq = 0
   #handEvents: HandDomainEvent[] = []
-  /** 下一条行动完成时的 `PlayerActed.reason`（如离场导致的强制弃牌）；由 `consumePendingPlayerActedReason` 消费 */
-  #pendingPlayerActedReason: PlayerActedReason | null = null
   /** 下一条行动完成时的 `TurnEnded.reason`（如超时弃牌）；由 `consumePendingTurnEndedReason` 消费 */
   #pendingTurnEndedReason: TurnEndedReason | null = null
   /** 进街 / 交权由业务或 `drainPendingFlowOpsSync` 消费 */
@@ -101,7 +98,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#activeHandId = `h${this.#handSerial}`
     this.#handEventSeq = 0
     this.#handEvents = []
-    this.#pendingPlayerActedReason = null
     this.#pendingTurnEndedReason = null
     this.#pendingFlowOps = []
     this.#runoutMode = false
@@ -158,7 +154,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   recordPlayerAction(player: Player, options: { emitPot: boolean }): void {
     const action = player.getAction()
     if (!action) return
-    const actionReason = this.consumePendingPlayerActedReason()
     this.#handEvents.push({
       type: 'PlayerActed',
       payload: {
@@ -166,8 +161,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         userId: player.getUserInfo().id,
         street: this.#hand.stage,
         actionType: action.type,
-        amount: action.payload?.value,
-        reason: actionReason ?? undefined
+        amount: action.payload?.value
       }
     })
     if (options.emitPot) this.recordPotUpdated()
@@ -235,16 +229,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       type: 'TurnEnded',
       payload: { ...this.#eventMeta(), userId, reason }
     })
-  }
-
-  setPendingPlayerActedReason(reason: PlayerActedReason): void {
-    this.#pendingPlayerActedReason = reason
-  }
-
-  consumePendingPlayerActedReason(): PlayerActedReason | null {
-    const r = this.#pendingPlayerActedReason
-    this.#pendingPlayerActedReason = null
-    return r
   }
 
   setPendingTurnEndedReason(reason: TurnEndedReason): void {

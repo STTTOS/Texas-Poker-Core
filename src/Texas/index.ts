@@ -326,14 +326,8 @@ class Texas {
         executeFold(actor, { skipTurnOfferRequirement: true })
         break
       case 'FoldDueToLeave':
-        this.controller.setPendingPlayerActedReason('leave_game')
-        try {
-          this.controller.setPendingTurnEndedReason('leave')
-          executeFold(actor, { skipTurnOfferRequirement: true })
-        } catch (err) {
-          this.controller.consumePendingPlayerActedReason()
-          throw err
-        }
+        this.controller.setPendingTurnEndedReason('leave')
+        executeFold(actor, { skipTurnOfferRequirement: true })
         break
       case 'CheckDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')

@@ -14,8 +14,6 @@ export type TurnEndedReason =
   | 'timeout'
   | 'leave'
 
-export type PlayerActedReason = 'leave_game'
-
 /**
  * 本手磁带内每条事件均携带同一 `handId` 与单调 `seq`。
  * `handId` 在 {@link Controller.prepareHandTape}（`Texas#setPlayerRoles` / `dealCards` 路径）分配；`seq` 自分配角色起连续递增直至本手 `HandEnded`。
@@ -82,8 +80,6 @@ export type HandDomainEvent =
         actionType: ActionTypeEnum
         /** 下注/加注等金额；无则省略 */
         amount?: number
-        /** 非自愿动作原因（如玩家中途离场导致的强制弃牌） */
-        reason?: PlayerActedReason
       }
     }
   | {

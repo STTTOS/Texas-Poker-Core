@@ -1,11 +1,8 @@
 import type { Poke } from '@/Deck/constant'
 import type { Stage } from '@/Controller/stage'
 import type { HandLifecycle } from '@/gameContracts'
+import type { TurnEndedReason } from '@/domain/handDomainEvents'
 import type { ShowdownPlayerEval } from '@/Controller/HandSettlement'
-import type {
-  TurnEndedReason,
-  PlayerActedReason
-} from '@/domain/handDomainEvents'
 
 /**
  * `Player` 在单桌内需要的「荷官环 + 行动序」视图，避免依赖整个 {@link Dealer} 类型。
@@ -40,9 +37,6 @@ export interface PlayerHandSession<TPlayer = unknown> {
   recordPlayerAction(player: TPlayer, options: { emitPot: boolean }): void
   recordTurnOffered(player: TPlayer): void
   recordTurnEnded(userId: number, reason: TurnEndedReason): void
-  /** 下一条 `PlayerActed.reason` 使用指定原因；消费一次后恢复未标注。 */
-  setPendingPlayerActedReason(reason: PlayerActedReason): void
-  consumePendingPlayerActedReason(): PlayerActedReason | null
   /** 下一条 `TurnEnded` 使用指定 reason（如超时弃牌）；消费一次后恢复默认 `acted` */
   setPendingTurnEndedReason(reason: TurnEndedReason): void
   consumePendingTurnEndedReason(): TurnEndedReason | null
