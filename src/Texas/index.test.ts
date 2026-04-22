@@ -221,7 +221,7 @@ describe('entery', () => {
     teardownTexas = texas
   })
 
-  test('FoldDueToLeave: non-active player is rejected', () => {
+  test('FoldDueToLeave: non-active player folds out without advancing turn chain', () => {
     const texas = new Texas({
       lowestBetAmount: 500,
       maximumCountOfPlayers: 9,
@@ -245,18 +245,21 @@ describe('entery', () => {
     const ap = texas.controller.activePlayer!
     const leaver = texas.dealer.players.find((p) => p !== ap)!
     expect(leaver.getStatus()).toBe('eligible')
-    let err: TexasError | null = null
-    try {
-      texas.dispatchCommand({
-        type: 'FoldDueToLeave',
-        playerId: leaver.getUserInfo().id
-      })
-    } catch (e) {
-      err = e as TexasError
-    }
-    expect(err?.code).toBe(TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR)
-    expect(leaver.getStatus()).toBe('eligible')
+    const ev = texas.dispatchCommand({
+      type: 'FoldDueToLeave',
+      playerId: leaver.getUserInfo().id
+    })
+    expect(leaver.getStatus()).toBe('out')
     expect(texas.controller.status).toBe('in_hand')
+    expect(ev.some((e) => e.type === 'PlayerActed')).toBe(true)
+    expect(ev.some((e) => e.type === 'TurnEnded')).toBe(true)
+    const te = ev.find((e) => e.type === 'TurnEnded')
+    expect(
+      te &&
+        te.type === 'TurnEnded' &&
+        te.payload.userId === leaver.getUserInfo().id &&
+        te.payload.reason === 'leave'
+    ).toBe(true)
     teardownTexas = texas
   })
 
@@ -295,7 +298,7 @@ describe('entery', () => {
     teardownTexas = texas
   })
 
-  test('FoldDueToLeave: heads-up non-active is rejected', () => {
+  test('FoldDueToLeave: heads-up non-active folds ends hand (fold_win)', () => {
     const texas = new Texas({
       lowestBetAmount: 500,
       maximumCountOfPlayers: 9,
@@ -311,17 +314,12 @@ describe('entery', () => {
     void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     const ap = texas.controller.activePlayer!
     const other = texas.dealer.players.find((p) => p !== ap)!
-    let err: TexasError | null = null
-    try {
-      texas.dispatchCommand({
-        type: 'FoldDueToLeave',
-        playerId: other.getUserInfo().id
-      })
-    } catch (e) {
-      err = e as TexasError
-    }
-    expect(err?.code).toBe(TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR)
-    expect(texas.controller.status).toBe('in_hand')
+    const ev = texas.dispatchCommand({
+      type: 'FoldDueToLeave',
+      playerId: other.getUserInfo().id
+    })
+    expect(texas.controller.status).toBe('between_hands')
+    expect(ev.some((e) => e.type === 'HandEnded')).toBe(true)
     teardownTexas = texas
   })
 
@@ -352,6 +350,11 @@ describe('entery', () => {
     const ap = texas.controller.activePlayer!
     const passive = texas.dealer.players.find((p) => p !== ap)!
     expect(texas.canFoldDueToLeave(ap.getUserInfo().id)).toBe(true)
+    expect(texas.canFoldDueToLeave(passive.getUserInfo().id)).toBe(true)
+    void texas.dispatchCommand({
+      type: 'FoldDueToLeave',
+      playerId: passive.getUserInfo().id
+    })
     expect(texas.canFoldDueToLeave(passive.getUserInfo().id)).toBe(false)
     teardownTexas = texas
   })

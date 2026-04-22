@@ -1,5 +1,9 @@
 import type { TableStakes } from '@/TableStakes'
-import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
+import type {
+  GameComponent,
+  HandLifecycle,
+  TexasErrorCallback
+} from '@/gameContracts'
 import type {
   StreetPotSink,
   PlayerDealerRing,
@@ -304,6 +308,24 @@ export class Player implements GameComponent {
       this.getUserInfo().id,
       turnReason ?? 'acted'
     )
+  }
+
+  /** 本手在控制器中的生命周期（供离场分支等判断） */
+  get handLifecycle(): HandLifecycle {
+    return this.#handSession.status
+  }
+
+  /**
+   * 非当前行动方离场弃牌：只记 `PlayerActed` + `TurnEnded(reason: leave)`。
+   */
+  notifyPassiveFoldLeaveCommitted(): void {
+    this.#handSession.recordPlayerAction(this, { emitPot: false })
+    this.#handSession.recordTurnEnded(this.getUserInfo().id, 'leave')
+  }
+
+  /** 在不经 `completeBettingTurn` 的落账后尝试收局（如独赢弃牌） */
+  tryHandSessionEndGame(): boolean {
+    return this.#handSession.tryToEndGame()
   }
 
   /** 单步下注落账后：尝试收局 / 进街 / 把控制权交给下一位 */

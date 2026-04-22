@@ -1,7 +1,7 @@
 /**
  * 单桌统一意图入口；由 {@link Texas#dispatchCommand} 校验入座后委托 `handBettingActions`，并同步返回领域事件。
  * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（**仍须为当前行动方**）。
- * 离场：`FoldDueToLeave`（仅当前行动方；`TurnEnded.reason` 为 `leave`）。
+ * 离场：`FoldDueToLeave`（可非当前行动方，立即弃牌；当前方时 `TurnEnded.reason` 为 `leave`）。
  */
 export type TableCommand =
   | { type: 'Fold'; playerId: number }
