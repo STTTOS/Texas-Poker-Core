@@ -82,7 +82,6 @@ export class Player implements GameComponent {
    * - `flushPendingTurnHandoff`：若队里异常出现连续多条 `turn_handoff` 且本席尚未 `removeControl`，避免第二次 `getControl` 重复发 `TurnOffered`。
    *   业务「多调一次 flush」通常队头已非 `turn_handoff`，靠队列即可挡，不依赖本标记。
    */
-  #turnOfferEmitted = false
   #action?: Action
   #stakes: TableStakes
   /**
@@ -272,8 +271,6 @@ export class Player implements GameComponent {
     this.#totalBetAmount = 0
     this.#status = 'eligible'
     this.#wager = 0
-    this.#turnOfferEmitted = false
-
     if (TexasEngineContext.simulation().restoreBalanceOnPlayerReset) {
       this.balance = this.#balance
     }
@@ -417,12 +414,9 @@ export class Player implements GameComponent {
     return this.#userInfo
   }
 
-  /**
-   * 自愿行动前校验：`activePlayer === this`、本手 `in_hand`，且默认须已 `getControl`（`hasEmittedTurnOffer`），
-   * 与业务 `flushPendingTurnHandoff` 对齐，避免 HTTP 在 `TurnOffered` 推送前抢跑。
-   * 盲注等结构性下注须跳过本方法（见 `executeBet`/`executeAllIn`）；超时代指令传 `skipTurnOfferRequirement`。
-   */
+  /** 自愿行动前校验：`activePlayer === this` 且本手 `in_hand`。 */
   checkIfCanAct(options?: { skipTurnOfferRequirement?: boolean }) {
+    void options
     if (this.#handSession.activePlayer !== this) {
       return this.fail(
         new TexasError(TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR, {
@@ -432,29 +426,6 @@ export class Player implements GameComponent {
     }
     if (this.#handSession.status !== 'in_hand')
       return this.fail(new TexasError(TexasCoreErrorCode.PLAYER_NOT_IN_HAND))
-    if (!options?.skipTurnOfferRequirement && !this.hasEmittedTurnOffer()) {
-      return this.fail(
-        new TexasError(TexasCoreErrorCode.PLAYER_DISPATCH_TURN_NOT_OFFERED, {
-          playerId: this.#userInfo.id
-        })
-      )
-    }
-  }
-
-  /**
-   * 仅 {@link Controller.continue}：`pause` 时 `removeControl` 已清门闩，恢复对局后须能再次 `dispatchCommand`，
-   * **不**重复缓冲 `TurnOffered`。
-   */
-  restoreDispatchLatchAfterPause(): void {
-    this.#turnOfferEmitted = true
-  }
-
-  /**
-   * 本席当前思考权窗口内是否已执行过 `getControl`（已缓冲 `TurnOffered`）且未 `removeControl`。
-   * 主要配合 {@link Controller.flushPendingTurnHandoff} 防止队列重复 `turn_handoff` 时的二次 `getControl`。
-   */
-  hasEmittedTurnOffer(): boolean {
-    return this.#turnOfferEmitted
   }
 
   toString() {
@@ -483,7 +454,7 @@ export class Player implements GameComponent {
   }
 
   /**
-   * 单步行动后的控制权交接：先 `removeControl`（清 `TurnOffered` 门闩），再按序尝试
+   * 单步行动后的控制权交接：先清空 `activePlayer`，再按序尝试
    * {@link PlayerHandSession.tryToEndGame}（独赢弃牌 / 河摊牌等）→
    * {@link PlayerHandSession.canDeferBettingRoundStageAdvance} / {@link PlayerHandSession.requestDeferredStageAdvance}（下注轮结束且未到河：只入队 `stage_advance`）→
    * 否则同街找下一位 {@link isPlayerEligibleForStreetBetting} 玩家，{@link PlayerHandSession.transferControlTo}（入队 `turn_handoff`）。
@@ -492,8 +463,6 @@ export class Player implements GameComponent {
    * 进入本方法时须 `handSession.activePlayer === this`：自愿行动由 `checkIfCanAct` 保证；贴盲经 `executeBet`/`executeAllIn` 的 `skipTurnValidation` **不**调用 `completeBettingTurn`，首攻仅由 `takeActionInPreFlop` 末尾 `transferControlTo`。
    */
   transferControl() {
-    this.removeControl()
-
     if (this.#handSession.activePlayer !== this) {
       return this.fail(
         new TexasError(TexasCoreErrorCode.INTERNAL_TRANSFER_ACTOR_MISMATCH, {
@@ -502,6 +471,7 @@ export class Player implements GameComponent {
         })
       )
     }
+    this.#handSession.clearActivePlayerAfterAction(this)
 
     const shouldEndGame = this.#handSession.tryToEndGame()
     if (shouldEndGame) {
@@ -574,11 +544,7 @@ export class Player implements GameComponent {
     }
   }
   pause() {
-    this.removeControl()
-  }
-
-  removeControl() {
-    this.#turnOfferEmitted = false
+    // 思考权生命周期由 Controller 管理；Player 侧无需额外门闩。
   }
 
   /**
@@ -600,8 +566,6 @@ export class Player implements GameComponent {
 
   getControl() {
     this.#handSession.recordTurnOffered(this)
-    this.#turnOfferEmitted = true
-
     this.continue()
   }
 }

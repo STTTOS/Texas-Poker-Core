@@ -479,7 +479,9 @@ describe('entery', () => {
       texas.dealCards()
       const afterStart = texas.start()
       expect(afterStart.some((e) => e.type === 'TurnOffered')).toBe(false)
-      expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
+      expect(texas.getPendingFlowOps()).toEqual([
+        expect.objectContaining({ kind: 'turn_handoff' })
+      ])
 
       const afterFlush = texas.flushPendingTurnHandoff()
       expect(afterFlush.some((e) => e.type === 'TurnOffered')).toBe(true)
@@ -509,22 +511,22 @@ describe('entery', () => {
     teardownTexas = texas
     texas.dealCards()
     void texas.start()
-    expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
-
-    const ap = texas.controller.activePlayer!
+    const pending = texas.getPendingFlowOps()[0]
+    expect(pending?.kind).toBe('turn_handoff')
+    const actorId = pending?.kind === 'turn_handoff' ? pending.toUserId : -1
     let beforeFlushErr: TexasError | undefined
     try {
-      texas.dispatchCommand({ type: 'Fold', playerId: ap.getUserInfo().id })
+      texas.dispatchCommand({ type: 'Fold', playerId: actorId })
     } catch (e) {
       beforeFlushErr = e as TexasError
     }
     expect(beforeFlushErr?.code).toBe(
-      TexasCoreErrorCode.PLAYER_DISPATCH_TURN_NOT_OFFERED
+      TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR
     )
 
     void texas.flushPendingTurnHandoff()
     expect(() =>
-      texas.dispatchCommand({ type: 'Fold', playerId: ap.getUserInfo().id })
+      texas.dispatchCommand({ type: 'Fold', playerId: actorId })
     ).not.toThrow()
   })
 })

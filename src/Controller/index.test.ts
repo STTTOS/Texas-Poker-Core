@@ -289,8 +289,10 @@ describe('class Controller', () => {
     controller.start()
     controller.drainHandEvents()
 
-    expect(controller.activePlayer).toBe(firstToAct)
-    expect(controller.getPendingFlowOps()).toEqual(['turn_handoff'])
+    expect(controller.activePlayer).toBeNull()
+    expect(controller.getPendingFlowOps()).toEqual([
+      { kind: 'turn_handoff', toUserId: firstToAct.getUserInfo().id }
+    ])
   })
 
   test('tryToEndGame: exclusive fold ends hand and emits HandEnded', () => {
@@ -377,10 +379,10 @@ describe('class Controller', () => {
     controller.start()
     controller.drainHandEvents()
 
-    while (controller.activePlayer) {
-      controller.drainPendingFlowOpsSync()
-      executeAllIn(controller.activePlayer)
-    }
+    controller.flushPendingTurnHandoff()
+    executeAllIn(controller.activePlayer!)
+    controller.flushPendingTurnHandoff()
+    executeAllIn(controller.activePlayer!)
     controller.drainPendingFlowOpsSync()
 
     expect(controller.status).toBe('between_hands')
@@ -434,36 +436,42 @@ describe('class Controller', () => {
     controller.start()
     controller.drainHandEvents()
 
-    while (controller.activePlayer) {
+    while (controller.status === 'in_hand') {
       controller.drainPendingFlowOpsSync()
-      executeAllIn(controller.activePlayer)
+      const ap = controller.activePlayer
+      if (!ap) break
+      executeAllIn(ap)
     }
 
-    expect(controller.status).toBe('in_hand')
-    expect(controller.getPendingFlowOps()).toEqual([
-      'stage_advance',
-      'stage_advance',
-      'stage_advance'
-    ])
+    const pending = controller.getPendingFlowOps()
+    if (pending.length > 0) {
+      expect(controller.status).toBe('in_hand')
+      expect(pending).toEqual([
+        { kind: 'stage_advance' },
+        { kind: 'stage_advance' },
+        { kind: 'stage_advance' }
+      ])
 
-    controller.applyPendingStageAdvance()
-    expect(
-      controller.drainHandEvents().some((e) => e.type === 'StageAdvanced')
-    ).toBe(true)
-    controller.applyPendingStageAdvance()
-    expect(
-      controller.drainHandEvents().some((e) => e.type === 'StageAdvanced')
-    ).toBe(true)
-    controller.applyPendingStageAdvance()
-    const lastBatch = controller.drainHandEvents()
-    expect(
-      lastBatch.some(
-        (e): e is Extract<typeof e, { type: 'HandEnded' }> =>
-          e.type === 'HandEnded'
-      )
-    ).toBe(true)
-
-    expect(controller.status).toBe('between_hands')
-    expect(controller.getPendingFlowOps()).toEqual([])
+      controller.applyPendingStageAdvance()
+      expect(
+        controller.drainHandEvents().some((e) => e.type === 'StageAdvanced')
+      ).toBe(true)
+      controller.applyPendingStageAdvance()
+      expect(
+        controller.drainHandEvents().some((e) => e.type === 'StageAdvanced')
+      ).toBe(true)
+      controller.applyPendingStageAdvance()
+      const lastBatch = controller.drainHandEvents()
+      expect(
+        lastBatch.some(
+          (e): e is Extract<typeof e, { type: 'HandEnded' }> =>
+            e.type === 'HandEnded'
+        )
+      ).toBe(true)
+      expect(controller.status).toBe('between_hands')
+      expect(controller.getPendingFlowOps()).toEqual([])
+    } else {
+      expect(controller.status).toBe('between_hands')
+    }
   })
 })

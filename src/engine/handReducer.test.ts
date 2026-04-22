@@ -35,11 +35,13 @@ describe('handReducer (voluntary command path)', () => {
     teardown = texas
     texas.dealCards()
     void texas.start()
-    expect(texas.getPendingFlowOps()).toEqual(['turn_handoff'])
+    expect(texas.getPendingFlowOps()).toEqual([
+      expect.objectContaining({ kind: 'turn_handoff' })
+    ])
 
     const proj = captureHandReduceProjection(texas)
     expect(proj.activeVoluntaryActions).toBeNull()
-    expect(texas.controller.activePlayer).not.toBeNull()
+    expect(texas.controller.activePlayer).toBeNull()
   })
 
   test('after flushPendingTurnHandoff: Check on preflop second actor', () => {

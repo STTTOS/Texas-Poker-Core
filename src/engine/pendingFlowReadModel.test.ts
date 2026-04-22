@@ -1,4 +1,4 @@
-import type { PendingFlowOpKind } from '@/Controller'
+import type { PendingFlowOp } from '@/Controller'
 
 import {
   peekPendingFlowOp,
@@ -11,14 +11,14 @@ describe('pendingFlowReadModel', () => {
     expect(pendingFlowOpsAllowVoluntaryDispatch([])).toBe(true)
     expect(
       pendingFlowOpsAllowVoluntaryDispatch([
-        'turn_handoff'
-      ] as PendingFlowOpKind[])
+        { kind: 'turn_handoff', toUserId: 2 }
+      ] as PendingFlowOp[])
     ).toBe(false)
     expect(
       pendingFlowOpsAllowVoluntaryDispatch([
-        'stage_advance',
-        'turn_handoff'
-      ] as PendingFlowOpKind[])
+        { kind: 'stage_advance' },
+        { kind: 'turn_handoff', toUserId: 3 }
+      ] as PendingFlowOp[])
     ).toBe(false)
   })
 
@@ -26,17 +26,20 @@ describe('pendingFlowReadModel', () => {
     expect(peekPendingFlowOp([])).toBeUndefined()
     expect(
       peekPendingFlowOp([
-        'stage_advance',
-        'turn_handoff'
-      ] as PendingFlowOpKind[])
-    ).toBe('stage_advance')
+        { kind: 'stage_advance' },
+        { kind: 'turn_handoff', toUserId: 3 }
+      ] as PendingFlowOp[])
+    ).toEqual({ kind: 'stage_advance' })
   })
 
   test('simulateDequeue matches head only', () => {
-    const q = ['stage_advance', 'turn_handoff'] as PendingFlowOpKind[]
+    const q = [
+      { kind: 'stage_advance' },
+      { kind: 'turn_handoff', toUserId: 5 }
+    ] as PendingFlowOp[]
     const ok = simulateDequeuePendingHeadIfMatches(q, 'stage_advance')
     expect(ok.matched).toBe(true)
-    expect(ok.queue).toEqual(['turn_handoff'])
+    expect(ok.queue).toEqual([{ kind: 'turn_handoff', toUserId: 5 }])
 
     const no = simulateDequeuePendingHeadIfMatches(q, 'turn_handoff')
     expect(no.matched).toBe(false)

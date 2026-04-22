@@ -33,9 +33,12 @@ export type { HandLifecycle }
 /**
  * 流程队列项（FIFO）。
  * - `stage_advance`：一轮下注已结束，须再执行一条进街（含 `betting_round_complete` 或跑马路 `runout_reveal`）。
- * - `turn_handoff`：`activePlayer` 已指向下一位，须 `getControl()` 才会缓冲 `TurnOffered`。
+ * - `turn_handoff`：记录待交权目标；消费时才设置 `activePlayer` 并缓冲 `TurnOffered`。
  */
-export type PendingFlowOpKind = 'stage_advance' | 'turn_handoff'
+export type PendingFlowOp =
+  | { kind: 'stage_advance' }
+  | { kind: 'turn_handoff'; toUserId: number }
+export type PendingFlowOpKind = PendingFlowOp['kind']
 
 class Controller implements GameComponent, PlayerHandSession<Player> {
   /** 当前一手的状态与摊牌评估 */
@@ -51,7 +54,9 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   /** 下一条行动完成时的 `TurnEnded.reason`（如超时弃牌）；由 `consumePendingTurnEndedReason` 消费 */
   #pendingTurnEndedReason: TurnEndedReason | null = null
   /** 进街 / 交权由业务或 `drainPendingFlowOpsSync` 消费 */
-  #pendingFlowOps: PendingFlowOpKind[] = []
+  #pendingFlowOps: PendingFlowOp[] = []
+  /** 暂停前持有思考权的玩家；continue 后会重新入队 handoff。 */
+  #pausedActiveUserId: number | null = null
   /** 跑马路分段进街中；至河牌后结算并发 `HandEnded` */
   #runoutMode = false
   fail: TexasErrorCallback
@@ -100,6 +105,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#handEvents = []
     this.#pendingTurnEndedReason = null
     this.#pendingFlowOps = []
+    this.#pausedActiveUserId = null
     this.#runoutMode = false
   }
 
@@ -295,19 +301,37 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   /**
-   * 仅设置 `activePlayer` 并入队 `turn_handoff`，**不**调用 `getControl()`。
-   * 下一家的 `TurnOffered` 在 {@link flushPendingTurnHandoff} 成功消费队头后进入缓冲。
+   * 仅入队 `turn_handoff`，**不**设置 `activePlayer`、不调用 `getControl()`。
+   * 下一家的 `TurnOffered` 在 {@link flushPendingTurnHandoff} 消费队头时进入缓冲。
    */
   transferControlTo(player: Player | null) {
     if (!player)
       return this.fail(new TexasError(TexasCoreErrorCode.CTRL_NO_PLAYER))
-    if (this.#hand.activePlayer === player)
+    const last = this.#pendingFlowOps[this.#pendingFlowOps.length - 1]
+    if (
+      last?.kind === 'turn_handoff' &&
+      last.toUserId === player.getUserInfo().id
+    )
       return this.fail(
         new TexasError(TexasCoreErrorCode.CTRL_DUPLICATE_CONTROL)
       )
+    this.#hand.activePlayer = null
+    this.#pendingFlowOps.push({
+      kind: 'turn_handoff',
+      toUserId: player.getUserInfo().id
+    })
+  }
 
-    this.#hand.activePlayer = player
-    this.#pendingFlowOps.push('turn_handoff')
+  clearActivePlayerAfterAction(player: Player): void {
+    if (this.#hand.activePlayer !== player) {
+      return this.fail(
+        new TexasError(TexasCoreErrorCode.INTERNAL_TRANSFER_ACTOR_MISMATCH, {
+          actorUserId: player.getUserInfo().id,
+          activeUserId: this.#hand.activePlayer?.getUserInfo().id ?? null
+        })
+      )
+    }
+    this.#hand.activePlayer = null
   }
 
   /**
@@ -318,13 +342,13 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     for (;;) {
       const ops = this.getPendingFlowOps()
       if (ops.length === 0) break
-      if (ops[0] === 'stage_advance') this.applyPendingStageAdvance()
+      if (ops[0].kind === 'stage_advance') this.applyPendingStageAdvance()
       else this.flushPendingTurnHandoff()
     }
   }
 
   /** 返回队列快照，不修改队列。 */
-  getPendingFlowOps(): PendingFlowOpKind[] {
+  getPendingFlowOps(): PendingFlowOp[] {
     return [...this.#pendingFlowOps]
   }
 
@@ -340,7 +364,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
 
   /** 将「待进街」入队；实际推进由 {@link applyPendingStageAdvance} 执行。 */
   requestDeferredStageAdvance(): void {
-    this.#pendingFlowOps.push('stage_advance')
+    this.#pendingFlowOps.push({ kind: 'stage_advance' })
   }
 
   /**
@@ -349,7 +373,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
    * - `#runoutMode`：`#applyOneRunoutRevealStep` → `StageAdvanced(runout_reveal)`；到河牌时顺带 settle、`HandEnded(showdown)`。
    */
   applyPendingStageAdvance(): void {
-    if (this.#pendingFlowOps[0] !== 'stage_advance') {
+    if (this.#pendingFlowOps[0]?.kind !== 'stage_advance') {
       return this.fail(
         new TexasError(TexasCoreErrorCode.CTRL_FLOW_PENDING_MISMATCH)
       )
@@ -363,16 +387,16 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   /**
-   * 队头为 `turn_handoff` 时 shift 并 `activePlayer.getControl()`（写入 `TurnOffered`）。
-   * 队头类型不符、或 `activePlayer` 缺失时 **静默 return**（不抛错）。
-   * 若该玩家 {@link Player.hasEmittedTurnOffer} 已为 true，同样静默 return：挡的是队列里多余的连续 `turn_handoff`
-   *（实现 bug、快照/回放错误等），而非「业务重复 flush」——后者第二次调用时队头通常已非 `turn_handoff`。
+   * 队头为 `turn_handoff` 时 shift，并在此刻真正设置 `activePlayer` 与发出 `TurnOffered`。
+   * 队头类型不符、或目标玩家缺失时 **静默 return**（不抛错）。
    */
   flushPendingTurnHandoff(): void {
-    if (this.#pendingFlowOps[0] !== 'turn_handoff') return
+    const head = this.#pendingFlowOps[0]
+    if (head?.kind !== 'turn_handoff') return
     this.#pendingFlowOps.shift()
-    const p = this.#hand.activePlayer
-    if (!p || p.hasEmittedTurnOffer()) return
+    const p = this.#dealer.find((it) => it.getUserInfo().id === head.toUserId)
+    if (!p) return
+    this.#hand.activePlayer = p
     p.getControl()
   }
 
@@ -483,7 +507,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         let from: Stage = this.#hand.stage
         // 计算pending几次跑马
         while (from !== StageEnum.RIVER) {
-          this.#pendingFlowOps.push('stage_advance')
+          this.#pendingFlowOps.push({ kind: 'stage_advance' })
           const index = STAGE_ORDER.findIndex((s) => s === from)
           if (index < 0 || index >= STAGE_ORDER.length - 1) break
           from = STAGE_ORDER[index + 1]
@@ -633,7 +657,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
 
   /**
    * 进入本手街道阶段：须在 {@link prepareHandTape} 之后调用；不清空已缓冲的 `RolesAssigned` / `HoleCardsDealt`。
-   * 写入 `HandStarted`、贴盲与 **`pendingFlowOps` / 跑马路状态**，再 `transferControlTo`（首人思考权在队头 `turn_handoff`）。
+   * 写入 `HandStarted`、贴盲与 **`pendingFlowOps` / 跑马路状态**，再 `transferControlTo`（首人思考权先入队，待业务 flush）。
    */
   start() {
     if (this.#activeHandId === null) {
@@ -643,6 +667,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     }
     this.#pendingTurnEndedReason = null
     this.#pendingFlowOps = []
+    this.#pausedActiveUserId = null
     this.#runoutMode = false
     this.#hand.status = 'in_hand'
     this.#hand.stage = StageEnum.PRE_FLOP
@@ -659,9 +684,12 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       return this.fail(new TexasError(TexasCoreErrorCode.CTRL_NOT_PAUSED))
 
     this.#hand.status = 'in_hand'
-    const ap = this.#hand.activePlayer
-    ap?.restoreDispatchLatchAfterPause()
-    ap?.continue()
+    const pausedId = this.#pausedActiveUserId
+    this.#pausedActiveUserId = null
+    if (pausedId == null) return
+    const player = this.#dealer.find((p) => p.getUserInfo().id === pausedId)
+    if (!player) return
+    this.transferControlTo(player)
   }
 
   settleRankingsThroughStage(throughStage: Stage) {
@@ -693,22 +721,17 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   resetActivePlayer() {
     const ap = this.#hand.activePlayer
     if (ap) {
-      if (ap.hasEmittedTurnOffer()) {
-        this.recordTurnEnded(ap.getUserInfo().id, 'control_cleared')
-      }
-      ap.removeControl()
+      this.recordTurnEnded(ap.getUserInfo().id, 'control_cleared')
     }
     this.#hand.activePlayer = null
+    this.#pausedActiveUserId = null
   }
 
   reset() {
     this.#pendingTurnEndedReason = null
     this.#pendingFlowOps = []
+    this.#pausedActiveUserId = null
     this.#runoutMode = false
-    const ap = this.#hand.activePlayer
-    if (ap) {
-      ap.removeControl()
-    }
     this.#hand.activePlayer = null
     this.#hand.reset()
     this.#handEventSeq = 0
@@ -719,10 +742,13 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   pause() {
     this.#hand.status = 'in_hand_paused'
     const ap = this.activePlayer
-    if (ap && ap.hasEmittedTurnOffer()) {
+    if (ap) {
       this.recordTurnEnded(ap.getUserInfo().id, 'paused')
+      this.#pausedActiveUserId = ap.getUserInfo().id
+      this.#hand.activePlayer = null
+    } else {
+      this.#pausedActiveUserId = null
     }
-    ap?.pause()
   }
 }
 export type { ShowdownPlayerEval } from './HandSettlement'

@@ -31,6 +31,7 @@ import Controller, {
   Stage,
   StageEnum,
   HandLifecycle,
+  type PendingFlowOp,
   type PendingFlowOpKind,
   type ShowdownPlayerEval
 } from './Controller'
@@ -83,6 +84,7 @@ export {
   StageEnum,
   HandLifecycle,
   type ShowdownPlayerEval,
+  type PendingFlowOp,
   type PendingFlowOpKind,
   TableStakes,
   type PlayerDealerRing,

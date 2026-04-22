@@ -10,7 +10,7 @@ import Room from '@/Room'
 import Dealer from '@/Dealer'
 import Player, { User, ActionTypeEnum } from '@/Player'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
-import Controller, { type PendingFlowOpKind } from '@/Controller'
+import Controller, { type PendingFlowOp } from '@/Controller'
 import {
   TexasEngineContext,
   type TexasEngineGlobalOptions
@@ -252,8 +252,8 @@ class Texas {
     return this.drainDomainEvents()
   }
 
-  /** 流程队列快照（`stage_advance` | `turn_handoff`），不改变状态。 */
-  getPendingFlowOps(): PendingFlowOpKind[] {
+  /** 流程队列快照（对象化 `stage_advance` / `turn_handoff`），不改变状态。 */
+  getPendingFlowOps(): PendingFlowOp[] {
     return this.controller.getPendingFlowOps()
   }
 
@@ -291,8 +291,8 @@ class Texas {
 
   /**
    * 统一指令入口：经 `handBettingActions` 落账并触发 `transferControl` 链。
-   * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**；自愿行动在队头为 `turn_handoff` 时须先
-   * {@link flushPendingTurnHandoff}，否则当前 `activePlayer` 会因 {@link Player.checkIfCanAct} 拒绝指令（防 HTTP 抢跑）。
+   * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**；自愿行动前须先消费队头 handoff，
+   * 否则 `activePlayer === null` 会被 {@link Player.checkIfCanAct} 拒绝（防 HTTP 抢跑）。
    * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（须为当前行动方；`setPendingTurnEndedReason('timeout')` + 跳过思考权门闩）。
    * 离场：`FoldDueToLeave`（仅当前行动方；`TurnEnded.reason` 为 `leave`）；可先 {@link canFoldDueToLeave}。
    * 入座大盲：`PostBigBlind`（见 {@link Controller.postBigBlindForJoiningPlayer}）。

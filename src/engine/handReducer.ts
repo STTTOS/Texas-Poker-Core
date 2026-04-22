@@ -9,7 +9,7 @@ import { pendingFlowOpsAllowVoluntaryDispatch } from './pendingFlowReadModel'
 
 /**
  * 在 {@link TableSnapshot} 之上增加「当前是否可对活跃玩家下发自愿指令」的读投影，
- * 与 `pendingFlowOps` / `PLAYER_DISPATCH_TURN_NOT_OFFERED` 语义对齐（抢跑防护）。
+ * 与 `pendingFlowOps` / `activePlayer` 语义对齐（抢跑防护）。
  */
 export type HandReduceProjection = Readonly<
   TableSnapshot & {

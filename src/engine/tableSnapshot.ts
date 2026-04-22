@@ -3,8 +3,8 @@ import type { Poke } from '@/Deck/constant'
 import type { PlayerStatus } from '@/Player'
 import type { Role } from '@/Player/constant'
 import type { Stage } from '@/Controller/stage'
+import type { PendingFlowOp } from '@/Controller'
 import type { HandLifecycle } from '@/gameContracts'
-import type { PendingFlowOpKind } from '@/Controller'
 
 import Texas from '@/Texas'
 
@@ -25,7 +25,7 @@ export type TableSnapshot = Readonly<{
   potTotal: number
   contributions: ReadonlyArray<Readonly<{ userId: number; amount: number }>>
   communityCards: ReadonlyArray<Poke>
-  pendingFlowOps: ReadonlyArray<PendingFlowOpKind>
+  pendingFlowOps: ReadonlyArray<PendingFlowOp>
   /** 优先 {@link Dealer.getPlayersByActionSequence}；若为空（如尚未定庄）则退化为 `dealer.players` 环序。 */
   players: ReadonlyArray<TablePlayerSnapshot>
 }>

@@ -129,6 +129,7 @@ describe('class Player', () => {
 
       // 典型顺序：下一位为小盲，已下 100，场上最大仍为 BB 200 → 再补 100
       executeFold(firstActor)
+      controller.drainPendingFlowOpsSync()
       expect(controller.activePlayer!.getRestrict().min).toBe(100)
     })
 
