@@ -26,7 +26,6 @@ export const TexasCoreErrorCode = {
   ROOM_WATCH_NOT_MEMBER: 3110,
   ROOM_WATCH_ALREADY_HANG: 3111,
   ROOM_LEAVE_NOT_MEMBER: 3112,
-  ROOM_OWNER_LEAVE_BLOCKED: 3113,
   ROOM_LEAVE_GAME_ACTIVE: 3114,
   /** `seat` / `watch` / `remove` 等座位结构变更要求 `Room.status === 'seats_open'`（通常一手收尾 `Texas.reset()` 后解锁） */
   ROOM_SEATS_LOCKED_FOR_MUTATION: 3115,
@@ -191,8 +190,6 @@ export function formatTexasErrorMessage(
       return '您已在观战席中,请勿重复操作'
     case TexasCoreErrorCode.ROOM_LEAVE_NOT_MEMBER:
       return '您不在房间中,无法退出'
-    case TexasCoreErrorCode.ROOM_OWNER_LEAVE_BLOCKED:
-      return '房主不可退出,请先转移房主'
     case TexasCoreErrorCode.ROOM_LEAVE_GAME_ACTIVE:
       return '游戏进行中, 不可退出'
     case TexasCoreErrorCode.ROOM_SEATS_LOCKED_FOR_MUTATION:
