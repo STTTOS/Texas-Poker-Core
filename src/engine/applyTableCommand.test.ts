@@ -225,10 +225,9 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     teardown = texas
     void [...texas.start(), ...texas.flushAllPendingFlowOps()]
     const ap = texas.controller.activePlayer!
-    const other = texas.dealer.players.find((p) => p !== ap)!
     const step = applyTableCommand(texas, {
       type: 'FoldDueToLeave',
-      playerId: other.getUserInfo().id
+      playerId: ap.getUserInfo().id
     }).events
     const flushed = texas.flushAllPendingFlowOps()
     const tape = flatConcatDomainEvents([step, flushed])

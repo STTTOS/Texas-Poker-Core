@@ -273,4 +273,23 @@ describe('Room', () => {
 
     expect(room.has(player.getUserInfo().id)).toEqual(true)
   })
+
+  test('owner may leave when room has only one member', () => {
+    const dealer = new Dealer(200)
+    const pool = new Pool()
+    const controller = new Controller(dealer, pool)
+    const owner = new Player({
+      user: { id: 1, name: '1' },
+      initialChips: 500,
+      stakes: dealer.stakes,
+      handSession: controller,
+      dealerRing: dealer,
+      pot: pool
+    })
+    const room = new Room(roomOpts(dealer, owner))
+
+    expect(() => room.remove(owner)).not.toThrow()
+    expect(room.totalPlayersCount).toBe(0)
+    expect(room.has(owner.getUserInfo().id)).toBe(false)
+  })
 })

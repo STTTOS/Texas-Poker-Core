@@ -295,8 +295,11 @@ class Room implements GameComponent {
       this.#assertSeatsOpen(TexasCoreErrorCode.ROOM_SEATS_LOCKED_FOR_MUTATION)
     }
 
-    // core 不负责房主转移策略：由业务层先 setOwner 再 remove
-    if (player === this.#owner) {
+    // core 不负责房主转移策略：由业务层先 setOwner 再 remove。
+    // 但当房间仅剩最后一人时，允许房主直接退出以便房间清空销毁。
+    const isOwner = player === this.#owner
+    const isLastMember = this.totalPlayersCount === 1
+    if (isOwner && !isLastMember) {
       return this.fail(
         new TexasError(TexasCoreErrorCode.ROOM_OWNER_LEAVE_BLOCKED)
       )
