@@ -320,6 +320,11 @@ describe('entery', () => {
     })
     expect(texas.controller.status).toBe('between_hands')
     expect(ev.some((e) => e.type === 'HandEnded')).toBe(true)
+    expect(() => texas.settle()).not.toThrow()
+    const loser = other
+    const winner = ap
+    expect(loser.balance).toBe(9_750)
+    expect(winner.balance).toBe(10_250)
     teardownTexas = texas
   })
 
