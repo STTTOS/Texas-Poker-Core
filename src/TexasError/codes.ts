@@ -143,6 +143,7 @@ export function getTexasErrorSeverity(
     TexasCoreErrorCode.CTRL_START_NO_ACTIVE,
     TexasCoreErrorCode.CTRL_ENDGAME_INVARIANT_DEALER_LT_2,
     TexasCoreErrorCode.POOL_PAY_INVALID,
+    TexasCoreErrorCode.POOL_WINNERS_INVALID,
     TexasCoreErrorCode.INTERNAL_NO_NEXT_PLAYER,
     TexasCoreErrorCode.INTERNAL_NO_ACTIVE_HAND_ID,
     TexasCoreErrorCode.INTERNAL_TRANSFER_ACTOR_MISMATCH,
