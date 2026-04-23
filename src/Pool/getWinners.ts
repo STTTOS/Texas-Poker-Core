@@ -6,29 +6,20 @@ import TexasError, { TexasCoreErrorCode } from '@/TexasError'
  * 属于奖池/结算域，不放在 `Deck/core`（牌型与组合纯函数）。
  */
 export function getWinners(players: Player[]): Player[] {
-  if (players.every((p) => !p.rankSignature)) {
-    const winner = players.filter((p) => p.getStatus() !== 'out')
-    if (winner.length === 1) return winner
-    // 仅单人参与且已弃牌：视为未被跟注筹码，返还给该玩家。
-    if (winner.length === 0 && players.length === 1) {
-      const [single] = players
-      console.warn('[pool] fallback single out-only pot winner', {
-        userId: single.getUserInfo().id,
-        status: single.getStatus(),
-        playersCount: players.length
-      })
-      return players
-    }
+  const activePlayers = players.filter((p) => p.getStatus() !== 'out')
+  if (activePlayers.length === 0) {
     throw new TexasError(TexasCoreErrorCode.POOL_WINNERS_INVALID)
   }
 
-  const maxRankStrength = Math.max(
-    ...players
-      .filter((player) => player.getStatus() !== 'out')
-      .map((player) => player.rankStrength)
-  )
+  if (players.every((p) => !p.rankSignature)) {
+    if (activePlayers.length === 1) return activePlayers
+    throw new TexasError(TexasCoreErrorCode.POOL_WINNERS_INVALID)
+  }
 
-  return players
-    .filter((p) => p.getStatus() !== 'out')
-    .filter((p) => p.rankStrength === maxRankStrength)
+  const maxRankStrength = Math.max(...activePlayers.map((p) => p.rankStrength))
+  if (!Number.isFinite(maxRankStrength)) {
+    throw new TexasError(TexasCoreErrorCode.POOL_WINNERS_INVALID)
+  }
+
+  return activePlayers.filter((p) => p.rankStrength === maxRankStrength)
 }
