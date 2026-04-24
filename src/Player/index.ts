@@ -33,7 +33,6 @@ export { ActionTypeEnum }
 
 /** 参与本手的座位状态；当前思考者仅由 {@link PlayerHandSession.activePlayer} 表示 */
 export type PlayerStatus = 'eligible' | 'allIn' | 'out'
-export type OnlineStatus = 'online' | 'offline'
 export type Action = {
   type: ActionType
   payload?: {
@@ -74,7 +73,6 @@ export class Player implements GameComponent {
   #pot: StreetPotSink<Player>
   #dealerRing: PlayerDealerRing<Player>
   #handSession: PlayerHandSession<Player>
-  #onlineStatus: OnlineStatus = 'online'
   /**
    * 积分
    */
@@ -257,12 +255,6 @@ export class Player implements GameComponent {
 
   getStatus() {
     return this.#status
-  }
-  get onlineStatus() {
-    return this.#onlineStatus
-  }
-  set onlineStatus(value: OnlineStatus) {
-    this.#onlineStatus = value
   }
 
   get rankStrength() {
