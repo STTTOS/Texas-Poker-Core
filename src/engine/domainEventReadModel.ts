@@ -226,7 +226,6 @@ export type StageAdvancedReadModel = Readonly<{
   seq: number
   fromStage: Stage
   toStage: Stage
-  boardThroughStageAfter: Stage
   advanceKind: 'betting_round_complete' | 'runout_reveal'
 }>
 
@@ -242,7 +241,6 @@ export function reduceLastStageAdvancedFromDomainEvents(
         seq: p.seq,
         fromStage: p.fromStage,
         toStage: p.toStage,
-        boardThroughStageAfter: p.boardThroughStageAfter,
         advanceKind: p.advanceKind
       }
     }

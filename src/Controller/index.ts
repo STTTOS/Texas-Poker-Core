@@ -428,7 +428,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       fromStage: currentStage,
       toStage: nextStage,
       pokesRevealedThisStep: this.getCommonPokes(currentStage, nextStage),
-      boardThroughStageAfter: nextStage,
       advanceKind: 'betting_round_complete' as const
     }
     this.#handEvents.push({
@@ -464,7 +463,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         fromStage: from,
         toStage: to,
         pokesRevealedThisStep: pokes,
-        boardThroughStageAfter: to,
         advanceKind: 'runout_reveal'
       }
     })

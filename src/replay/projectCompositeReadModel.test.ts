@@ -59,7 +59,6 @@ describe('projectCompositeReadModel', () => {
           fromStage: StageEnum.PRE_FLOP,
           toStage: StageEnum.FLOP,
           pokesRevealedThisStep: ['h2', 's3', 'd4'],
-          boardThroughStageAfter: StageEnum.FLOP,
           advanceKind: 'betting_round_complete'
         }
       }

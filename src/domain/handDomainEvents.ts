@@ -95,7 +95,6 @@ export type HandDomainEvent =
         fromStage: Stage
         toStage: Stage
         pokesRevealedThisStep: Poke[]
-        boardThroughStageAfter: Stage
         advanceKind: 'betting_round_complete' | 'runout_reveal'
       }
     }

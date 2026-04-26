@@ -183,9 +183,9 @@ describe('applyTableCommand (facade toward apply state and events)', () => {
     expect(reduceHandIdFromFirstHandStarted(all)).toBe(
       texas.controller.currentHandId
     )
-    expect(
-      reduceLastStageAdvancedFromDomainEvents(all)?.boardThroughStageAfter
-    ).toBe(StageEnum.FLOP)
+    expect(reduceLastStageAdvancedFromDomainEvents(all)?.toStage).toBe(
+      StageEnum.FLOP
+    )
 
     const hole = reduceLastHoleCardsDealtFromDomainEvents(prefix)
     expect(hole).not.toBeNull()

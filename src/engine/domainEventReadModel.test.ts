@@ -166,7 +166,6 @@ describe('domainEventReadModel (pure projection)', () => {
           fromStage: StageEnum.PRE_FLOP,
           toStage: StageEnum.FLOP,
           pokesRevealedThisStep: ['h2', 's3', 'd4'],
-          boardThroughStageAfter: StageEnum.FLOP,
           advanceKind: 'betting_round_complete'
         }
       },
@@ -178,7 +177,6 @@ describe('domainEventReadModel (pure projection)', () => {
           fromStage: StageEnum.FLOP,
           toStage: StageEnum.TURN,
           pokesRevealedThisStep: ['c5'],
-          boardThroughStageAfter: StageEnum.TURN,
           advanceKind: 'betting_round_complete'
         }
       }
@@ -250,7 +248,6 @@ describe('domainEventReadModel (pure projection)', () => {
           fromStage: StageEnum.PRE_FLOP,
           toStage: StageEnum.FLOP,
           pokesRevealedThisStep: ['h2', 's3', 'd4'],
-          boardThroughStageAfter: StageEnum.FLOP,
           advanceKind: 'betting_round_complete'
         }
       },
@@ -262,14 +259,13 @@ describe('domainEventReadModel (pure projection)', () => {
           fromStage: StageEnum.FLOP,
           toStage: StageEnum.TURN,
           pokesRevealedThisStep: ['c5'],
-          boardThroughStageAfter: StageEnum.TURN,
           advanceKind: 'betting_round_complete'
         }
       }
     ]
     const s = reduceLastStageAdvancedFromDomainEvents(events)
     expect(s?.seq).toBe(20)
-    expect(s?.boardThroughStageAfter).toBe(StageEnum.TURN)
+    expect(s?.toStage).toBe(StageEnum.TURN)
   })
 
   test('reduceLastBlindsPostedFromDomainEvents keeps last BlindsPosted', () => {
