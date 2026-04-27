@@ -147,15 +147,25 @@ export function getFiveCardsRankSignature(input: Poke[]): RankSignature {
         kickerRank
       )}`
     }
-    const [a, b, c] = [...uniq].sort((x, y) => rankMap(y) - rankMap(x))
-    return `s${rankMap(a)}+${rankMap(b)}+${rankMap(c)}`
+    throw new Error(
+      `getFiveCardsRankSignature: 五张牌且 3 种点数须为三条或两对，实际张数分布非法（ranks=${ranks.join(
+        ','
+      )}）`
+    )
   }
 
   if (new Set(ranks).size === 4) {
     const uniq = Array.from(new Set(ranks))
     const byCount = (r: Rank) => countSameRanks(ranks, r)
     /** 五张牌且恰 4 种点数 ⇒ 必为一对 + 三踢脚；勿用「张数 sort」在三个单张间排序。 */
-    const pairRank = uniq.find((r) => byCount(r) === 2)!
+    const pairRank = uniq.find((r) => byCount(r) === 2)
+    if (pairRank === undefined) {
+      throw new Error(
+        `getFiveCardsRankSignature: 五张牌且 4 种点数须含一对，实际张数分布非法（ranks=${ranks.join(
+          ','
+        )}）`
+      )
+    }
     const kickers = uniq.filter((r) => r !== pairRank)
     return `r${rankMap(pairRank)}+${formatRanksDesc(kickers)}`
   }
