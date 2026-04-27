@@ -114,6 +114,14 @@ describe('core logic', () => {
       expect(compareFn(bestK8, bestK5)).toBeLessThan(0)
     })
 
+    test('一对：同对比较踢脚（签名须 r对子+降序踢脚）', () => {
+      const weaker = ['hk', 'sk', 'dq', 'hj', 's7'] as const
+      const stronger = ['ck', 'dk', 'ha', 'st', 's6'] as const
+      expect(getFiveCardsRankSignature([...weaker])).toBe('r13+12+11+7')
+      expect(getFiveCardsRankSignature([...stronger])).toBe('r13+14+10+6')
+      expect(compareFn([...stronger], [...weaker])).toBeLessThan(0)
+    })
+
     test('非法张数：公共牌非3/4/5或手牌非2张', () => {
       expect(() => getBestFiveCards(['ha'], ['h2', 'h3', 'h4'])).toThrow(
         /手牌须为2张/

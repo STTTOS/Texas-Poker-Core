@@ -152,10 +152,12 @@ export function getFiveCardsRankSignature(input: Poke[]): RankSignature {
   }
 
   if (new Set(ranks).size === 4) {
-    const [PokeA, ...pokes] = Array.from(new Set(ranks)).sort((a, b) =>
-      countSameRanks(ranks, a) > countSameRanks(ranks, b) ? -1 : 1
-    )
-    return `r${rankMap(PokeA)}+${formatRanksDesc(pokes)}`
+    const uniq = Array.from(new Set(ranks))
+    const byCount = (r: Rank) => countSameRanks(ranks, r)
+    /** 五张牌且恰 4 种点数 ⇒ 必为一对 + 三踢脚；勿用「张数 sort」在三个单张间排序。 */
+    const pairRank = uniq.find((r) => byCount(r) === 2)!
+    const kickers = uniq.filter((r) => r !== pairRank)
+    return `r${rankMap(pairRank)}+${formatRanksDesc(kickers)}`
   }
 
   const { result, max } = isStraight(ranks)
