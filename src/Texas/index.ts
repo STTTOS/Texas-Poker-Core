@@ -21,8 +21,7 @@ import {
   executeFold,
   executeAllIn,
   executeCheck,
-  executeRaise,
-  executeFoldDueToLeavePassive
+  executeRaise
 } from '@/Player/handBettingActions'
 
 /** 当前引擎角色表最多支持 10 人桌；更大人数需扩展 playerRoleSetMap */
@@ -272,8 +271,8 @@ class Texas {
 
   /**
    * 当前是否可对 `userId` 下发 `{ type: 'FoldDueToLeave', playerId: userId }` 并成功改变牌局
-   *（不落账、不抛错）。已 `out` 为 `false`（再调为幂等空操作）；非 `in_hand`（含暂停）为 `false`。
-   * 当前行动方还须 {@link Player.getAllowedActions} 含 `FOLD`（与 `executeFold` 一致）。
+   *（不落账、不抛错）。须为当前 `activePlayer` 且 {@link Player.getAllowedActions} 含 `FOLD`；
+   * 已 `out` / `allIn`、非 `in_hand`、非 `eligible` 均为 `false`。
    */
   canFoldDueToLeave(userId: number): boolean {
     const actor = this.dealer.players.find((p) => p.getUserInfo().id === userId)
@@ -287,7 +286,7 @@ class Texas {
     if (st !== 'eligible') return false
 
     if (this.controller.activePlayer !== actor) {
-      return true
+      return false
     }
     return actor.getAllowedActions().includes(ActionTypeEnum.FOLD)
   }
@@ -297,7 +296,7 @@ class Texas {
    * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**；自愿行动前须先消费队头 handoff，
    * 否则 `activePlayer === null` 会被 {@link Player.checkIfCanAct} 拒绝（防 HTTP 抢跑）。
    * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（须为当前行动方；`setPendingTurnEndedReason('timeout')` + 跳过思考权门闩）。
-   * 离场：`FoldDueToLeave`（可非当前行动方；当前方时 `TurnEnded.reason` 为 `leave`）；可先 {@link canFoldDueToLeave}。
+   * 离场：`FoldDueToLeave`（仅当前行动方；`TurnEnded.reason` 为 `leave`）；可先 {@link canFoldDueToLeave}。
    * 入座大盲：`PostBigBlind`（见 {@link Controller.postBigBlindForJoiningPlayer}）。
    */
   dispatchCommand(cmd: TableCommand): TexasDomainEvent[] {
@@ -329,12 +328,15 @@ class Texas {
         executeFold(actor, { skipTurnOfferRequirement: true })
         break
       case 'FoldDueToLeave':
-        if (this.controller.activePlayer === actor) {
-          this.controller.setPendingTurnEndedReason('leave')
-          executeFold(actor, { skipTurnOfferRequirement: true })
-        } else {
-          executeFoldDueToLeavePassive(actor)
+        if (this.controller.activePlayer !== actor) {
+          this.fail(
+            new TexasError(TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR, {
+              playerId: actor.getUserInfo().id
+            })
+          )
         }
+        this.controller.setPendingTurnEndedReason('leave')
+        executeFold(actor, { skipTurnOfferRequirement: true })
         break
       case 'CheckDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')

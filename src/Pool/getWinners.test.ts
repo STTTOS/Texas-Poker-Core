@@ -3,7 +3,7 @@ import { getWinners } from './getWinners'
 
 type MockPlayerInput = {
   id: number
-  status: 'ready' | 'active' | 'allIn' | 'out'
+  status: 'eligible' | 'allIn' | 'out'
   rankSignature: string | null
   rankStrength: number
 }
@@ -28,13 +28,31 @@ describe('getWinners', () => {
       }),
       mockPlayer({
         id: 2,
-        status: 'active',
+        status: 'eligible',
         rankSignature: null,
         rankStrength: 0
       })
     ]
     const winners = getWinners(players)
     expect(winners.map((p) => p.getUserInfo().id)).toEqual([2])
+  })
+
+  test('throws when multiple non-out without rank (cannot showdown)', () => {
+    const players = [
+      mockPlayer({
+        id: 1,
+        status: 'eligible',
+        rankSignature: null,
+        rankStrength: 0
+      }),
+      mockPlayer({
+        id: 2,
+        status: 'eligible',
+        rankSignature: null,
+        rankStrength: 0
+      })
+    ]
+    expect(() => getWinners(players)).toThrow()
   })
 
   test('throws when all players are out', () => {
@@ -54,13 +72,13 @@ describe('getWinners', () => {
     const players = [
       mockPlayer({
         id: 1,
-        status: 'active',
+        status: 'eligible',
         rankSignature: 'A',
         rankStrength: 10
       }),
       mockPlayer({
         id: 2,
-        status: 'active',
+        status: 'eligible',
         rankSignature: 'B',
         rankStrength: 30
       }),
