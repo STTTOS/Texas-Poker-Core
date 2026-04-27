@@ -105,6 +105,15 @@ describe('core logic', () => {
       )
     })
 
+    test('两对：K+8 胜 K+5（第二对须参与签名与比牌）', () => {
+      const board = ['d5', 'dk', 's9', 'c8', 'c5'] as const
+      const bestK5 = getBestFiveCards(['s4', 'hk'], [...board])
+      const bestK8 = getBestFiveCards(['s8', 'ck'], [...board])
+      expect(getFiveCardsRankSignature(bestK5)).toBe('s13+5+9')
+      expect(getFiveCardsRankSignature(bestK8)).toBe('s13+8+9')
+      expect(compareFn(bestK8, bestK5)).toBeLessThan(0)
+    })
+
     test('非法张数：公共牌非3/4/5或手牌非2张', () => {
       expect(() => getBestFiveCards(['ha'], ['h2', 'h3', 'h4'])).toThrow(
         /手牌须为2张/

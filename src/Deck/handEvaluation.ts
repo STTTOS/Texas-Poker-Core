@@ -130,15 +130,25 @@ export function getFiveCardsRankSignature(input: Poke[]): RankSignature {
   }
 
   if (new Set(ranks).size === 3) {
-    const [pokeA, pokeB, pokeC] = Array.from(new Set(ranks)).sort((a, b) =>
-      countSameRanks(ranks, a) > countSameRanks(ranks, b) ? -1 : 1
-    )
-    const [countA, countB, countC] = [pokeA, pokeB, pokeC].map((item) =>
-      countSameRanks(ranks, item)
-    )
-    if ([countA, countB, countC].includes(3))
-      return `t${rankMap(pokeA)}+${formatRanksDesc([pokeB, pokeC])}`
-    return `s${rankMap(pokeA)}+${rankMap(pokeB)}+${rankMap(pokeC)}`
+    const uniq = Array.from(new Set(ranks))
+    const byCount = (r: Rank) => countSameRanks(ranks, r)
+    const tripsRank = uniq.find((r) => byCount(r) === 3)
+    if (tripsRank !== undefined) {
+      const kickers = uniq.filter((r) => r !== tripsRank)
+      return `t${rankMap(tripsRank)}+${formatRanksDesc(kickers)}`
+    }
+    /** 两对：须按「高对、低对、踢脚」编码；勿用仅比较张数的 sort（2 vs 2 时比较器恒为 1，顺序依赖 Set 迭代）。 */
+    const pairRanks = uniq
+      .filter((r) => byCount(r) === 2)
+      .sort((a, b) => rankMap(b) - rankMap(a))
+    const kickerRank = uniq.find((r) => byCount(r) === 1)
+    if (pairRanks.length === 2 && kickerRank !== undefined) {
+      return `s${rankMap(pairRanks[0])}+${rankMap(pairRanks[1])}+${rankMap(
+        kickerRank
+      )}`
+    }
+    const [a, b, c] = [...uniq].sort((x, y) => rankMap(y) - rankMap(x))
+    return `s${rankMap(a)}+${rankMap(b)}+${rankMap(c)}`
   }
 
   if (new Set(ranks).size === 4) {
