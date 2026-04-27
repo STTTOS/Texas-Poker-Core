@@ -16,7 +16,7 @@ export type TableCommand =
   /** 业务层计时到期：等价于弃牌，`TurnEnded.reason` 为 `timeout`（须为当前行动方） */
   | { type: 'FoldDueToTimeout'; playerId: number }
   /**
-   * 玩家离开游戏：立即弃牌，须为当前行动方；等价于带 `skipTurnOfferRequirement` 的弃牌，`TurnEnded.reason` 为 `leave`。
+   * 玩家离开游戏：立即弃牌，须为当前行动方；与同席 `Fold` 相同的校验与落账，`TurnEnded.reason` 为 `leave`。
    */
   | { type: 'FoldDueToLeave'; playerId: number }
   /** 业务层计时到期：仅当可过牌时下发，等价于过牌，`TurnEnded.reason` 为 `timeout` */

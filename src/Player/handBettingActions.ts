@@ -16,18 +16,13 @@ import {
  * `Texas#dispatchCommand` / 仿真路径委托至此；盲注由 Controller 调 `executeBet(..., preFlopDefaultAction)`。
  */
 
-/** 透传至 {@link Player.checkIfCanAct}；仅超时代指令需 `skipTurnOfferRequirement`。 */
-export type ActValidationOptions = {
-  skipTurnOfferRequirement?: boolean
-}
-
 /** 自愿路径统一经 {@link resolveAllowedActions} + {@link Player#getAllowedActionsContext}，与 `#getAllowedActions` 等价。 */
 function voluntaryAllowedActions(actor: Player) {
   return resolveAllowedActions(actor.getAllowedActionsContext())
 }
 
-export function executeCheck(actor: Player, act?: ActValidationOptions): void {
-  actor.checkIfCanAct(act)
+export function executeCheck(actor: Player): void {
+  actor.checkIfCanAct()
   const allowed = voluntaryAllowedActions(actor)
   const denyCheck = voluntaryActionDisallowError(
     allowed,
@@ -42,8 +37,8 @@ export function executeCheck(actor: Player, act?: ActValidationOptions): void {
   actor.completeBettingTurn()
 }
 
-export function executeFold(actor: Player, act?: ActValidationOptions): void {
-  actor.checkIfCanAct(act)
+export function executeFold(actor: Player): void {
+  actor.checkIfCanAct()
   const allowed = voluntaryAllowedActions(actor)
   const denyFold = voluntaryActionDisallowError(
     allowed,
@@ -84,12 +79,11 @@ export function executeBet(
   actor: Player,
   chipAmount: number,
   preFlopDefaultAction = false,
-  skipDomainEvents = false,
-  act?: ActValidationOptions
+  skipDomainEvents = false
 ): number | void {
   let committed: number
   if (!preFlopDefaultAction) {
-    actor.checkIfCanAct(act)
+    actor.checkIfCanAct()
     const allowed = voluntaryAllowedActions(actor)
     const denyBet = voluntaryActionDisallowError(
       allowed,
@@ -110,7 +104,7 @@ export function executeBet(
     committed = Math.min(chipAmount, actor.balance)
   }
   if (committed === actor.balance) {
-    return executeAllIn(actor, skipDomainEvents, preFlopDefaultAction, act)
+    return executeAllIn(actor, skipDomainEvents, preFlopDefaultAction)
   }
 
   actor.assignCurrentStreetAction({
@@ -129,10 +123,9 @@ export function executeBet(
 
 export function executeRaise(
   actor: Player,
-  additionalChips: number,
-  act?: ActValidationOptions
+  additionalChips: number
 ): void | number | undefined {
-  actor.checkIfCanAct(act)
+  actor.checkIfCanAct()
   const allowed = voluntaryAllowedActions(actor)
 
   const maxOthersStageBet = actor.getMaxOthersStageBet()
@@ -154,7 +147,7 @@ export function executeRaise(
   if (!raiseGate.ok) return actor.fail(raiseGate.error)
 
   if (additionalChips === actor.balance) {
-    return executeAllIn(actor, false, false, act)
+    return executeAllIn(actor, false, false)
   }
 
   actor.appendChipsToPot(additionalChips)
@@ -167,8 +160,8 @@ export function executeRaise(
   actor.completeBettingTurn()
 }
 
-export function executeCall(actor: Player, act?: ActValidationOptions): void {
-  actor.checkIfCanAct(act)
+export function executeCall(actor: Player): void {
+  actor.checkIfCanAct()
   const allowed = voluntaryAllowedActions(actor)
   const denyCall = voluntaryActionDisallowError(
     allowed,
@@ -207,11 +200,10 @@ export function executeCall(actor: Player, act?: ActValidationOptions): void {
 export function executeAllIn(
   actor: Player,
   skipDomainEvents = false,
-  skipTurnValidation = false,
-  act?: ActValidationOptions
+  skipTurnValidation = false
 ): number | void {
   if (!skipTurnValidation) {
-    actor.checkIfCanAct(act)
+    actor.checkIfCanAct()
   }
   const allowed = voluntaryAllowedActions(actor)
   const denyAllIn = voluntaryActionDisallowError(

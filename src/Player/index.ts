@@ -429,8 +429,7 @@ export class Player implements GameComponent {
   }
 
   /** 自愿行动前校验：`activePlayer === this` 且本手 `in_hand`。 */
-  checkIfCanAct(options?: { skipTurnOfferRequirement?: boolean }) {
-    void options
+  checkIfCanAct() {
     if (this.#handSession.activePlayer !== this) {
       return this.fail(
         new TexasError(TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR, {

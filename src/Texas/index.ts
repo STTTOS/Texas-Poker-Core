@@ -295,7 +295,7 @@ class Texas {
    * 统一指令入口：经 `handBettingActions` 落账并触发 `transferControl` 链。
    * 调用后须 **drain 领域事件** 并按产品节拍 **消费 `pendingFlowOps`**；自愿行动前须先消费队头 handoff，
    * 否则 `activePlayer === null` 会被 {@link Player.checkIfCanAct} 拒绝（防 HTTP 抢跑）。
-   * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（须为当前行动方；`setPendingTurnEndedReason('timeout')` + 跳过思考权门闩）。
+   * 超时：`FoldDueToTimeout` / `CheckDueToTimeout`（须为当前行动方；`setPendingTurnEndedReason('timeout')` + 与同类型自愿行动相同的校验链）。
    * 离场：`FoldDueToLeave`（仅当前行动方；`TurnEnded.reason` 为 `leave`）；可先 {@link canFoldDueToLeave}。
    * 入座大盲：`PostBigBlind`（见 {@link Controller.postBigBlindForJoiningPlayer}）。
    */
@@ -325,22 +325,15 @@ class Texas {
         break
       case 'FoldDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
-        executeFold(actor, { skipTurnOfferRequirement: true })
+        executeFold(actor)
         break
       case 'FoldDueToLeave':
-        if (this.controller.activePlayer !== actor) {
-          this.fail(
-            new TexasError(TexasCoreErrorCode.PLAYER_DISPATCH_NOT_ACTOR, {
-              playerId: actor.getUserInfo().id
-            })
-          )
-        }
         this.controller.setPendingTurnEndedReason('leave')
-        executeFold(actor, { skipTurnOfferRequirement: true })
+        executeFold(actor)
         break
       case 'CheckDueToTimeout':
         this.controller.setPendingTurnEndedReason('timeout')
-        executeCheck(actor, { skipTurnOfferRequirement: true })
+        executeCheck(actor)
         break
       case 'Check':
         executeCheck(actor)

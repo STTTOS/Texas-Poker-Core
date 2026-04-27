@@ -92,7 +92,7 @@ export const TexasCoreErrorCode = {
   PLAYER_DISPATCH_NOT_ACTOR: 3419,
   /**
    * 已为 `activePlayer` 但尚未经 `flushPendingTurnHandoff` → `getControl` 开示思考权（缓冲 `TurnOffered`）。
-   * 防止 HTTP 在业务推送/动画前抢跑；`FoldDueToTimeout` / `CheckDueToTimeout` 在 Texas 层跳过该校验。
+   * 防止 HTTP 在业务推送/动画前抢跑。
    */
   PLAYER_DISPATCH_TURN_NOT_OFFERED: 3420,
 
