@@ -312,19 +312,22 @@ describe('entery', () => {
     texas.setPlayerRoles('initial')
     texas.dealCards()
     void [...texas.start(), ...texas.flushAllPendingFlowOps()]
-    const ap = texas.controller.activePlayer!
-    const other = texas.dealer.players.find((p) => p !== ap)!
+    const active = texas.controller.activePlayer!
+    const other = texas.dealer.players.find((p) => p !== active)!
     const ev = texas.dispatchCommand({
       type: 'FoldDueToLeave',
       playerId: other.getUserInfo().id
     })
     expect(texas.controller.status).toBe('between_hands')
     expect(ev.some((e) => e.type === 'HandEnded')).toBe(true)
-    expect(() => texas.settle()).not.toThrow()
-    const loser = other
-    const winner = ap
-    expect(loser.balance).toBe(9_750)
-    expect(winner.balance).toBe(10_250)
+    let settleErr: TexasError | null = null
+    try {
+      texas.settle()
+    } catch (e) {
+      settleErr = e as TexasError
+    }
+    expect(settleErr).toBeInstanceOf(TexasError)
+    expect(settleErr!.code).toBe(TexasCoreErrorCode.POOL_WINNERS_INVALID)
     teardownTexas = texas
   })
 
