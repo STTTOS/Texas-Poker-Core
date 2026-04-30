@@ -307,14 +307,6 @@ export class Player implements GameComponent {
     return this.#handSession.status
   }
 
-  /**
-   * 非当前行动方离场弃牌：只记 `PlayerActed` + `TurnEnded(reason: leave)`。
-   */
-  notifyPassiveFoldLeaveCommitted(): void {
-    this.#handSession.recordPlayerAction(this, { emitPot: false })
-    this.#handSession.recordTurnEnded(this.getUserInfo().id, 'leave')
-  }
-
   /** 在不经 `completeBettingTurn` 的落账后尝试收局（如独赢弃牌） */
   tryHandSessionEndGame(): boolean {
     return this.#handSession.tryToEndGame()

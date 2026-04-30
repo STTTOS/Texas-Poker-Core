@@ -1,7 +1,7 @@
 import type { Player } from './index'
 
 import { ActionTypeEnum } from './constant'
-import TexasError, { TexasCoreErrorCode } from '@/TexasError'
+import { TexasCoreErrorCode } from '@/TexasError'
 import { resolveCallChipsOrError } from './resolveCallChipsOrError'
 import { resolveAllInChipsOrError } from './resolveAllInChipsOrError'
 import { resolveRaiseAdditionalOrError } from './resolveRaiseAdditionalOrError'
@@ -52,26 +52,6 @@ export function executeFold(actor: Player): void {
   actor.notifyDealerActionHistory()
   actor.notifyActionCommitted({ emitPot: false })
   actor.completeBettingTurn()
-}
-
-/**
- * 非当前行动方离场弃牌：不交 `completeBettingTurn`；随后 `tryHandSessionEndGame()` 以捕捉独赢等。
- */
-export function executeFoldDueToLeavePassive(actor: Player): void {
-  if (actor.handLifecycle !== 'in_hand') {
-    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_NOT_IN_HAND))
-  }
-  const st = actor.getStatus()
-  if (st === 'out') return
-  if (st === 'allIn') {
-    return actor.fail(new TexasError(TexasCoreErrorCode.PLAYER_CANNOT_FOLD))
-  }
-
-  actor.assignCurrentStreetAction({ type: ActionTypeEnum.FOLD })
-  actor.setStatus('out')
-  actor.notifyDealerActionHistory()
-  actor.notifyPassiveFoldLeaveCommitted()
-  void actor.tryHandSessionEndGame()
 }
 
 /** `skipDomainEvents`：盲注路径为 true，不发 `PlayerActed`；池面由 `Controller` 在每次 `#postBlind` 后发 `PotUpdated`（细粒度），再以 `BlindsPosted` 汇总。 */
