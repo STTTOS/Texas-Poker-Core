@@ -319,44 +319,50 @@ class Texas {
       )
     }
 
-    switch (cmd.type) {
-      case 'Fold':
-        executeFold(actor)
-        break
-      case 'FoldDueToTimeout':
-        this.controller.setPendingTurnEndedReason('timeout')
-        executeFold(actor)
-        break
-      case 'FoldDueToLeave':
-        this.controller.setPendingTurnEndedReason('leave')
-        executeFold(actor)
-        break
-      case 'CheckDueToTimeout':
-        this.controller.setPendingTurnEndedReason('timeout')
-        executeCheck(actor)
-        break
-      case 'Check':
-        executeCheck(actor)
-        break
-      case 'Call':
-        executeCall(actor)
-        break
-      case 'Bet':
-        executeBet(actor, cmd.amount)
-        break
-      case 'Raise':
-        executeRaise(actor, cmd.additionalAmount)
-        break
-      case 'AllIn':
-        executeAllIn(actor)
-        break
-      case 'PostBigBlind':
-        this.controller.postBigBlindForJoiningPlayer(actor)
-        break
-      default: {
-        const _exhaustive: never = cmd
-        return _exhaustive
+    try {
+      switch (cmd.type) {
+        case 'Fold':
+          executeFold(actor)
+          break
+        case 'FoldDueToTimeout':
+          this.controller.setPendingTurnEndedReason('timeout')
+          executeFold(actor)
+          break
+        case 'FoldDueToLeave':
+          this.controller.setPendingTurnEndedReason('leave')
+          executeFold(actor)
+          break
+        case 'CheckDueToTimeout':
+          this.controller.setPendingTurnEndedReason('timeout')
+          executeCheck(actor)
+          break
+        case 'Check':
+          executeCheck(actor)
+          break
+        case 'Call':
+          executeCall(actor)
+          break
+        case 'Bet':
+          executeBet(actor, cmd.amount)
+          break
+        case 'Raise':
+          executeRaise(actor, cmd.additionalAmount)
+          break
+        case 'AllIn':
+          executeAllIn(actor)
+          break
+        case 'PostBigBlind':
+          this.controller.postBigBlindForJoiningPlayer(actor)
+          break
+        default: {
+          const _exhaustive: never = cmd
+          return _exhaustive
+        }
       }
+    } catch (e) {
+      // 防止 DueToTimeout / DueToLeave 指令失败后污染下一次 TurnEnded.reason。
+      this.controller.consumePendingTurnEndedReason()
+      throw e
     }
     return this.drainDomainEvents()
   }
