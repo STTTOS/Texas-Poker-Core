@@ -281,17 +281,15 @@ class Room implements GameComponent {
     this.watch(player)
   }
 
-  /**
-   * @description 玩家退出房间。仅 **已入座**（`on-set`、在环上）时在 `seats_locked` 下会拦截；
-   * 仅观战（`hang`）可随时离房，不触发锁座校验。
-   * @param player
-   */
-  remove(player?: Player): number | null {
+  #removeInternal(
+    player: Player | undefined,
+    options?: { ignoreSeatLockForSeated?: boolean }
+  ): number | null {
     if (!player || !this.#players.has(player))
       return this.fail(new TexasError(TexasCoreErrorCode.ROOM_LEAVE_NOT_MEMBER))
 
     const seatedAtRing = this.#playersOnSet.has(player)
-    if (seatedAtRing) {
+    if (seatedAtRing && !options?.ignoreSeatLockForSeated) {
       this.#assertSeatsOpen(TexasCoreErrorCode.ROOM_SEATS_LOCKED_FOR_MUTATION)
     }
 
@@ -312,9 +310,27 @@ class Room implements GameComponent {
     return null
   }
 
+  /**
+   * @description 玩家退出房间。仅 **已入座**（`on-set`、在环上）时在 `seats_locked` 下会拦截；
+   * 仅观战（`hang`）可随时离房，不触发锁座校验。
+   * @param player
+   */
+  remove(player?: Player): number | null {
+    return this.#removeInternal(player)
+  }
+
   removeById(userId: number) {
     const player = this.#idToPlayerMap.get(userId)
     return this.remove(player)
+  }
+
+  /**
+   * 系统级强制移除：即使 seats_locked 也允许摘掉在座玩家。
+   * 仅用于 onLock 清退/风控踢人等服务端策略场景。
+   */
+  removeByIdForce(userId: number) {
+    const player = this.#idToPlayerMap.get(userId)
+    return this.#removeInternal(player, { ignoreSeatLockForSeated: true })
   }
 
   get status() {

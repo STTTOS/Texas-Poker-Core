@@ -207,6 +207,11 @@ class Texas {
     this.room.unlockSeats()
   }
 
+  /** 系统级移除（可绕过 seats_locked）；用于 onLock 清退/风控踢人等服务端策略。 */
+  removePlayerByIdAsSystem(userId: number): void {
+    this.room.removeByIdForce(userId)
+  }
+
   /**
    * 开始本手：`HandStarted` / 盲注等事件进入缓冲，且队列入队首人 `turn_handoff`。
    * 须随后 drain 并消费队列，首条 `TurnOffered` 才会出现。
