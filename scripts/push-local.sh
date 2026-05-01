@@ -13,9 +13,25 @@ pnpm run build
 
 copy_bundle() {
   local dest="$1"
-  cp -R "$ROOT/dist" "$dest"
-  cp -R "$ROOT/types" "$dest"
-  echo "Copied dist + types -> $dest"
+  if [[ ! -e "$dest" ]]; then
+    echo "Target package path not found: $dest"
+    return 1
+  fi
+
+  # pnpm 下 node_modules/<pkg> 通常是软链，需落到真实目录（.pnpm/.../node_modules/<pkg>）
+  local root_real dest_real
+  root_real="$(cd "$ROOT" && pwd -P)"
+  dest_real="$(cd "$dest" && pwd -P)"
+
+  if [[ "$dest_real" == "$root_real" ]]; then
+    echo "Skip copy for $dest (already linked to current repo)"
+    return 0
+  fi
+
+  rm -rf "$dest_real/dist" "$dest_real/types"
+  cp -R "$ROOT/dist" "$dest_real/dist"
+  cp -R "$ROOT/types" "$dest_real/types"
+  echo "Copied dist + types -> $dest_real (from $dest)"
 }
 
 copy_bundle "$SERVER_NM"
