@@ -89,6 +89,16 @@ export class DealerService implements GameComponent {
     return hole
   }
 
+  setHoleCardsForPlayer(player: Player, pokes: readonly Poke[]): void {
+    if (!this.#table.button) return
+    let seatIndex = -1
+    this.#table.loop((p, i) => {
+      if (p === player) seatIndex = i
+    }, this.#table.button.getNextPlayer())
+    if (seatIndex < 0) return
+    this.#dealtBoard.setHoleCardsAt(seatIndex, pokes)
+  }
+
   addAction(player: Player) {
     if (this.#actionsHistory.length === this.#table.count) {
       this.#actionsHistory.shift()

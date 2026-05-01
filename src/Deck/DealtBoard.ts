@@ -25,4 +25,10 @@ export class DealtBoard {
       commonPokes: this.#commonPokes
     }
   }
+
+  setHoleCardsAt(index: number, pokes: readonly Poke[]): void {
+    if (!Number.isInteger(index) || index < 0) return
+    while (this.#handPokes.length <= index) this.#handPokes.push([])
+    this.#handPokes[index] = [...pokes]
+  }
 }

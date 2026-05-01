@@ -15,6 +15,7 @@ export interface PlayerDealerRing<TPlayer = unknown> {
   map<R>(callback: (player: TPlayer, index: number) => R): R[]
   filter(callback: (player: TPlayer, index: number) => boolean): TPlayer[]
   getHoleCardsForPlayer(player: TPlayer): Poke[]
+  setHoleCardsForPlayer(player: TPlayer, pokes: readonly Poke[]): void
 }
 
 /**
@@ -29,6 +30,7 @@ export interface PlayerHandSession<TPlayer = unknown> {
   /** 当前轮到行动的玩家；翻前贴盲完成前可能为 `null` */
   readonly activePlayer: TPlayer | null
   getShowdownEvalForPlayer(player: TPlayer): ShowdownPlayerEval | undefined
+  setShowdownEvalForPlayer(player: TPlayer, evalData: ShowdownPlayerEval): void
   tryToEndGame(): boolean
   /** 下注轮已结束且尚未到河牌时，可推迟进街并由业务调用 `applyPendingStageAdvance` */
   canDeferBettingRoundStageAdvance(): boolean

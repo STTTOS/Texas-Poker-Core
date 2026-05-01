@@ -1,3 +1,4 @@
+import type { Poke } from '@/Deck/constant'
 import type { PlayerDealerRing } from '@/playerSessionPorts'
 import type { GameComponent, TexasErrorCallback } from '@/gameContracts'
 
@@ -74,6 +75,10 @@ class Dealer implements GameComponent, PlayerDealerRing<Player> {
   /** 该玩家在 {@link DealtBoard} 中对应座位的手牌（Player 不再私有缓存） */
   getHoleCardsForPlayer(player: Player) {
     return this.#service.getHoleCardsForPlayer(player)
+  }
+
+  setHoleCardsForPlayer(player: Player, pokes: readonly Poke[]): void {
+    this.#service.setHoleCardsForPlayer(player, pokes)
   }
 
   get players() {

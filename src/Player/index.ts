@@ -448,6 +448,19 @@ export class Player implements GameComponent {
     return [...this.#dealerRing.getHoleCardsForPlayer(this)]
   }
 
+  setHandPokes(pokes: readonly Poke[]): void {
+    this.#dealerRing.setHoleCardsForPlayer(this, pokes)
+  }
+
+  setShowdownEval(evalData: {
+    bestFiveCards: Poke[]
+    rankSignature: RankSignature
+    rankStrength: number
+    rankCategory: RankCategory
+  }): void {
+    this.#handSession.setShowdownEvalForPlayer(this, evalData)
+  }
+
   earn(money: number) {
     this.#balance += money
     this.#wager = money - this.totalBetAmount

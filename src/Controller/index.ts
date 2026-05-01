@@ -153,6 +153,10 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return this.#hand.settlement.getPlayerEval(player.id)
   }
 
+  setShowdownEvalForPlayer(player: Player, evalData: ShowdownPlayerEval): void {
+    this.#hand.settlement.setPlayerEval(player.id, evalData)
+  }
+
   get activePlayer() {
     return this.#hand.activePlayer
   }

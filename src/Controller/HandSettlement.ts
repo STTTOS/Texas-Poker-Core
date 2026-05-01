@@ -41,6 +41,10 @@ export class HandSettlement {
     return this.#evalByUserId.get(userId)
   }
 
+  setPlayerEval(userId: number, evalData: ShowdownPlayerEval): void {
+    this.#evalByUserId.set(userId, evalData)
+  }
+
   reset() {
     this.#snapshot = { rankCategory: undefined, pokes: [], rankStrength: 0 }
     this.#evalByUserId.clear()
