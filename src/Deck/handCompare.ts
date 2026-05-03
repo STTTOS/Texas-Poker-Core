@@ -1,5 +1,163 @@
 import { getFiveCardsRankSignature } from './handEvaluation'
-import { Poke, RankCategory, RankSignature } from './constant'
+import { Poke, Rank, RankCategory, RankSignature } from './constant'
+
+const NUMERIC_TO_RANK: Record<number, Rank> = {
+  2: '2',
+  3: '3',
+  4: '4',
+  5: '5',
+  6: '6',
+  7: '7',
+  8: '8',
+  9: '9',
+  10: 't',
+  11: 'j',
+  12: 'q',
+  13: 'k',
+  14: 'a'
+}
+
+function numericRankToRank(v: number): Rank {
+  const r = NUMERIC_TO_RANK[v]
+  if (r === undefined) {
+    throw new Error(`rankSignatureToRanks: 非法点数 ${v}（须为 2–14）`)
+  }
+  return r
+}
+
+/**
+ * 与 `isStraight` / 签名中 `u`/`y` 的 `max` 一致：五张顺子点数顺序。
+ * 仅 Broadway（A-K-Q-J-T，`max === 14`）A 作高牌；其余含 A 的顺子仅为 wheel，A 视为 1 排在末位。
+ */
+function straightRanksFromMax(max: number): Rank[] {
+  if (max === 5) {
+    return ['5', '4', '3', '2', 'a']
+  }
+  return [max, max - 1, max - 2, max - 3, max - 4].map(numericRankToRank)
+}
+
+/**
+ * 将 `RankSignature` 展开为五张牌的点数（`Rank`），与 `getFiveCardsRankSignature` 编码对称。
+ * 顺子 wheel（`u5`/`y5`）为 5→A 展示顺序，A 在末位；Broadway 仍为 A→T。
+ * `x`（四条）当前签名仅含四条点数，踢脚未编码，第五位为 `null`。
+ */
+export function rankSignatureToRanks(
+  rankSignature: RankSignature
+): (Rank | null)[] {
+  const category = rankSignature[0] as RankCategory
+  const nums = parseRankNumbersFromRankSignature(rankSignature)
+
+  switch (category) {
+    case 'z':
+      return ['a', 'k', 'q', 'j', 't']
+    case 'y':
+    case 'u': {
+      if (nums.length !== 1) {
+        throw new Error(
+          `rankSignatureToRanks: ${category} 型签名须含 1 个 max 段，实际 ${nums.length}`
+        )
+      }
+      return straightRanksFromMax(nums[0])
+    }
+    case 'q':
+    case 'v': {
+      if (nums.length !== 5) {
+        throw new Error(
+          `rankSignatureToRanks: ${category} 型签名须含 5 个点数段，实际 ${nums.length}`
+        )
+      }
+      return nums.map(numericRankToRank)
+    }
+    case 'r': {
+      if (nums.length !== 4) {
+        throw new Error(
+          `rankSignatureToRanks: r 型签名须为「对子+3 踢脚」共 4 段，实际 ${nums.length}`
+        )
+      }
+      const [p, ...kick] = nums
+      const pr = numericRankToRank(p)
+      return [pr, pr, ...kick.map(numericRankToRank)]
+    }
+    case 's': {
+      if (nums.length !== 3) {
+        throw new Error(
+          `rankSignatureToRanks: s 型签名须为「高对+低对+踢脚」共 3 段，实际 ${nums.length}`
+        )
+      }
+      const [hi, lo, k] = nums.map(numericRankToRank)
+      return [hi, hi, lo, lo, k]
+    }
+    case 't': {
+      if (nums.length !== 3) {
+        throw new Error(
+          `rankSignatureToRanks: t 型签名须为「三条+2 踢脚」共 3 段，实际 ${nums.length}`
+        )
+      }
+      const [tr, k1, k2] = nums.map(numericRankToRank)
+      return [tr, tr, tr, k1, k2]
+    }
+    case 'w': {
+      if (nums.length !== 2) {
+        throw new Error(
+          `rankSignatureToRanks: w 型签名须为「三条+对子」共 2 段，实际 ${nums.length}`
+        )
+      }
+      const [tr, pr] = nums.map(numericRankToRank)
+      return [tr, tr, tr, pr, pr]
+    }
+    case 'x': {
+      if (nums.length !== 1) {
+        throw new Error(
+          `rankSignatureToRanks: x 型签名须含 1 个点数段，实际 ${nums.length}`
+        )
+      }
+      const q = numericRankToRank(nums[0])
+      return [q, q, q, q, null]
+    }
+    default:
+      throw new Error(`rankSignatureToRanks: 未知牌型前缀 ${category}`)
+  }
+}
+
+/** 供 UI 分组渲染：每组 `ranks` 为从左到右、已合并同点的连续张（与 `rankSignatureToRanks` 顺序一致）。 */
+export type RankSignatureDisplayGroup = { ranks: Rank[] }
+
+const FLAT_DISPLAY_CATEGORIES: ReadonlySet<RankCategory> = new Set([
+  'q',
+  'v',
+  'u',
+  'y',
+  'z'
+])
+
+/**
+ * 将牌力签名映射为展示用分组（间距与样式由应用层决定）。
+ * - `q`/`v`/`u`/`y`/`z`：每张一组；顺子 wheel 时 A 已在末位（见 `straightRanksFromMax`）。
+ * - `r`/`s`/`t`/`w`/`x`：连续同点合并为一组。
+ */
+export function rankSignatureToDisplayGroups(
+  rankSignature: RankSignature
+): RankSignatureDisplayGroup[] {
+  const category = rankSignature[0] as RankCategory
+  const expanded = rankSignatureToRanks(rankSignature)
+
+  if (FLAT_DISPLAY_CATEGORIES.has(category)) {
+    const ranks = expanded.filter((r): r is Rank => r !== null)
+    return ranks.map((r) => ({ ranks: [r] }))
+  }
+
+  const ranks = expanded.filter((r): r is Rank => r !== null)
+  const groups: RankSignatureDisplayGroup[] = []
+  let i = 0
+  while (i < ranks.length) {
+    let j = i + 1
+    while (j < ranks.length && ranks[j] === ranks[i]) j++
+    groups.push({ ranks: ranks.slice(i, j) })
+    i = j
+  }
+
+  return groups
+}
 
 /**
  * RankSignature 解析、两副五张牌比较、可排序强度（与具体组合枚举无关）。

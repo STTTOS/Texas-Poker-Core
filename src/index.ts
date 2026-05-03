@@ -67,8 +67,11 @@ export {
   compareRankSignature,
   getFiveCardsStrength,
   getStrengthFromRankSignature,
-  getFiveCardCombinationIndices
+  getFiveCardCombinationIndices,
+  rankSignatureToRanks,
+  rankSignatureToDisplayGroups
 } from './Deck/core'
+export type { RankSignatureDisplayGroup } from './Deck/core'
 export {
   Player,
   User,

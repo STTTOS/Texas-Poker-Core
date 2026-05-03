@@ -4,9 +4,11 @@ import {
   isStraight,
   getBestFiveCards,
   getFiveCardsStrength,
+  rankSignatureToRanks,
   getFiveCardsRankSignature,
   getBestPokesRankSignature,
-  getStrengthFromRankSignature
+  getStrengthFromRankSignature,
+  rankSignatureToDisplayGroups
 } from './core'
 
 describe('core logic', () => {
@@ -64,6 +66,87 @@ describe('core logic', () => {
     expect(
       getFiveCardsRankSignature(['ct', 'cj', 'cq', 'ck', 'ca'])[0]
     ).toEqual('z')
+  })
+
+  test('rankSignatureToRanks 与签名编码对称', () => {
+    expect(rankSignatureToRanks('q14+13+12+11+9')).toEqual([
+      'a',
+      'k',
+      'q',
+      'j',
+      '9'
+    ])
+    expect(rankSignatureToRanks('r13+12+11+7')).toEqual([
+      'k',
+      'k',
+      'q',
+      'j',
+      '7'
+    ])
+    expect(rankSignatureToRanks('s13+8+9')).toEqual(['k', 'k', '8', '8', '9'])
+    expect(rankSignatureToRanks('t13+12+11')).toEqual(['k', 'k', 'k', 'q', 'j'])
+    expect(rankSignatureToRanks('u5')).toEqual(['5', '4', '3', '2', 'a'])
+    expect(rankSignatureToRanks('u9')).toEqual(['9', '8', '7', '6', '5'])
+    expect(rankSignatureToRanks('v14+13+12+11+9')).toEqual([
+      'a',
+      'k',
+      'q',
+      'j',
+      '9'
+    ])
+    expect(rankSignatureToRanks('w13+r7')).toEqual(['k', 'k', 'k', '7', '7'])
+    expect(rankSignatureToRanks('x2')).toEqual(['2', '2', '2', '2', null])
+    expect(rankSignatureToRanks('y14')).toEqual(['a', 'k', 'q', 'j', 't'])
+    expect(rankSignatureToRanks('z')).toEqual(['a', 'k', 'q', 'j', 't'])
+    const sig = getFiveCardsRankSignature(['ca', 'ck', 'cq', 'cj', 'h9'])
+    expect(rankSignatureToRanks(sig)).toEqual(['a', 'k', 'q', 'j', '9'])
+  })
+
+  test('rankSignatureToDisplayGroups 仅返回分组', () => {
+    expect(rankSignatureToDisplayGroups('q14+13+12+11+9')).toEqual([
+      { ranks: ['a'] },
+      { ranks: ['k'] },
+      { ranks: ['q'] },
+      { ranks: ['j'] },
+      { ranks: ['9'] }
+    ])
+    expect(rankSignatureToDisplayGroups('u9')).toEqual([
+      { ranks: ['9'] },
+      { ranks: ['8'] },
+      { ranks: ['7'] },
+      { ranks: ['6'] },
+      { ranks: ['5'] }
+    ])
+    expect(rankSignatureToDisplayGroups('u5')).toEqual([
+      { ranks: ['5'] },
+      { ranks: ['4'] },
+      { ranks: ['3'] },
+      { ranks: ['2'] },
+      { ranks: ['a'] }
+    ])
+    expect(rankSignatureToDisplayGroups('r13+12+11+7')).toEqual([
+      { ranks: ['k', 'k'] },
+      { ranks: ['q'] },
+      { ranks: ['j'] },
+      { ranks: ['7'] }
+    ])
+    expect(rankSignatureToDisplayGroups('s13+8+9')).toEqual([
+      { ranks: ['k', 'k'] },
+      { ranks: ['8', '8'] },
+      { ranks: ['9'] }
+    ])
+    expect(rankSignatureToDisplayGroups('t13+12+11')).toEqual([
+      { ranks: ['k', 'k', 'k'] },
+      { ranks: ['q'] },
+      { ranks: ['j'] }
+    ])
+    expect(rankSignatureToDisplayGroups('w13+r7')).toEqual([
+      { ranks: ['k', 'k', 'k'] },
+      { ranks: ['7', '7'] }
+    ])
+    expect(rankSignatureToDisplayGroups('x2')).toEqual([
+      { ranks: ['2', '2', '2', '2'] }
+    ])
   })
 
   test('function getBestPokesRankSignature', () => {

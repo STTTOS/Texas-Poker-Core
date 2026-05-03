@@ -1,7 +1,7 @@
 import type { Role } from '@/Player/constant'
 import type { Stage } from '@/Controller/stage'
 import type { ActionTypeEnum } from '@/Player/constant'
-import type { Poke, RankCategory } from '@/Deck/constant'
+import type { Poke, RankCategory, RankSignature } from '@/Deck/constant'
 
 /**
  * 思考权结束原因（计时由业务层负责时，`timeout` 在收到超时 Command 后由 Core 标记；
@@ -132,6 +132,8 @@ export type HandDomainEvent =
         showHandPokes: boolean
         bestPokes?: Poke[][]
         bestRankCategory?: RankCategory
+        /** 与 `bestPokes[0]` 对应的牌力签名；摊牌时由引擎写入，供 WS `game-end` / 回放磁带一致下发。 */
+        bestRankSignature?: RankSignature
         bestRankStrength?: number
       }
     }

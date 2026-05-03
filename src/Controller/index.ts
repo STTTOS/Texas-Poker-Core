@@ -215,7 +215,8 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     this.#settle()
     this.end()
 
-    const { rankCategory, pokes, rankStrength } = this.#hand.settlement.snapshot
+    const { rankCategory, pokes, rankStrength, rankSignature } =
+      this.#hand.settlement.snapshot
 
     const endStage = this.#hand.stage
     const pokesRevealed = this.getRevealedPokes()
@@ -229,6 +230,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
         showHandPokes: true,
         bestPokes: pokes,
         bestRankCategory: rankCategory,
+        bestRankSignature: rankSignature,
         bestRankStrength: rankStrength
       }
     })

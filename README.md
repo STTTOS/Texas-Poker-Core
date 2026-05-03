@@ -597,3 +597,8 @@ fix: 修复结算金额分配异常
 ## 1.4.22
 
 增加外部设置玩家手牌&结算信息的方法
+
+## 1.4.24
+
+- `HandEnded` / `HandSettlement` 快照增加 `bestRankSignature`，与桌上最强 `bestPokes[0]` 对齐
+- 导出 `rankSignatureToDisplayGroups`；顺子 wheel 在 `rankSignatureToRanks` 中 A 置于末位

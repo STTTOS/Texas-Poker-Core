@@ -10,6 +10,8 @@ export type RankSettlementSnapshot = {
   rankCategory?: RankCategory
   pokes: Poke[][]
   rankStrength: number
+  /** 与 `pokes[0]` 一致的最强牌签名（多人平分牌型时各赢家 bestFive 的签名相同）。 */
+  rankSignature?: RankSignature
 }
 
 /** 单座摊牌评估（唯一数据源；`Player` 经 `Controller.getShowdownEvalForPlayer` 只读） */
@@ -28,7 +30,8 @@ export class HandSettlement {
   #snapshot: RankSettlementSnapshot = {
     rankCategory: undefined,
     pokes: [],
-    rankStrength: 0
+    rankStrength: 0,
+    rankSignature: undefined
   }
 
   #evalByUserId = new Map<number, ShowdownPlayerEval>()
@@ -46,13 +49,23 @@ export class HandSettlement {
   }
 
   reset() {
-    this.#snapshot = { rankCategory: undefined, pokes: [], rankStrength: 0 }
+    this.#snapshot = {
+      rankCategory: undefined,
+      pokes: [],
+      rankStrength: 0,
+      rankSignature: undefined
+    }
     this.#evalByUserId.clear()
   }
 
   #snapshotFromShowdownPlayers(stillIn: Player[]): RankSettlementSnapshot {
     if (stillIn.length === 0) {
-      return { rankCategory: undefined, pokes: [], rankStrength: 0 }
+      return {
+        rankCategory: undefined,
+        pokes: [],
+        rankStrength: 0,
+        rankSignature: undefined
+      }
     }
 
     const maxStrength = Math.max(
@@ -63,13 +76,19 @@ export class HandSettlement {
     )
     const topEval = this.getPlayerEval(tiedAtTop[0].id)
     if (!topEval || maxStrength === 0) {
-      return { rankCategory: undefined, pokes: [], rankStrength: 0 }
+      return {
+        rankCategory: undefined,
+        pokes: [],
+        rankStrength: 0,
+        rankSignature: undefined
+      }
     }
 
     return {
       rankCategory: topEval.rankCategory,
       pokes: tiedAtTop.map((p) => this.getPlayerEval(p.id)!.bestFiveCards),
-      rankStrength: maxStrength
+      rankStrength: maxStrength,
+      rankSignature: topEval.rankSignature
     }
   }
 

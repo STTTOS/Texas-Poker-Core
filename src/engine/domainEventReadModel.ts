@@ -1,7 +1,7 @@
-import type { Poke } from '@/Deck/constant'
 import type { Role } from '@/Player/constant'
 import type { Stage } from '@/Controller/stage'
 import type { ActionTypeEnum } from '@/Player/constant'
+import type { Poke, RankCategory, RankSignature } from '@/Deck/constant'
 import type {
   HandDomainEvent,
   TurnEndedReason,
@@ -139,6 +139,10 @@ export type HandEndedReadModel = Readonly<{
   pokesRevealed: readonly Poke[]
   endStage: Stage
   showHandPokes: boolean
+  bestPokes?: readonly (readonly Poke[])[]
+  bestRankCategory?: RankCategory
+  bestRankSignature?: RankSignature
+  bestRankStrength?: number
 }>
 
 export function reduceLastHandEndedFromDomainEvents(
@@ -154,7 +158,11 @@ export function reduceLastHandEndedFromDomainEvents(
         outcome: p.outcome,
         pokesRevealed: p.pokesRevealed,
         endStage: p.endStage,
-        showHandPokes: p.showHandPokes
+        showHandPokes: p.showHandPokes,
+        bestPokes: p.bestPokes,
+        bestRankCategory: p.bestRankCategory,
+        bestRankSignature: p.bestRankSignature,
+        bestRankStrength: p.bestRankStrength
       }
     }
   }

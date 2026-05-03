@@ -12,6 +12,9 @@ export {
   compareFn,
   compareRankSignature,
   getStrengthFromRankSignature,
-  getFiveCardsStrength
+  getFiveCardsStrength,
+  rankSignatureToRanks,
+  rankSignatureToDisplayGroups
 } from './handCompare'
+export type { RankSignatureDisplayGroup } from './handCompare'
 export { getBestFiveCards, getBestPokesRankSignature } from './handCombinations'
