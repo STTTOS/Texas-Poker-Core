@@ -1,6 +1,7 @@
 /**
  * 牌力相关入口：按职责拆分为 `format` / `handEvaluation` / `handCompare` / `handCombinations`，本文件保持向后兼容的聚合导出。
  */
+export { createStandardDeckPokes } from './standardDeck'
 export { formatterPoke } from './format'
 export {
   isStraight,

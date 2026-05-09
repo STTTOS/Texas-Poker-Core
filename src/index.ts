@@ -63,6 +63,7 @@ import TexasError, {
 
 export * from './Deck/constant'
 export {
+  createStandardDeckPokes,
   getBestPokesRankSignature,
   compareRankSignature,
   getFiveCardsStrength,

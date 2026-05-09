@@ -2,7 +2,7 @@ import { equals } from 'ramda'
 
 import Deck from './index'
 import { DealtBoard } from './DealtBoard'
-import { getBestPokesRankSignature } from './core'
+import { createStandardDeckPokes, getBestPokesRankSignature } from './core'
 import {
   ranks,
   suits,
@@ -11,10 +11,8 @@ import {
   rankCategoryMap
 } from './constant'
 
-/** 标准 52 张牌列表（与 Deck#createDeck 顺序无关，仅用于全集计数） */
-const ALL_POKES: Poke[] = suits.flatMap((s) =>
-  ranks.map((r) => `${s}${r}` as Poke)
-)
+/** 标准 52 张（与 `createStandardDeckPokes` 一致，用于统计） */
+const ALL_POKES: Poke[] = createStandardDeckPokes()
 
 /** 5 张牌是否至少存在相同点数（公牌上出现「对子」面） */
 function boardHasPairByRank(cards: Poke[]): boolean {

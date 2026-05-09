@@ -602,3 +602,7 @@ fix: 修复结算金额分配异常
 
 - `HandEnded` / `HandSettlement` 快照增加 `bestRankSignature`，与桌上最强 `bestPokes[0]` 对齐
 - 导出 `rankSignatureToDisplayGroups`；顺子 wheel 在 `rankSignatureToRanks` 中 A 置于末位
+
+## 1.4.25
+
+- 导出 `createStandardDeckPokes`，生成标准 52 张牌（与 `Deck` 建牌顺序一致）

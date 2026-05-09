@@ -1,4 +1,5 @@
-import { ranks, suits, type Poke } from './constant'
+import { type Poke } from './constant'
+import { createStandardDeckPokes } from './standardDeck'
 
 /**
  * 52 张牌堆：生成、洗牌、按德州规则发手牌与公牌（含烧牌）。
@@ -12,15 +13,7 @@ class Deck {
   }
 
   #createDeck() {
-    const pokes = new Array(suits.length * ranks.length)
-      .fill(0)
-      .map(
-        (_, i) =>
-          `${suits[Math.floor(i / ranks.length)]}${
-            ranks[i % ranks.length]
-          }` as Poke
-      )
-    this.#deck = pokes
+    this.#deck = createStandardDeckPokes()
   }
 
   #shuffle() {
