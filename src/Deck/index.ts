@@ -1,17 +1,39 @@
 import { type Poke } from './constant'
 import { createStandardDeckPokes } from './standardDeck'
 
-/** 整数 `j` 满足 `0 <= j <= maxInclusive`；优先 `globalThis.crypto`（Node 19+ / RN / 浏览器），避免 `node:crypto` 阻断 Metro 打包。 */
-function randomIntInclusive(maxInclusive: number): number {
-  if (maxInclusive <= 0) return 0
-  const n = maxInclusive + 1
-  const c = globalThis.crypto
-  if (c?.getRandomValues) {
-    const buf = new Uint32Array(1)
-    c.getRandomValues(buf)
-    return buf[0]! % n
+const TWO_POW_32 = 0x1_0000_0000
+
+/**
+ * 均匀整数 `j` 满足 `0 <= j < n`（用于 Fisher–Yates 时 `n = maxInclusive + 1`）。
+ * - **生产 / RN**：`crypto.getRandomValues` + 拒绝采样，避免 `uint32 % n` 的 modulo bias；比 `Math.random` 更不可预测。
+ * - **Jest**：`NODE_ENV === 'test'` 时只用 `Math.random`，以便 `jest.spyOn(Math, 'random')` 固定发牌序（golden / imperative 对拍）。
+ *
+ * 更稳妥的架构化做法是构造 `Deck` 时注入 `() => number` 或 `randomInt(max)`；当前以零配置为先。
+ */
+function randomIntBelow(n: number): number {
+  if (n <= 0) {
+    throw new Error(`Deck shuffle: invalid range n=${n}`)
+  }
+  const inJestTest =
+    typeof process !== 'undefined' && process.env.NODE_ENV === 'test'
+  if (!inJestTest) {
+    const c = globalThis.crypto
+    if (c?.getRandomValues) {
+      const limit = TWO_POW_32 - (TWO_POW_32 % n)
+      const buf = new Uint32Array(1)
+      let v: number
+      do {
+        c.getRandomValues(buf)
+        v = buf[0]!
+      } while (v >= limit)
+      return v % n
+    }
   }
   return Math.floor(Math.random() * n)
+}
+
+function randomIntInclusive(maxInclusive: number): number {
+  return randomIntBelow(maxInclusive + 1)
 }
 
 /**

@@ -3,7 +3,7 @@
  * 应用启动时 `configure`，单元测试可 `reset` 或按需 `configure`。
  */
 
-/** 与旧 PROJECT_ENV=dev 等行为对齐的可选仿真开关 */
+/** 进程级可选仿真开关（由 `Texas.configureEngine` / `TexasEngineContext.configure` 注入） */
 export type TexasSimulationFlags = {
   /** balance setter 不生效 */
   ignoreBalanceSetter?: boolean
