@@ -212,11 +212,8 @@ class Texas {
     this.room.removeByIdForce(userId)
   }
 
-  /**
-   * 开始本手：`HandStarted` / 盲注等事件进入缓冲，且队列入队首人 `turn_handoff`。
-   * 须随后 drain 并消费队列，首条 `TurnOffered` 才会出现。
-   */
-  start(): TexasDomainEvent[] {
+  /** `start` / `startPreflopWithJoiningBigBlinds` 共用的开局前置校验。 */
+  #assertCanStartHand(): void {
     if (this.room.getPlayersBySeatStatus('on-set').length < 2)
       this.fail(
         new TexasError(TexasCoreErrorCode.SESSION_START_MIN_SEATED, {
@@ -229,8 +226,28 @@ class Texas {
 
     if (this.controller.status !== 'idle')
       this.fail(new TexasError(TexasCoreErrorCode.SESSION_START_NOT_IDLE))
+  }
 
+  /**
+   * 开始本手：`HandStarted` / 盲注等事件进入缓冲，且队列入队首人 `turn_handoff`。
+   * 须随后 drain 并消费队列，首条 `TurnOffered` 才会出现。
+   */
+  start(): TexasDomainEvent[] {
+    this.#assertCanStartHand()
     this.controller.start()
+    return this.drainDomainEvents()
+  }
+
+  /**
+   * 开始本手（含「入座大盲」）：与 {@link start} 相同前置条件；由 Core 原子完成
+   * `HandStarted` → 对 `joiningBigBlindUserIds` 贴入座大盲（跳过 SB/BB、未知 id 忽略）→ **恒** 一条 `PostedJoiningBigBlinds`（`posts` 汇总，无人须贴时为空数组）→ 桌盲 → `transferControlTo(BB.getNext())`。
+   * 业务应消费本批领域事件并驱动 `pendingFlowOps`；勿再于 `start()` 后自行 `dispatchCommand(PostBigBlind)`。
+   */
+  startPreflopWithJoiningBigBlinds(
+    joiningBigBlindUserIds: readonly number[]
+  ): TexasDomainEvent[] {
+    this.#assertCanStartHand()
+    this.controller.startPreflopWithJoiningBigBlinds(joiningBigBlindUserIds)
     return this.drainDomainEvents()
   }
 

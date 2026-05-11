@@ -18,8 +18,8 @@ import type {
 
 import Pool from '../Pool'
 import Dealer from '../Dealer'
-import { Player } from '../Player'
 import { Poke } from '@/Deck/constant'
+import { Player, RoleEnum } from '../Player'
 import { CurrentHand } from '@/Hand/CurrentHand'
 import { executeBet } from '../Player/handBettingActions'
 import { TexasEngineContext } from '@/TexasEngineContext'
@@ -556,10 +556,13 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
   }
 
   /**
-   * 中途入座贴大盲：翻前、非当前 `activePlayer`、本街 `currentStageTotalAmount === 0`、且玩家仍为 `eligible`。
-   * 入池额 `min(桌大盲, 余额)`，与开局盲注路径一致；**不**调用 `completeBettingTurn`、不改变当前思考权。
+   * 入座大盲入账与池快照；供单条指令与批量开局共用（领域事件由调用方缓冲 `PostedJoiningBigBlinds`）。
    */
-  postBigBlindForJoiningPlayer(player: Player): void {
+  #applyJoiningBigBlindChips(player: Player): {
+    userId: number
+    amount: number
+    requested: number
+  } {
     if (this.#hand.status !== 'in_hand') {
       return this.fail(
         new TexasError(TexasCoreErrorCode.CTRL_POST_BB_NOT_IN_HAND)
@@ -592,27 +595,39 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
       return this.fail(new TexasError(TexasCoreErrorCode.CTRL_POST_BB_NO_CHIPS))
     }
 
-    // `requested > 0`（TableStakes）且余额已正 ⇒ `#postBlind` 入池额必为正
     const posted = this.#postBlind(player, requested)
-
-    this.#handEvents.push({
-      type: 'PostedBigBlind',
-      payload: {
-        ...this.#eventMeta(),
-        userId: player.getUserInfo().id,
-        amount: posted,
-        requested
-      }
-    })
     this.recordPotUpdated()
+    return {
+      userId: player.getUserInfo().id,
+      amount: posted,
+      requested
+    }
   }
 
-  takeActionInPreFlop() {
+  /**
+   * 中途入座贴大盲：翻前、非当前 `activePlayer`、本街 `currentStageTotalAmount === 0`、且玩家仍为 `eligible`。
+   * 入池额 `min(桌大盲, 余额)`，与开局盲注路径一致；**不**调用 `completeBettingTurn`、不改变当前思考权。
+   */
+  postBigBlindForJoiningPlayer(player: Player): void {
+    const row = this.#applyJoiningBigBlindChips(player)
+    this.#handEvents.push({
+      type: 'PostedJoiningBigBlinds',
+      payload: {
+        ...this.#eventMeta(),
+        posts: [row]
+      }
+    })
+  }
+
+  #emitHandStarted(): void {
     this.#handEvents.push({
       type: 'HandStarted',
       payload: this.#eventMeta()
     })
+  }
 
+  /** 桌 SB/BB、`BlindsPosted`，再 `transferControlTo(BB.getNext())`（翻前首动）；不含 `HandStarted`。 */
+  #postTableBlindsAndFirstPreflopActor(): void {
     const takeDefaultActionPlayers = this.#getSmallBindAndBigBind()
     const posts: Array<{ userId: number; amount: number; kind: 'sb' | 'bb' }> =
       []
@@ -629,7 +644,6 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
           amount: posted,
           kind
         })
-        // 细粒度 PotUpdated：与自愿下注一致，每次入池一条（盲注用 skipDomainEvents，此处补发）。
         this.recordPotUpdated()
       }
     })
@@ -647,6 +661,11 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     }
   }
 
+  takeActionInPreFlop(): void {
+    this.#emitHandStarted()
+    this.#postTableBlindsAndFirstPreflopActor()
+  }
+
   #getSmallBindAndBigBind() {
     const smallBind =
       this.#dealer.count === 2
@@ -659,11 +678,8 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     return result
   }
 
-  /**
-   * 进入本手街道阶段：须在 {@link prepareHandTape} 之后调用；不清空已缓冲的 `RolesAssigned` / `HoleCardsDealt`。
-   * 写入 `HandStarted`、贴盲与 **`pendingFlowOps` / 跑马路状态**，再 `transferControlTo`（首人思考权先入队，待业务 flush）。
-   */
-  start() {
+  /** 进入翻前会话帧（`in_hand` / `PRE_FLOP`、清队列）；须已有 `handId`；**不写**领域事件。 */
+  #enterPreflopHandFrame(): void {
     if (this.#activeHandId === null) {
       return this.fail(
         new TexasError(TexasCoreErrorCode.CTRL_START_NO_HAND_PREP)
@@ -679,8 +695,49 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     if (TexasEngineContext.simulation().resetDealerBeforeHandStart) {
       this.#dealer.reset()
     }
+  }
 
+  /**
+   * 进入本手街道阶段：须在 {@link prepareHandTape} 之后调用；不清空已缓冲的 `RolesAssigned` / `HoleCardsDealt`。
+   * 写入 `HandStarted`、贴盲与 **`pendingFlowOps` / 跑马路状态**，再 `transferControlTo`（首人思考权先入队，待业务 flush）。
+   */
+  start(): void {
+    this.#enterPreflopHandFrame()
     this.takeActionInPreFlop()
+  }
+
+  /**
+   * 与 {@link start} 同属一手开局原子路径：先进入翻前帧并 `HandStarted`，再对 `joiningBigBlindUserIds`
+   * 依次入账（跳过 SB/BB、环上不存在 id 忽略），其间每条入池后各一条 `PotUpdated`；
+   * 最后 **恒** 缓冲一条 {@link PostedJoiningBigBlinds}，`posts` 为本次所有入座大盲（无人须贴时为空数组）；
+   * 再贴桌盲并 `transferControlTo(BB.getNext())`。
+   * 业务应仅此入口处理「待贴入座大盲」，勿在 `start()` 后再穿插 `PostBigBlind`。
+   */
+  startPreflopWithJoiningBigBlinds(
+    joiningBigBlindUserIds: ReadonlyArray<number>
+  ): void {
+    this.#enterPreflopHandFrame()
+    this.#emitHandStarted()
+    const joiningPosts: Array<{
+      userId: number
+      amount: number
+      requested: number
+    }> = []
+    for (const userId of joiningBigBlindUserIds) {
+      const pl = this.#dealer.getById(userId)
+      if (!pl) continue
+      const role = pl.getRole()
+      if (role === RoleEnum.SB || role === RoleEnum.BB) continue
+      joiningPosts.push(this.#applyJoiningBigBlindChips(pl))
+    }
+    this.#handEvents.push({
+      type: 'PostedJoiningBigBlinds',
+      payload: {
+        ...this.#eventMeta(),
+        posts: joiningPosts
+      }
+    })
+    this.#postTableBlindsAndFirstPreflopActor()
   }
 
   continue() {

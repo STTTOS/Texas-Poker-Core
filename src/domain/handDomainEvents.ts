@@ -30,7 +30,7 @@ export type HandEventMeta = {
  *
  * **顺序约定（终极目标 / 回放友好）**
  * - 自愿下注：`PlayerActed` 与同一次入池后的 **`PotUpdated` 紧邻**，且 **`PlayerActed` 在前**（见 `Controller.recordPlayerAction`）。
- * - 盲注：每次 `#postBlind` 入池后各一条 **`PotUpdated`**（细粒度），再以 **`BlindsPosted`** 汇总；不发 `PlayerActed`。
+ * - 盲注：每次 `#postBlind` 入池后各一条 **`PotUpdated`**（细粒度）。**入座大盲**：该批每位玩家的 `PotUpdated` **之后** 紧跟 **`PostedJoiningBigBlinds`**（`Texas#startPreflopWithJoiningBigBlinds` **恒** 一条、`posts` 汇总当次入账，无人须贴时 `posts` 为 `[]`；`PostBigBlind` 指令则每次一条且 `posts.length === 1`）。**桌 SB/BB**：各自 `PotUpdated` 之后 **`BlindsPosted`** 汇总；不发 `PlayerActed`。
  * - `seq` 在 {@link HandEventMeta} 中本手单调递增，与 `handId` 联用做幂等与重放键。
  */
 export type HandDomainEvent =
@@ -62,14 +62,20 @@ export type HandDomainEvent =
         posts: Array<{ userId: number; amount: number; kind: 'sb' | 'bb' }>
       }
     }
+  /**
+   * 中途入座大盲汇总（与桌盲 {@link BlindsPosted} 区分：`requested` 为桌级大盲规定额，`amount` 为实际入池）。
+   *
+   * - {@link Texas#startPreflopWithJoiningBigBlinds}：每名待贴玩家先入账并各发 **`PotUpdated`**，再 **恒** 本条，`posts` 为当次全部行（经 SB/BB/未知 id 跳过后无人须贴则为 `[]`）。
+   * - `dispatchCommand({ type: 'PostBigBlind' })`：先 **`PotUpdated`**，再本条，`posts` 恒为单元素。
+   */
   | {
-      type: 'PostedBigBlind'
+      type: 'PostedJoiningBigBlinds'
       payload: HandEventMeta & {
-        userId: number
-        /** 实际入池（短码时为 `min(requested, balance)`） */
-        amount: number
-        /** 桌级大盲规定额 */
-        requested: number
+        posts: Array<{
+          userId: number
+          amount: number
+          requested: number
+        }>
       }
     }
   | {

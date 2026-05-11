@@ -20,13 +20,14 @@
 - **`setPlayerRoles(type)`**：`type === 'initial'` 时仅 `Room.initialRoles`（定庄 + `setOthers` + 锁座），**不**调 `reArrangeRoles`；`type === 'rearrange'` 时仅 `reArrangeRoles()`（须已有庄位）；二者都会缓冲 **`RolesAssigned`**。局末移庄请用 **`rotateRolesForNewHand()`**（委托 `Room.rotateRoles`）。
 - **`rotateRolesForNewHand()`**：`reset` 解锁后、局间按需调用；**仅移庄**（`Dealer.rotateRolesForNewHand`），**不** `lockSeats`。下一手开盘前（如倒计时末）由业务调用 **`lockSeats()`**。
 - **`reArrangeRoles()`**：委托 `dealer.reArrangeRoles()`，按当前庄与人数重算角色；`Dealer.join` / `remove` 在环变化后**已**各调一次；业务可在批量 `seat`/`remove` 后**再**显式调用以便统一向客户端推角色（**不**缓冲 `RolesAssigned` 会话事件，与 `setPlayerRoles` 不同）。
-- **`dispatchCommand({ type: 'PostBigBlind', playerId })`**：翻前、非当前 `activePlayer`、本街 `currentStageTotalAmount === 0` 且 `eligible` 时，按 `stakes.bigBlind` 贴盲（`min(BB, 余额)`），缓冲 **`PostedBigBlind`** + **`PotUpdated`**；不交权、金额不由业务传参。
+- **`dispatchCommand({ type: 'PostBigBlind', playerId })`**：翻前、非当前 `activePlayer`、本街 `currentStageTotalAmount === 0` 且 `eligible` 时，按 `stakes.bigBlind` 贴盲（`min(BB, 余额)`），缓冲 **`PostedJoiningBigBlinds`**（`posts` 长度为 1）+ **`PotUpdated`**；不交权、金额不由业务传参。
 - **`dispatchCommand({ type: 'FoldDueToLeave', playerId })`**：离场立即弃牌（**仅当前行动方可用**）。行为与当前行动方 `Fold` 等价，但 `TurnEnded.reason` 为 **`leave`**（与超时 `timeout` 区分）。非当前行动方会按正常行动校验拒绝（`PLAYER_DISPATCH_NOT_ACTOR`）。`allIn` 不可弃（`PLAYER_CANNOT_FOLD`）。
 - **`canFoldDueToLeave(userId)`**：只读预判上述指令是否会在当前状态下成功（非 `in_hand`、未入座、`out`/`allIn`、当前方但无 `FOLD` 权时均为 `false`）。
 - **constructor**：`maximumCountOfPlayers` 会与引擎支持上限（当前角色表 **2–10**）取 `min`；`Dealer` / `Room` 共用该上限。`Room` 上表示 **房间内总人数上限**（`hang` + `on-set`），在 **`join`** 时校验。
 - **不再**校验 `initialChips` vs 大盲（由业务层保证）。
 - 房主需业务层自行 `seat`。
 - **`start()`**：仍校验 **至少 2 人入座**、**座位已锁定**、**controller 为 idle**（规则引擎不变量，避免状态机进入非法组合）。
+- **`startPreflopWithJoiningBigBlinds(joiningBigBlindUserIds)`**：与 `start()` 相同前置校验；由 **Controller 原子**完成 `HandStarted` → 依序入账（每条后 `PotUpdated`）→ **恒** 一条 **`PostedJoiningBigBlinds`**（`posts` 汇总本次全部入座大盲，无人须贴时可为 `[]`；跳过 SB/BB、环上不存在 id 忽略）→ 桌 SB/BB 与 `BlindsPosted` → `transferControlTo(BB.getNext())`。下一手有待贴队列时应 **用此 API 替代** `start()` + 业务层循环 `PostBigBlind`。
 - **`TexasError`**：`code` + 可选 **`payload`**；`message` 为默认中文描述，业务可用 `TexasCoreErrorCode` + `payload` 自行 i18n。
 
 ### `Room` / `Controller` / `Dealer` / `Player` / `Pool`

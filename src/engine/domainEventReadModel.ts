@@ -301,7 +301,7 @@ export function reduceTurnEndedTrailFromDomainEvents(
   return rows
 }
 
-/** 本批中**最后一条** `PostedBigBlind`（中途入座大盲）。 */
+/** 本批中**最后一条** `PostedJoiningBigBlinds` 且 `posts` 非空时，取其 `posts` 末项（`PostBigBlind` 为单元素；批量开局为多行汇总）。`posts` 为空的事件跳过。 */
 export type PostedBigBlindReadModel = Readonly<{
   handId: string
   seq: number
@@ -315,11 +315,14 @@ export function reduceLastPostedBigBlindFromDomainEvents(
 ): PostedBigBlindReadModel | null {
   let last: PostedBigBlindReadModel | null = null
   for (const e of events) {
-    if (e.type === 'PostedBigBlind') {
-      const p = e.payload
+    if (e.type === 'PostedJoiningBigBlinds') {
+      const posts = e.payload.posts
+      if (posts.length === 0) continue
+      const p = posts[posts.length - 1]!
+      const meta = e.payload
       last = {
-        handId: p.handId,
-        seq: p.seq,
+        handId: meta.handId,
+        seq: meta.seq,
         userId: p.userId,
         amount: p.amount,
         requested: p.requested

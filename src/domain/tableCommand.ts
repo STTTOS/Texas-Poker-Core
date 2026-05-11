@@ -22,7 +22,15 @@ export type TableCommand =
   /** 业务层计时到期：仅当可过牌时下发，等价于过牌，`TurnEnded.reason` 为 `timeout` */
   | { type: 'CheckDueToTimeout'; playerId: number }
   /**
-   * 中途入座：在翻牌前、非当前思考方、且本街尚未入池时，按桌级大盲强制贴盲（`min(BB, 余额)`），
+   * 中途入座：在翻牌前、且本街尚未入池时，按桌级大盲强制贴盲（`min(BB, 余额)`），
    * 不交权、不触发自愿行动校验；金额由 core 从 `Dealer.stakes.bigBlind` 推导，不由业务传参。
+   *
+   * 默认仍拒绝 **当前 `activePlayer`**（防滥用自愿行动绕过）。业务在「一手开局后批量贴入座大盲」时，
+   * 若某待贴玩家恰为翻前首动位（`BB.getNext()`），须传 **`allowWhenCurrentActor: true`**（仅服务端对可信入座队列使用）。
    */
-  | { type: 'PostBigBlind'; playerId: number }
+  | {
+      type: 'PostBigBlind'
+      playerId: number
+      /** 为 true 时允许当前思考方贴入座大盲（须仍满足 `currentStageTotalAmount === 0` 等其余校验） */
+      allowWhenCurrentActor?: boolean
+    }

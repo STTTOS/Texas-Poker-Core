@@ -36,11 +36,11 @@ Core 提供的统一行动入口为 **`Texas#dispatchCommand(TableCommand)`**；
    - 事件：`RolesAssigned`（已含本手 **`handId`**）→ DB upsert 角色、WS `roles-assigned`。
 2. 延迟（`nextHandDealAfterEndMs`）→ `texas.dealCards()` → **`drainAndInterpretTexas`**
    - 事件：`HoleCardsDealt`（同一 **`handId`**）→ 更新 `playerMatchRecord.handPokes`、私聊 WS 发手牌。
-3. 延迟（`nextHandStartAfterDealMs`）→ `texas.start()` → **`drainAndInterpretTexas`**
+3. 延迟（`nextHandStartAfterDealMs`）→ **`texas.start()`**（首局无「待贴入座大盲」队列）→ **`drainAndInterpretTexas`**
    - Core：`HandStarted`、`BlindsPosted`、`PotUpdated`；`pendingFlowOps` 入队首位 **`turn_handoff`**（首人思考权尚未 `getControl`）。
    - wish：先 drain 上述事件；再 **`drainPendingFlowQueueWithPacing`**（见 §5）→ 首条 `TurnOffered`、调度思考超时等。
 
-**后续局**（局间倒计时结束）由 `eventBinder` 注册 `registerNextHandHooks`：`onAssignRoles` / `onDeal` / `onStart` 内同样在每个 Core 步骤后调用 **`drainAndInterpretTexas`**。
+**后续局**（局间倒计时结束）由 `eventBinder` 注册 `registerNextHandHooks`：`onAssignRoles` / `onDeal` / `onStart` 内同样在每个 Core 步骤后调用 **`drainAndInterpretTexas`**。其中 **`onStart`** 在消费 `pendingPostBigBlindUserIds` 后应调用 **`texas.startPreflopWithJoiningBigBlinds(userIds)`**（与 `start()` 相同前置校验），由 Core **原子**完成：`HandStarted` → 入账（每条后 `PotUpdated`）→ **恒** 一条 **`PostedJoiningBigBlinds`**（`posts` 汇总；无人须贴时可为 `[]`；跳过 SB/BB）→ 桌盲与 `BlindsPosted` → `transferControlTo(BB.getNext())`；勿再于 `start()` 后业务层循环 `dispatchCommand(PostBigBlind)`。
 
 ### 3.2 局中每次玩家行动（HTTP / 超时调度）
 

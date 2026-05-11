@@ -349,23 +349,19 @@ describe('domainEventReadModel (pure projection)', () => {
   test('reduceLastPostedBigBlindFromDomainEvents keeps last', () => {
     const events: TexasDomainEvent[] = [
       {
-        type: 'PostedBigBlind',
+        type: 'PostedJoiningBigBlinds',
         payload: {
           handId: 'h1',
           seq: 3,
-          userId: 9,
-          amount: 400,
-          requested: 500
+          posts: [{ userId: 9, amount: 400, requested: 500 }]
         }
       },
       {
-        type: 'PostedBigBlind',
+        type: 'PostedJoiningBigBlinds',
         payload: {
           handId: 'h1',
           seq: 7,
-          userId: 9,
-          amount: 500,
-          requested: 500
+          posts: [{ userId: 9, amount: 500, requested: 500 }]
         }
       }
     ]

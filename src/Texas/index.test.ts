@@ -1,6 +1,6 @@
 import Texas from '@/Texas'
 import { StageEnum } from '@/Controller'
-import { ActionTypeEnum } from '@/Player'
+import { RoleEnum, ActionTypeEnum } from '@/Player'
 import { TexasEngineContext } from '@/TexasEngineContext'
 import TexasError, { TexasCoreErrorCode } from '@/TexasError'
 
@@ -177,11 +177,12 @@ describe('entery', () => {
       type: 'PostBigBlind',
       playerId: subject!.getUserInfo().id
     })
-    const postedEv = handEv.find((e) => e.type === 'PostedBigBlind')
-    expect(postedEv?.type).toBe('PostedBigBlind')
-    if (postedEv?.type === 'PostedBigBlind') {
-      expect(postedEv.payload.amount).toBe(500)
-      expect(postedEv.payload.requested).toBe(500)
+    const postedEv = handEv.find((e) => e.type === 'PostedJoiningBigBlinds')
+    expect(postedEv?.type).toBe('PostedJoiningBigBlinds')
+    if (postedEv?.type === 'PostedJoiningBigBlinds') {
+      expect(postedEv.payload.posts).toEqual([
+        { userId: subject!.getUserInfo().id, amount: 500, requested: 500 }
+      ])
     }
     expect(texas.pool.totalAmount).toBe(potBefore + 500)
     teardownTexas = texas
@@ -218,6 +219,66 @@ describe('entery', () => {
       err = e as TexasError
     }
     expect(err?.code).toBe(TexasCoreErrorCode.CTRL_POST_BB_IS_ACTIVE_PLAYER)
+    teardownTexas = texas
+  })
+
+  test('startPreflopWithJoiningBigBlinds: two non-blind joiners then table blinds before first actor', () => {
+    const texas = new Texas({
+      lowestBetAmount: 200,
+      maximumCountOfPlayers: 9,
+      initialChips: 10_000,
+      user: { id: 1, name: 'a' }
+    })
+    const p2 = texas.createPlayer({ id: 2, name: 'b' })
+    const p3 = texas.createPlayer({ id: 3, name: 'c' })
+    const p4 = texas.createPlayer({ id: 4, name: 'd' })
+    const p5 = texas.createPlayer({ id: 5, name: 'e' })
+    texas.room.join(p2)
+    texas.room.join(p3)
+    texas.room.join(p4)
+    texas.room.join(p5)
+    texas.room.seat(texas.room.owner)
+    texas.room.seat(p2)
+    texas.room.seat(p3)
+    texas.room.seat(p4)
+    texas.room.seat(p5)
+    texas.setPlayerRoles('initial')
+    texas.dealCards()
+
+    const joinA = texas.dealer.players.find((p) => {
+      const r = p.getRole()
+      return r !== RoleEnum.SB && r !== RoleEnum.BB
+    })!
+    const joinB = texas.dealer.players.find((p) => {
+      const r = p.getRole()
+      return (
+        r !== RoleEnum.SB &&
+        r !== RoleEnum.BB &&
+        p.getUserInfo().id !== joinA.getUserInfo().id
+      )
+    })!
+
+    const events = [
+      ...texas.startPreflopWithJoiningBigBlinds([
+        joinA.getUserInfo().id,
+        joinB.getUserInfo().id
+      ]),
+      ...texas.flushAllPendingFlowOps()
+    ]
+
+    const types = events.map((e) => e.type)
+    const handIdx = types.indexOf('HandStarted')
+    const batchIdx = types.indexOf('PostedJoiningBigBlinds')
+    const blindsIdx = types.indexOf('BlindsPosted')
+    expect(handIdx).toBeGreaterThanOrEqual(0)
+    expect(batchIdx).toBeGreaterThan(handIdx)
+    expect(blindsIdx).toBeGreaterThan(batchIdx)
+    const batchEv = events.find((e) => e.type === 'PostedJoiningBigBlinds')
+    expect(batchEv?.type).toBe('PostedJoiningBigBlinds')
+    if (batchEv?.type === 'PostedJoiningBigBlinds') {
+      expect(batchEv.payload.posts).toHaveLength(2)
+    }
+
     teardownTexas = texas
   })
 
