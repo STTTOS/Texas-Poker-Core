@@ -596,6 +596,7 @@ class Controller implements GameComponent, PlayerHandSession<Player> {
     }
 
     const posted = this.#postBlind(player, requested)
+    player.grantJoiningBlindOption()
     this.recordPotUpdated()
     return {
       userId: player.getUserInfo().id,

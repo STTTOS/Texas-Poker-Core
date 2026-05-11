@@ -37,7 +37,8 @@ describe('resolveAllowedActions + voluntaryActionDisallowError', () => {
       selfCurrentStageTotal: 0,
       dealerActionHistory: [] as const,
       maxOthersStageBet: 0,
-      isBigBlindPreFlopOption: false
+      isBigBlindPreFlopOption: false,
+      isJoiningBlindPreFlopOption: false
     }
     const allowed = resolveAllowedActions(ctx)
     expect(
@@ -47,5 +48,28 @@ describe('resolveAllowedActions + voluntaryActionDisallowError', () => {
         TexasCoreErrorCode.PLAYER_CANNOT_CHECK
       )
     ).toBeNull()
+  })
+
+  test('joining blind option: replace call with check when already matched', () => {
+    const ctx = {
+      selfStatus: 'eligible' as const,
+      selfBalance: 5000,
+      selfCurrentStageTotal: 500,
+      dealerActionHistory: [
+        {
+          getAction: () => ({ type: ActionTypeEnum.BET }),
+          getStatus: () => 'eligible'
+        }
+      ] as const,
+      maxOthersStageBet: 500,
+      isBigBlindPreFlopOption: false,
+      isJoiningBlindPreFlopOption: true
+    }
+    expect(resolveAllowedActions(ctx)).toEqual([
+      ActionTypeEnum.CHECK,
+      ActionTypeEnum.RAISE,
+      ActionTypeEnum.FOLD,
+      ActionTypeEnum.ALL_IN
+    ])
   })
 })

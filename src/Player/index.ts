@@ -85,6 +85,7 @@ export class Player implements GameComponent {
    *   业务「多调一次 flush」通常队头已非 `turn_handoff`，靠队列即可挡，不依赖本标记。
    */
   #action?: Action
+  #hasJoiningBlindOption = false
   #stakes: TableStakes
   /**
    * 当前阶段的下注总额, 全押筹码不够时可以小于此金额
@@ -189,6 +190,17 @@ export class Player implements GameComponent {
   }
 
   /**
+   * 翻牌前入座贴盲选项：已贴到当前最高注且尚未消耗该次行动机会时，可选择过牌/加注/弃牌/全下。
+   */
+  #isJoiningBlindOptionInPreFlop(): boolean {
+    return (
+      this.#handSession.stage === StageEnum.PRE_FLOP &&
+      this.#hasJoiningBlindOption &&
+      this.#currentStageTotalAmount >= this.getMaxBetAmountAtCurrentStage()
+    )
+  }
+
+  /**
    * 供 {@link resolveAllowedActions} 与单测/工具复用的只读输入切片（无倒计时、无 I/O）。
    */
   getAllowedActionsContext(): AllowedActionsContext {
@@ -198,7 +210,8 @@ export class Player implements GameComponent {
       selfCurrentStageTotal: this.#currentStageTotalAmount,
       dealerActionHistory: this.#dealerRing.actionHistory,
       maxOthersStageBet: this.getMaxOthersStageBet(),
-      isBigBlindPreFlopOption: this.#isBigBlindOptionInPreFlop()
+      isBigBlindPreFlopOption: this.#isBigBlindOptionInPreFlop(),
+      isJoiningBlindPreFlopOption: this.#isJoiningBlindOptionInPreFlop()
     }
   }
 
@@ -292,6 +305,7 @@ export class Player implements GameComponent {
   }
 
   notifyActionCommitted(options: { emitPot: boolean }): void {
+    this.#hasJoiningBlindOption = false
     this.#handSession.recordPlayerAction(this, {
       emitPot: options.emitPot
     })
@@ -364,9 +378,10 @@ export class Player implements GameComponent {
 
     if (!this.#action) return true
 
-    // 翻牌前大盲具有最后行动权: 仅下过盲注视为未行动, 须给一次选择机会
+    // 翻牌前盲注选项：大盲或入座贴盲玩家仅下过盲注视为未行动，须给一次选择机会
     if (
-      this.#isBigBlindOptionInPreFlop() &&
+      (this.#isBigBlindOptionInPreFlop() ||
+        this.#isJoiningBlindOptionInPreFlop()) &&
       this.#action.type === ActionTypeEnum.BET
     )
       return true
@@ -383,6 +398,7 @@ export class Player implements GameComponent {
    */
   resetAction() {
     this.#action = undefined
+    this.#hasJoiningBlindOption = false
   }
 
   getAllowedActions() {
@@ -585,6 +601,11 @@ export class Player implements GameComponent {
   getControl() {
     this.#handSession.recordTurnOffered(this)
     this.continue()
+  }
+
+  /** 贴入座大盲后保留一次翻前主动选择权（直到该玩家提交一次自愿行动）。 */
+  grantJoiningBlindOption(): void {
+    this.#hasJoiningBlindOption = true
   }
 }
 

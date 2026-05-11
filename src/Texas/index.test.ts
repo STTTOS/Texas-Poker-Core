@@ -185,6 +185,44 @@ describe('entery', () => {
       ])
     }
     expect(texas.pool.totalAmount).toBe(potBefore + 500)
+
+    let offeredToSubject: Extract<
+      (typeof handEv)[number],
+      { type: 'TurnOffered' }
+    > | null = null
+    for (let i = 0; i < texas.dealer.count + 2; i++) {
+      const actor = texas.controller.activePlayer
+      if (!actor) break
+      const allowed = actor.getAllowedActions()
+      const cmd = allowed.includes(ActionTypeEnum.CHECK)
+        ? { type: 'Check' as const, playerId: actor.getUserInfo().id }
+        : { type: 'Fold' as const, playerId: actor.getUserInfo().id }
+      const events = [
+        ...texas.dispatchCommand(cmd),
+        ...texas.flushAllPendingFlowOps()
+      ]
+      const hit = events.find(
+        (e): e is Extract<(typeof events)[number], { type: 'TurnOffered' }> =>
+          e.type === 'TurnOffered' &&
+          e.payload.userId === subject!.getUserInfo().id
+      )
+      if (hit) {
+        offeredToSubject = hit
+        break
+      }
+    }
+    expect(offeredToSubject?.type).toBe('TurnOffered')
+    if (offeredToSubject?.type === 'TurnOffered') {
+      expect(offeredToSubject.payload.street).toBe(StageEnum.PRE_FLOP)
+      expect(offeredToSubject.payload.allowedActions).toEqual([
+        ActionTypeEnum.CHECK,
+        ActionTypeEnum.RAISE,
+        ActionTypeEnum.FOLD,
+        ActionTypeEnum.ALL_IN
+      ])
+      expect(offeredToSubject.payload.restrict.min).toBe(500)
+      expect(offeredToSubject.payload.restrict.max).toBe(subject!.balance)
+    }
     teardownTexas = texas
   })
 

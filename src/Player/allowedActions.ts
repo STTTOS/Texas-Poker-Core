@@ -16,6 +16,7 @@ export type AllowedActionsContext = {
   }[]
   maxOthersStageBet: number
   isBigBlindPreFlopOption: boolean
+  isJoiningBlindPreFlopOption: boolean
 }
 
 export function resolveAllowedActions(
@@ -98,7 +99,11 @@ export function resolveAllowedActions(
     ctx.dealerActionHistory[ctx.dealerActionHistory.length - 1] ?? null
   const result = helper(last)
 
-  if (ctx.isBigBlindPreFlopOption && result.includes(ActionTypeEnum.CALL)) {
+  if (
+    (ctx.isBigBlindPreFlopOption || ctx.isJoiningBlindPreFlopOption) &&
+    result.includes(ActionTypeEnum.CALL) &&
+    ctx.selfCurrentStageTotal >= ctx.maxOthersStageBet
+  ) {
     return [
       ActionTypeEnum.CHECK,
       ActionTypeEnum.RAISE,
