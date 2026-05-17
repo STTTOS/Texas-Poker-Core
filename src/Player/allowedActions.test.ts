@@ -50,6 +50,47 @@ describe('resolveAllowedActions + voluntaryActionDisallowError', () => {
     ).toBeNull()
   })
 
+  test('after check: unmatched player cannot check (e.g. SB facing joining-BB check)', () => {
+    const ctx = {
+      selfStatus: 'eligible' as const,
+      selfBalance: 4900,
+      selfCurrentStageTotal: 100,
+      dealerActionHistory: [
+        {
+          getAction: () => ({ type: ActionTypeEnum.CHECK }),
+          getStatus: () => 'eligible',
+          currentStageTotalAmount: 500
+        }
+      ] as const,
+      maxOthersStageBet: 500,
+      isBigBlindPreFlopOption: false,
+      isJoiningBlindPreFlopOption: false
+    }
+    const allowed = resolveAllowedActions(ctx)
+    expect(allowed).not.toContain(ActionTypeEnum.CHECK)
+    expect(allowed).toContain(ActionTypeEnum.CALL)
+    expect(allowed).toContain(ActionTypeEnum.FOLD)
+  })
+
+  test('after check with zero street total: next player may check', () => {
+    const ctx = {
+      selfStatus: 'eligible' as const,
+      selfBalance: 5000,
+      selfCurrentStageTotal: 0,
+      dealerActionHistory: [
+        {
+          getAction: () => ({ type: ActionTypeEnum.CHECK }),
+          getStatus: () => 'eligible',
+          currentStageTotalAmount: 0
+        }
+      ] as const,
+      maxOthersStageBet: 0,
+      isBigBlindPreFlopOption: false,
+      isJoiningBlindPreFlopOption: false
+    }
+    expect(resolveAllowedActions(ctx)).toContain(ActionTypeEnum.CHECK)
+  })
+
   test('joining blind option: replace call with check when already matched', () => {
     const ctx = {
       selfStatus: 'eligible' as const,
@@ -58,7 +99,8 @@ describe('resolveAllowedActions + voluntaryActionDisallowError', () => {
       dealerActionHistory: [
         {
           getAction: () => ({ type: ActionTypeEnum.BET }),
-          getStatus: () => 'eligible'
+          getStatus: () => 'eligible',
+          currentStageTotalAmount: 500
         }
       ] as const,
       maxOthersStageBet: 500,

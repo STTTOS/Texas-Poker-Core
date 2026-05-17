@@ -614,3 +614,7 @@ fix: 修复结算金额分配异常
 ## 1.4.27
 
 reject modulo bias
+
+## 1.4.28
+
+贴盲与 game start 原子化

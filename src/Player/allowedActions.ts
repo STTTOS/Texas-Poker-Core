@@ -13,6 +13,7 @@ export type AllowedActionsContext = {
   dealerActionHistory: readonly {
     getAction(): { type: ActionTypeEnum } | undefined
     getStatus(): string
+    readonly currentStageTotalAmount: number
   }[]
   maxOthersStageBet: number
   isBigBlindPreFlopOption: boolean
@@ -26,6 +27,7 @@ export function resolveAllowedActions(
     lastPlayer?: {
       getAction(): { type: ActionTypeEnum } | undefined
       getStatus(): string
+      readonly currentStageTotalAmount: number
     } | null
   ): ActionTypeEnum[] => {
     if (ctx.selfStatus === 'allIn' || ctx.selfStatus === 'out') {
@@ -47,13 +49,17 @@ export function resolveAllowedActions(
       return helper(player ?? null)
     }
 
-    if (lastPlayer.getAction()!.type === ActionTypeEnum.CHECK)
+    if (
+      lastPlayer.getAction()!.type === ActionTypeEnum.CHECK &&
+      lastPlayer.currentStageTotalAmount === 0
+    ) {
       return [
         ActionTypeEnum.ALL_IN,
         ActionTypeEnum.BET,
         ActionTypeEnum.CHECK,
         ActionTypeEnum.FOLD
       ]
+    }
 
     if (ctx.selfBalance + ctx.selfCurrentStageTotal <= ctx.maxOthersStageBet) {
       return [ActionTypeEnum.ALL_IN, ActionTypeEnum.FOLD]
